@@ -187,8 +187,9 @@ main {
 }
 
 .tree-svg {
-  width: clamp(240px, 42vw, 380px);
+  width: clamp(260px, 46vw, 420px);
   height: auto;
+  overflow: visible;
 }
 
 .tree-svg .trunk {
@@ -212,6 +213,11 @@ main {
   fill: var(--brown);
 }
 
+.tree-svg .canopy circle:nth-child(4n) {
+  fill: var(--gold);
+  opacity: 0.85;
+}
+
 .tree-svg .curl-lines path {
   fill: none;
   stroke: var(--brown-deep);
@@ -220,13 +226,60 @@ main {
   opacity: 0.25;
 }
 
-.tree-svg .sparkle-dots circle {
-  fill: var(--gold-light);
-  animation: twinkle 3s ease-in-out infinite alternate;
+.tree-svg .canopy-sway {
+  transform-box: view-box;
+  transform-origin: 300px 232px;
+  animation: sway 6s ease-in-out infinite;
 }
 
-.tree-svg .sparkle-dots circle:nth-child(even) {
-  animation-delay: 1.2s;
+@keyframes sway {
+  0%, 100% { transform: rotate(-1.4deg); }
+  50% { transform: rotate(1.4deg); }
+}
+
+.tree-svg .blossoms use {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(0.8);
+  animation: bloom 3.2s ease-in-out infinite;
+  animation-delay: var(--d, 0s);
+  filter: drop-shadow(0 0 3px rgba(240, 201, 117, 0.6));
+}
+
+@keyframes bloom {
+  0%, 100% { transform: scale(0.8); }
+  50% { transform: scale(1.05); }
+}
+
+.tree-svg .petal {
+  fill: var(--gold);
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation-name: petal-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-duration: var(--dur, 6s);
+  animation-delay: var(--delay, 0s);
+}
+
+@keyframes petal-fall {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+  8% { opacity: 1; }
+  50% { transform: translate(var(--drift, 15px), 100px) rotate(180deg); }
+  92% { opacity: 1; }
+  100% { transform: translate(calc(var(--drift, 15px) * -1), 195px) rotate(360deg); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tree-svg .canopy-sway,
+  .tree-svg .blossoms use,
+  .tree-svg .petal {
+    animation: none;
+  }
+  .tree-svg .blossoms use {
+    transform: scale(1);
+  }
 }
 
 .tree-caption {
