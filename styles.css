@@ -177,6 +177,65 @@ main {
   text-align: right;
 }
 
+/* ---------- Tree divider ---------- */
+
+.tree-divider {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 1.5rem 4rem;
+}
+
+.tree-svg {
+  width: clamp(240px, 42vw, 380px);
+  height: auto;
+}
+
+.tree-svg .trunk {
+  fill: var(--sunset-1);
+}
+
+.tree-svg .trunk-heart {
+  fill: var(--cream);
+  opacity: 0.85;
+}
+
+.tree-svg .canopy circle {
+  fill: var(--brown-soft);
+}
+
+.tree-svg .canopy circle:nth-child(3n) {
+  fill: var(--sunset-1);
+}
+
+.tree-svg .canopy circle:nth-child(5n) {
+  fill: var(--brown);
+}
+
+.tree-svg .curl-lines path {
+  fill: none;
+  stroke: var(--brown-deep);
+  stroke-width: 2;
+  stroke-linecap: round;
+  opacity: 0.25;
+}
+
+.tree-svg .sparkle-dots circle {
+  fill: var(--gold-light);
+  animation: twinkle 3s ease-in-out infinite alternate;
+}
+
+.tree-svg .sparkle-dots circle:nth-child(even) {
+  animation-delay: 1.2s;
+}
+
+.tree-caption {
+  margin-top: 1.25rem;
+  font-family: 'Dancing Script', cursive;
+  font-size: 1.5rem;
+  color: var(--sunset-1);
+}
+
 /* ---------- Gallery ---------- */
 
 .gallery {
