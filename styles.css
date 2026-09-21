@@ -1,0 +1,303 @@
+:root {
+  --cream: #fbf1e6;
+  --cream-2: #f4e2ce;
+  --gold: #d9a441;
+  --gold-light: #f0c975;
+  --brown-deep: #3a241a;
+  --brown: #6b4433;
+  --brown-soft: #8a5a41;
+  --sunset-1: #7a4a3a;
+  --sunset-2: #c97b4a;
+  --sunset-3: #e8a765;
+  --shadow: rgba(58, 36, 26, 0.25);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--cream);
+  color: var(--brown-deep);
+  font-family: 'Poppins', sans-serif;
+  overflow-x: hidden;
+}
+
+/* ---------- Sparkles background ---------- */
+
+.sparkles {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    radial-gradient(2px 2px at 10% 20%, rgba(217, 164, 65, 0.5), transparent),
+    radial-gradient(2px 2px at 80% 10%, rgba(217, 164, 65, 0.4), transparent),
+    radial-gradient(1.5px 1.5px at 60% 70%, rgba(217, 164, 65, 0.35), transparent),
+    radial-gradient(2px 2px at 30% 85%, rgba(217, 164, 65, 0.4), transparent),
+    radial-gradient(1.5px 1.5px at 90% 60%, rgba(217, 164, 65, 0.3), transparent);
+  background-size: 100% 100%;
+  animation: twinkle 6s ease-in-out infinite alternate;
+}
+
+@keyframes twinkle {
+  from { opacity: 0.5; }
+  to { opacity: 1; }
+}
+
+/* ---------- Hero ---------- */
+
+.hero {
+  position: relative;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem 1.5rem;
+  background: linear-gradient(160deg, var(--sunset-1) 0%, var(--sunset-2) 45%, var(--sunset-3) 75%, var(--gold-light) 100%);
+  overflow: hidden;
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 110%, rgba(255, 224, 178, 0.55), transparent 60%);
+  pointer-events: none;
+}
+
+.eyebrow {
+  position: relative;
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  color: rgba(255, 245, 230, 0.9);
+  font-size: clamp(0.9rem, 2vw, 1.1rem);
+  margin: 0 0 0.5rem;
+}
+
+.name {
+  position: relative;
+  font-family: 'Dancing Script', cursive;
+  font-weight: 700;
+  font-size: clamp(4rem, 15vw, 8.5rem);
+  margin: 0;
+  line-height: 1;
+  color: #fff8ec;
+  text-shadow: 0 6px 30px rgba(58, 36, 26, 0.35);
+}
+
+.subtitle {
+  position: relative;
+  font-family: 'Playfair Display', serif;
+  font-weight: 500;
+  font-size: clamp(1rem, 2.4vw, 1.35rem);
+  color: rgba(255, 248, 236, 0.95);
+  margin: 1rem 0 0;
+}
+
+.scroll-hint {
+  position: relative;
+  margin-top: 3.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  color: rgba(255, 248, 236, 0.85);
+}
+
+.scroll-hint span {
+  width: 1px;
+  height: 40px;
+  background: linear-gradient(to bottom, transparent, rgba(255,248,236,0.9));
+  animation: drift 2.2s ease-in-out infinite;
+}
+
+.scroll-hint p {
+  margin: 0;
+  font-size: 0.85rem;
+  letter-spacing: 0.12em;
+  text-transform: lowercase;
+  font-weight: 300;
+}
+
+@keyframes drift {
+  0%, 100% { transform: translateY(0); opacity: 0.4; }
+  50% { transform: translateY(10px); opacity: 1; }
+}
+
+/* ---------- Letter ---------- */
+
+main {
+  position: relative;
+  z-index: 1;
+}
+
+.letter {
+  padding: 6rem 1.5rem;
+  display: flex;
+  justify-content: center;
+}
+
+.letter-card {
+  max-width: 640px;
+  background: #fffaf3;
+  border-radius: 24px;
+  padding: clamp(2rem, 5vw, 3.5rem);
+  box-shadow: 0 20px 50px var(--shadow);
+  border: 1px solid var(--cream-2);
+}
+
+.letter-card p {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(1.05rem, 2vw, 1.25rem);
+  line-height: 1.85;
+  color: var(--brown);
+  margin: 0 0 1.4rem;
+}
+
+.letter-card p:last-of-type {
+  margin-bottom: 0;
+}
+
+.signature {
+  font-family: 'Dancing Script', cursive !important;
+  font-size: 2rem !important;
+  color: var(--sunset-2) !important;
+  text-align: right;
+}
+
+/* ---------- Gallery ---------- */
+
+.gallery {
+  padding: 3rem 1.5rem 6rem;
+  text-align: center;
+}
+
+.gallery h2,
+.video-section h2 {
+  font-family: 'Dancing Script', cursive;
+  font-weight: 700;
+  font-size: clamp(2rem, 5vw, 3rem);
+  color: var(--sunset-1);
+  margin: 0 0 3rem;
+}
+
+.gallery-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2.5rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.polaroid {
+  background: #fffdf9;
+  padding: 14px 14px 46px;
+  border-radius: 6px;
+  box-shadow: 0 15px 35px var(--shadow);
+  width: min(300px, 80vw);
+  margin: 0;
+  transition: transform 0.35s ease, box-shadow 0.35s ease;
+}
+
+.polaroid img {
+  display: block;
+  width: 100%;
+  height: 340px;
+  object-fit: cover;
+  border-radius: 2px;
+}
+
+.polaroid figcaption {
+  margin-top: 1rem;
+  font-family: 'Dancing Script', cursive;
+  font-size: 1.4rem;
+  color: var(--brown-soft);
+  text-align: center;
+}
+
+.p1 { transform: rotate(-4deg); }
+.p2 { transform: rotate(3deg); }
+.p3 { transform: rotate(-2deg); }
+
+.polaroid:hover {
+  transform: rotate(0deg) scale(1.04) translateY(-6px);
+  box-shadow: 0 25px 45px var(--shadow);
+}
+
+/* ---------- Video ---------- */
+
+.video-section {
+  padding: 2rem 1.5rem 7rem;
+  text-align: center;
+}
+
+.video-frame {
+  max-width: 480px;
+  margin: 0 auto;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 20px 50px var(--shadow);
+  border: 6px solid #fffaf3;
+}
+
+.video-frame video {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #000;
+}
+
+/* ---------- Closing ---------- */
+
+.closing {
+  padding: 5rem 1.5rem 7rem;
+  text-align: center;
+  background: linear-gradient(180deg, transparent, var(--cream-2));
+}
+
+.closing-heart {
+  font-size: 3rem;
+  margin: 0;
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+.closing-text {
+  font-family: 'Dancing Script', cursive;
+  font-size: clamp(1.8rem, 5vw, 2.6rem);
+  color: var(--sunset-1);
+  margin: 0.5rem 0 0;
+}
+
+footer {
+  text-align: center;
+  padding: 2rem 1rem 3rem;
+  color: var(--brown-soft);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  background: var(--cream-2);
+}
+
+@media (max-width: 480px) {
+  .polaroid img {
+    height: 280px;
+  }
+}
