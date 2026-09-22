@@ -222,9 +222,10 @@ body {
   position: relative;
   font-family: 'Dancing Script', cursive;
   font-weight: 700;
-  font-size: clamp(4rem, 15vw, 8.5rem);
+  font-size: clamp(2.4rem, 9vw, 4.8rem);
+  line-height: 1.15;
   margin: 0;
-  line-height: 1;
+  max-width: 90vw;
   color: #fff8ec;
   text-shadow: 0 6px 30px rgba(58, 36, 26, 0.35);
 }
