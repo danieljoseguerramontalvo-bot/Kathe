@@ -485,6 +485,10 @@ main {
   border: 6px solid #fffaf3;
 }
 
+.video-frame + .video-frame {
+  margin-top: 2.5rem;
+}
+
 .video-frame video {
   display: block;
   width: 100%;
