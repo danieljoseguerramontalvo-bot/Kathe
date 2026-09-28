@@ -40,11 +40,14 @@ La tendencia la marcan dos medias exponenciales: **EMA 40** (rápida) y **EMA 20
 | Operación | Tamaño del lote | 0.5 | Se usa si el riesgo % es 0 |
 | | Riesgo por operación (%) | 0 | Si es mayor que 0, el lote se calcula para perder ese % del balance si toca el SL |
 | | Stop Loss / Take Profit | 20 / 40 pips | En el oro: 2.00 / 4.00 USD de movimiento |
+| | Tipo de SL/TP | Pips fijos | «Según la volatilidad (ATR)»: SL = ATR × 1.5 y TP = ATR × 3.0 |
+| | Periodo / multiplicadores ATR | 14 / 1.5 / 3.0 | Solo en modo ATR |
 | | Valor de 1 pip | 0 (auto) | Automático: oro 0.1, plata 0.01, divisas 0.0001 (0.01 en pares con JPY) |
 | | Spread máximo | 8 pips | Con el spread más alto, espera dentro de la vela (0 = sin límite) |
 | | Deslizamiento máximo | 30 puntos | |
 | | Solo una posición a la vez | Sí | |
 | | Máximo de operaciones por día | 10 | 0 = sin límite |
+| Filtro ADX | Periodo / ADX mínimo | 14 / 0 | Solo entra si el ADX es al menos ese valor (0 = sin filtro; típico 20-25) |
 | Protección | Pérdida máxima diaria (%) | 5 | Al llegar, cierra todo y no opera más ese día (0 = sin límite) |
 | | Breakeven (pips) | 0 | Con ganancia de X pips mueve el SL a la entrada (0 = desactivado) |
 | | Pips asegurados | 2 | Ganancia que deja asegurada el breakeven |
@@ -68,6 +71,27 @@ horas (servidor y PC) para que sea fácil convertir.
 4. Revisa la pestaña **Backtest**: *Operaciones rentables (%)*, *Factor de beneficio*
    (tiene que ser mayor que 1), *Reducción máxima* y número de operaciones.
 5. Antes de pasar a real, déjalo varias semanas en una **cuenta demo**.
+
+## Cómo mejorarlo
+
+Haz estas pruebas en el probador (XAUUSD, M15, mismo periodo, sin visualización)
+y compara el *Factor de beneficio*, el *% de operaciones rentables* y la *Reducción máxima*:
+
+| Prueba | Qué cambiar en los parámetros |
+|---|---|
+| A | Nada (configuración actual: SL 20 / TP 40 pips) |
+| B | Tipo de SL/TP = «Según la volatilidad (ATR)» |
+| C | Como B y además ADX mínimo = 25 |
+| D | Como C y además Tipo de entrada = «Solo cruce» |
+
+- El **ATR** adapta el SL y el TP a lo que se mueve el oro en cada momento, en vez de
+  usar siempre 2 USD.
+- El **ADX** evita entrar cuando el precio va de lado, que es donde más pierde una
+  estrategia de tendencia.
+- Para afinar más, usa **Optimización** en el probador: marca los parámetros a probar
+  (por ejemplo, los multiplicadores del ATR y el ADX mínimo) y activa **Adelante (Forward) 1/3**.
+  Así se comprueba que los valores ganadores también funcionan en datos que no se
+  usaron para elegirlos.
 
 ## Sobre el porcentaje de acierto
 

@@ -3,10 +3,10 @@
 //|     Robot tendencial EMA 40 / EMA 200: compras y ventas (oro)    |
 //+------------------------------------------------------------------+
 #property copyright   "Kathe"
-#property version     "2.00"
+#property version     "2.10"
 #property description "Robot tendencial con EMA 40 / EMA 200: compra y vende. Pensado para el oro (XAUUSD)."
 #property description "Entra en los cruces de las medias y, si se activa, en los retrocesos a favor de la tendencia."
-#property description "SL/TP en pips, horario, días, cierre intradía, límite de pérdida diaria y breakeven."
+#property description "SL/TP en pips o por ATR, filtro ADX, horario, días, cierre intradía, límite de pérdida diaria y breakeven."
 
 #include <Trade\Trade.mqh>
 #include <Trade\PositionInfo.mqh>
@@ -30,6 +30,12 @@ enum ENUM_EA_DIRECTION
    EA_DIR_SELL_ONLY = 2  // Solo ventas
 };
 
+enum ENUM_EA_STOP_MODE
+{
+   EA_STOPS_PIPS = 0, // Pips fijos (Stop Loss y Take Profit en pips)
+   EA_STOPS_ATR  = 1  // Según la volatilidad (ATR x multiplicador)
+};
+
 //+------------------------------------------------------------------+
 //| Parámetros de entrada                                            |
 //+------------------------------------------------------------------+
@@ -47,6 +53,10 @@ input double InpLots            = 0.5;         // Tamaño del lote (si el riesgo
 input double InpRiskPercent     = 0.0;         // Riesgo por operación en % del balance (0 = lote fijo)
 input double InpStopLossPips    = 20.0;        // Stop Loss (pips)
 input double InpTakeProfitPips  = 40.0;        // Take Profit (pips)
+input ENUM_EA_STOP_MODE InpStopMode = EA_STOPS_PIPS; // Tipo de Stop Loss / Take Profit
+input int    InpAtrPeriod       = 14;          // Periodo del ATR (modo ATR)
+input double InpAtrSlMultiplier = 1.5;         // Stop Loss = ATR x este valor (modo ATR)
+input double InpAtrTpMultiplier = 3.0;         // Take Profit = ATR x este valor (modo ATR)
 input double InpPipSize         = 0.0;         // Valor de 1 pip en precio (0 = automático; oro = 0.1)
 input double InpMaxSpreadPips   = 8.0;         // Spread máximo para entrar (pips, 0 = sin límite)
 input int    InpSlippagePoints  = 30;          // Deslizamiento máximo (puntos)
@@ -54,6 +64,10 @@ input bool   InpOnePosition     = true;        // Solo una posición abierta a l
 input int    InpMaxTradesPerDay = 10;          // Máximo de operaciones por día (0 = sin límite)
 input ulong  InpMagicNumber     = 4020040;     // Número mágico
 input string InpTradeComment    = "EMA40x200"; // Comentario de las órdenes
+
+input group "=== Filtro de fuerza de tendencia (ADX) ==="
+input int    InpAdxPeriod = 14;  // Periodo del ADX
+input double InpAdxMin    = 0.0; // ADX mínimo para entrar (0 = sin filtro; típico 20-25)
 
 input group "=== Protección ==="
 input double InpMaxDailyLossPercent = 5.0; // Pérdida máxima diaria en % del balance (0 = sin límite)
@@ -92,6 +106,8 @@ CPositionInfo   g_position;
 
 int             g_fastHandle      = INVALID_HANDLE;
 int             g_slowHandle      = INVALID_HANDLE;
+int             g_atrHandle       = INVALID_HANDLE; // solo en modo ATR
+int             g_adxHandle       = INVALID_HANDLE; // solo con filtro ADX
 ENUM_TIMEFRAMES g_timeframe       = PERIOD_CURRENT;
 double          g_pip             = 0.0;
 bool            g_warmingUp       = false; // la EMA lenta aún no tiene historial suficiente
@@ -294,8 +310,35 @@ double NormalizeLots(const double lots)
    return NormalizeDouble(volume, volumeDigits);
 }
 
-//--- Lote fijo o calculado para arriesgar un % del balance en el SL
-double CalculateLots()
+//--- Distancias de SL y TP en precio: pips fijos o ATR de la última vela cerrada
+bool GetStopDistances(double &slDistance, double &tpDistance)
+{
+   slDistance = InpStopLossPips * g_pip;
+   tpDistance = InpTakeProfitPips * g_pip;
+   if(InpStopMode != EA_STOPS_ATR)
+      return true;
+
+   double atr[];
+   if(CopyBuffer(g_atrHandle, 0, 1, 1, atr) != 1 || atr[0] <= 0.0)
+      return false;
+   slDistance = atr[0] * InpAtrSlMultiplier;
+   tpDistance = atr[0] * InpAtrTpMultiplier;
+   return true;
+}
+
+//--- Fuerza de la tendencia (ADX) en la última vela cerrada; -1 si no hay datos
+double CurrentAdx()
+{
+   if(g_adxHandle == INVALID_HANDLE)
+      return -1.0;
+   double adx[];
+   if(CopyBuffer(g_adxHandle, 0, 1, 1, adx) != 1)
+      return -1.0;
+   return adx[0];
+}
+
+//--- Lote fijo o calculado para arriesgar un % del balance si se toca el SL
+double CalculateLots(const double slDistance)
 {
    if(InpRiskPercent <= 0.0)
       return NormalizeLots(InpLots);
@@ -306,7 +349,7 @@ double CalculateLots()
       return 0.0;
 
    double riskMoney  = AccountInfoDouble(ACCOUNT_BALANCE) * InpRiskPercent / 100.0;
-   double lossPerLot = (InpStopLossPips * g_pip / tickSize) * tickValue;
+   double lossPerLot = (slDistance / tickSize) * tickValue;
    if(lossPerLot <= 0.0)
       return 0.0;
    return NormalizeLots(riskMoney / lossPerLot);
@@ -591,6 +634,15 @@ bool IsEntryAllowed(const datetime now, const int dir, string &reason)
       reason = "se alcanzó el límite de pérdida diaria";
       return false;
    }
+   if(InpAdxMin > 0.0)
+   {
+      double adx = CurrentAdx();
+      if(adx < InpAdxMin)
+      {
+         reason = "tendencia débil (ADX " + DoubleToString(adx, 1) + " < " + DoubleToString(InpAdxMin, 1) + ")";
+         return false;
+      }
+   }
    if(!IsTradingPermitted(dir, reason))
       return false;
    if(InpOnePosition && CountOpenPositions(0) > 0)
@@ -624,7 +676,15 @@ bool OpenPosition(const int dir)
       return false;
    }
 
-   double lots = CalculateLots();
+   double slDistance = 0.0;
+   double tpDistance = 0.0;
+   if(!GetStopDistances(slDistance, tpDistance))
+   {
+      Print("No se pudo calcular el ATR para el Stop Loss y el Take Profit");
+      return false;
+   }
+
+   double lots = CalculateLots(slDistance);
    if(lots <= 0.0)
    {
       Print("El lote calculado no es válido o es menor que el mínimo del símbolo (",
@@ -633,13 +693,13 @@ bool OpenPosition(const int dir)
    }
 
    double price = tick.ask;
-   double sl    = NormalizePrice(tick.ask - InpStopLossPips * g_pip);
-   double tp    = NormalizePrice(tick.ask + InpTakeProfitPips * g_pip);
+   double sl    = NormalizePrice(tick.ask - slDistance);
+   double tp    = NormalizePrice(tick.ask + tpDistance);
    if(dir < 0)
    {
       price = tick.bid;
-      sl    = NormalizePrice(tick.bid + InpStopLossPips * g_pip);
-      tp    = NormalizePrice(tick.bid - InpTakeProfitPips * g_pip);
+      sl    = NormalizePrice(tick.bid + slDistance);
+      tp    = NormalizePrice(tick.bid - tpDistance);
    }
 
    //--- Los stops se miden contra el precio de cierre: Bid en compras, Ask en ventas
@@ -651,8 +711,8 @@ bool OpenPosition(const int dir)
       stopsOk = (sl - tick.ask > minDistance && tick.ask - tp > minDistance);
    if(!stopsOk)
    {
-      Print("SL/TP demasiado cerca del precio: el SL de ", DoubleToString(InpStopLossPips, 1),
-            " pips queda dentro del spread o de la distancia mínima del bróker. Aumente el SL o revise el valor del pip");
+      Print("SL/TP demasiado cerca del precio: el SL (", DoubleToString(slDistance, _Digits),
+            ") queda dentro del spread o de la distancia mínima del bróker. Aumente el SL o revise el valor del pip");
       return false;
    }
 
@@ -836,9 +896,30 @@ void UpdatePanel(const datetime now)
    if(InpCloseEndOfDay)
       dayClose = FormatHM(InpCloseHour, InpCloseMinute);
 
-   string lotText = "Lote " + DoubleToString(CalculateLots(), 2);
+   double slDistance = 0.0;
+   double tpDistance = 0.0;
+   bool   stopsReady = GetStopDistances(slDistance, tpDistance);
+
+   string stopsText = "SL " + DoubleToString(InpStopLossPips, 1) + " pips (" + DoubleToString(slDistance, _Digits) + ")" +
+                      " | TP " + DoubleToString(InpTakeProfitPips, 1) + " pips (" + DoubleToString(tpDistance, _Digits) + ")";
+   if(InpStopMode == EA_STOPS_ATR)
+   {
+      stopsText = "SL ATR x" + DoubleToString(InpAtrSlMultiplier, 1) + " | TP ATR x" + DoubleToString(InpAtrTpMultiplier, 1);
+      if(stopsReady)
+         stopsText += " (ahora " + DoubleToString(slDistance, _Digits) + " / " + DoubleToString(tpDistance, _Digits) + ")";
+   }
+
+   string lotText = "Lote " + DoubleToString(CalculateLots(slDistance), 2);
    if(InpRiskPercent > 0.0)
-      lotText = "Riesgo " + DoubleToString(InpRiskPercent, 1) + "% (lote " + DoubleToString(CalculateLots(), 2) + ")";
+   {
+      lotText = "Riesgo " + DoubleToString(InpRiskPercent, 1) + "%";
+      if(stopsReady)
+         lotText += " (lote " + DoubleToString(CalculateLots(slDistance), 2) + ")";
+   }
+
+   string adxText = "sin filtro ADX";
+   if(InpAdxMin > 0.0)
+      adxText = "ADX " + DoubleToString(CurrentAdx(), 1) + " (mínimo " + DoubleToString(InpAdxMin, 1) + ")";
 
    int    trades       = 0;
    double closedProfit = 0.0;
@@ -847,12 +928,10 @@ void UpdatePanel(const datetime now)
 
    string text = "Robot tendencial EMA " + IntegerToString(InpFastPeriod) + "/" + IntegerToString(InpSlowPeriod) +
                  " - Day Trade\n";
-   text += _Symbol + " " + TimeframeToString(g_timeframe) + " | " + lotText +
-           " | SL " + DoubleToString(InpStopLossPips, 1) + " pips (" + DoubleToString(InpStopLossPips * g_pip, _Digits) + ")" +
-           " | TP " + DoubleToString(InpTakeProfitPips, 1) + " pips (" + DoubleToString(InpTakeProfitPips * g_pip, _Digits) + ")" +
+   text += _Symbol + " " + TimeframeToString(g_timeframe) + " | " + lotText + " | " + stopsText +
            " | 1 pip = " + DoubleToString(g_pip, _Digits) + "\n";
    text += trendLine + "\n";
-   text += "Entradas: " + EntryModeName() + " | " + DirectionName() + "\n";
+   text += "Entradas: " + EntryModeName() + " | " + DirectionName() + " | " + adxText + "\n";
    text += "Hora servidor: " + TimeToString(now, TIME_MINUTES) +
            " | Hora PC: " + TimeToString(TimeLocal(), TIME_MINUTES) +
            " | Día habilitado: " + YesNo(IsTradingDay(now)) +
@@ -887,6 +966,10 @@ int OnInit()
       return InitError("valor de pip, spread, deslizamiento y máximo diario no pueden ser negativos");
    if(InpMaxDailyLossPercent < 0.0 || InpBreakEvenPips < 0.0 || InpBreakEvenLockPips < 0.0)
       return InitError("la pérdida diaria y el breakeven no pueden ser negativos");
+   if(InpStopMode == EA_STOPS_ATR && (InpAtrPeriod < 1 || InpAtrSlMultiplier <= 0.0 || InpAtrTpMultiplier <= 0.0))
+      return InitError("en modo ATR, el periodo y los multiplicadores deben ser mayores que 0");
+   if(InpAdxPeriod < 1 || InpAdxMin < 0.0 || InpAdxMin > 100.0)
+      return InitError("el periodo del ADX debe ser mayor que 0 y el ADX mínimo estar entre 0 y 100");
    if(InpBreakEvenPips > 0.0 && InpBreakEvenLockPips >= InpBreakEvenPips)
       return InitError("los pips asegurados deben ser menores que los pips para activar el breakeven");
    if(!IsValidTime(InpStartHour, InpStartMinute) || !IsValidTime(InpEndHour, InpEndMinute))
@@ -907,18 +990,21 @@ int OnInit()
    if(g_pip <= 0.0)
       return InitError("no se pudo determinar el tamaño del pip; indíquelo manualmente");
 
-   //--- Lote válido para el símbolo
-   double lots = CalculateLots();
-   if(lots <= 0.0)
-      return InitError("el lote resultante es menor que el mínimo del símbolo (" +
-                       DoubleToString(SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN), 2) + ")");
-   if(InpRiskPercent <= 0.0 && MathAbs(lots - InpLots) > 0.00000001)
-      Print("Aviso: el lote ", DoubleToString(InpLots, 2), " se ajustará a ", DoubleToString(lots, 2),
-            " según las reglas del símbolo");
+   //--- Lote fijo válido para el símbolo (con riesgo % se comprueba en cada operación)
+   if(InpRiskPercent <= 0.0)
+   {
+      double lots = NormalizeLots(InpLots);
+      if(lots <= 0.0)
+         return InitError("el lote " + DoubleToString(InpLots, 2) + " es menor que el mínimo del símbolo (" +
+                          DoubleToString(SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN), 2) + ")");
+      if(MathAbs(lots - InpLots) > 0.00000001)
+         Print("Aviso: el lote ", DoubleToString(InpLots, 2), " se ajustará a ", DoubleToString(lots, 2),
+               " según las reglas del símbolo");
+   }
 
    //--- Avisos de configuración
    double spreadNow = CurrentSpreadPips();
-   if(spreadNow > 0.0 && InpStopLossPips <= spreadNow * 2.0)
+   if(InpStopMode == EA_STOPS_PIPS && spreadNow > 0.0 && InpStopLossPips <= spreadNow * 2.0)
       Print("Aviso: el SL (", DoubleToString(InpStopLossPips, 1), " pips) es muy pequeño frente al spread actual (",
             DoubleToString(spreadNow, 1), " pips). Muchas operaciones se cerrarán por el ruido del precio");
    if(InpUseTimeFilter && InpCloseEndOfDay && StartMinutes() < EndMinutes() && EndMinutes() > CloseMinutes())
@@ -934,6 +1020,24 @@ int OnInit()
       Print("Error al crear las EMAs. Código ", GetLastError());
       return INIT_FAILED;
    }
+   if(InpStopMode == EA_STOPS_ATR)
+   {
+      g_atrHandle = iATR(_Symbol, g_timeframe, InpAtrPeriod);
+      if(g_atrHandle == INVALID_HANDLE)
+      {
+         Print("Error al crear el ATR. Código ", GetLastError());
+         return INIT_FAILED;
+      }
+   }
+   if(InpAdxMin > 0.0)
+   {
+      g_adxHandle = iADX(_Symbol, g_timeframe, InpAdxPeriod);
+      if(g_adxHandle == INVALID_HANDLE)
+      {
+         Print("Error al crear el ADX. Código ", GetLastError());
+         return INIT_FAILED;
+      }
+   }
 
    //--- Configuración de ejecución
    g_trade.SetExpertMagicNumber(InpMagicNumber);
@@ -944,11 +1048,21 @@ int OnInit()
    g_lastBarTime = iTime(_Symbol, g_timeframe, 0);
    ClearSignal();
 
+   string stopsText = "SL " + DoubleToString(InpStopLossPips, 1) + " pips (" + DoubleToString(InpStopLossPips * g_pip, _Digits) + ")" +
+                      " | TP " + DoubleToString(InpTakeProfitPips, 1) + " pips (" + DoubleToString(InpTakeProfitPips * g_pip, _Digits) + ")";
+   if(InpStopMode == EA_STOPS_ATR)
+      stopsText = "SL ATR(" + IntegerToString(InpAtrPeriod) + ") x" + DoubleToString(InpAtrSlMultiplier, 1) +
+                  " | TP ATR x" + DoubleToString(InpAtrTpMultiplier, 1);
+   string lotText = "Lote " + DoubleToString(NormalizeLots(InpLots), 2);
+   if(InpRiskPercent > 0.0)
+      lotText = "Riesgo " + DoubleToString(InpRiskPercent, 1) + "% por operación";
+   string adxText = "sin filtro ADX";
+   if(InpAdxMin > 0.0)
+      adxText = "ADX mínimo " + DoubleToString(InpAdxMin, 1);
+
    Print("Robot tendencial iniciado en ", _Symbol, " ", TimeframeToString(g_timeframe),
-         " | 1 pip = ", DoubleToString(g_pip, _Digits),
-         " | SL ", DoubleToString(InpStopLossPips, 1), " pips (", DoubleToString(InpStopLossPips * g_pip, _Digits), ")",
-         " | TP ", DoubleToString(InpTakeProfitPips, 1), " pips (", DoubleToString(InpTakeProfitPips * g_pip, _Digits), ")",
-         " | Lote ", DoubleToString(lots, 2), " | ", EntryModeName(), " | ", DirectionName());
+         " | 1 pip = ", DoubleToString(g_pip, _Digits), " | ", stopsText, " | ", lotText,
+         " | ", EntryModeName(), " | ", DirectionName(), " | ", adxText);
    return INIT_SUCCEEDED;
 }
 
@@ -961,6 +1075,10 @@ void OnDeinit(const int reason)
       IndicatorRelease(g_fastHandle);
    if(g_slowHandle != INVALID_HANDLE)
       IndicatorRelease(g_slowHandle);
+   if(g_atrHandle != INVALID_HANDLE)
+      IndicatorRelease(g_atrHandle);
+   if(g_adxHandle != INVALID_HANDLE)
+      IndicatorRelease(g_adxHandle);
    Comment("");
 }
 
