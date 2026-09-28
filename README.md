@@ -19,3 +19,4 @@ Luego entra a `http://localhost:8000`.
 - `styles.css` — estilos
 - `assets/images/` — fotos de Katherine
 - `assets/video/` — video de Katherine
+- `MQL5/` — asesor experto para MetaTrader 5 (cruce EMA 40/200); ver `MQL5/README.md`
