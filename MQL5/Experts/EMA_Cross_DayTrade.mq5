@@ -3,13 +3,13 @@
 //|       Asesor experto: cruce alcista EMA 40 / EMA 200 (compras)   |
 //+------------------------------------------------------------------+
 #property copyright   "Kathe"
-#property version     "1.00"
+#property version     "1.01"
 #property description "Abre una compra cuando la EMA rápida (40) cruza hacia arriba la EMA lenta (200)."
 #property description "Stop loss y take profit en pips, filtro de horario y de días, y cierre intradía (day trade)."
 #property description "Las señales se evalúan sobre velas cerradas para no operar cruces que luego desaparecen."
 
-#include <Trade/Trade.mqh>
-#include <Trade/PositionInfo.mqh>
+#include <Trade\Trade.mqh>
+#include <Trade\PositionInfo.mqh>
 
 //--- Intentos de entrada por señal antes de descartarla (recotizaciones, precio cambiado, etc.)
 #define MAX_ENTRY_ATTEMPTS 3
@@ -77,223 +77,213 @@ bool            g_spreadWarned    = false;
 datetime        g_lastPanelUpdate = 0;
 
 //+------------------------------------------------------------------+
-//| Inicialización                                                   |
+//| Utilidades de tiempo                                             |
 //+------------------------------------------------------------------+
-int OnInit()
+bool IsValidTime(const int hour, const int minute)
 {
-   //--- Validación de parámetros
-   if(InpFastPeriod < 1 || InpSlowPeriod < 1 || InpFastPeriod >= InpSlowPeriod)
-      return InitError("el periodo de la EMA rápida debe ser menor que el de la EMA lenta");
-   if(InpLots <= 0.0)
-      return InitError("el tamaño del lote debe ser mayor que 0");
-   if(InpStopLossPips <= 0.0 || InpTakeProfitPips <= 0.0)
-      return InitError("el stop loss y el take profit deben ser mayores que 0");
-   if(InpPipSize < 0.0 || InpMaxSpreadPips < 0.0 || InpSlippagePoints < 0 || InpMaxTradesPerDay < 0)
-      return InitError("valor de pip, spread, deslizamiento y máximo diario no pueden ser negativos");
-   if(!IsValidTime(InpStartHour, InpStartMinute) || !IsValidTime(InpEndHour, InpEndMinute))
-      return InitError("horario de operación inválido (horas 0-23, minutos 0-59)");
-   if(!IsValidTime(InpCloseHour, InpCloseMinute))
-      return InitError("hora de cierre intradía inválida (horas 0-23, minutos 0-59)");
-   if(InpCloseEndOfDay && CloseMinutes() == 0)
-      return InitError("la hora de cierre intradía no puede ser 00:00 (usa, por ejemplo, 23:55)");
+   return (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59);
+}
 
-   g_timeframe = (InpTimeframe == PERIOD_CURRENT) ? (ENUM_TIMEFRAMES)_Period : InpTimeframe;
+int StartMinutes()
+{
+   return InpStartHour * 60 + InpStartMinute;
+}
 
-   //--- Tamaño del pip
-   g_pip = (InpPipSize > 0.0) ? InpPipSize : AutoPipSize();
-   if(g_pip <= 0.0)
-      return InitError("no se pudo determinar el tamaño del pip; indícalo manualmente");
+int EndMinutes()
+{
+   return InpEndHour * 60 + InpEndMinute;
+}
 
-   //--- Lote válido para el símbolo
-   const double lots = NormalizeLots(InpLots);
-   if(lots <= 0.0)
-      return InitError(StringFormat("el lote %.2f es menor que el mínimo del símbolo (%.2f)",
-                                    InpLots, SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN)));
-   if(MathAbs(lots - InpLots) > 1e-8)
-      PrintFormat("Aviso: el lote %.2f se ajustará a %.2f según las reglas del símbolo", InpLots, lots);
+int CloseMinutes()
+{
+   return InpCloseHour * 60 + InpCloseMinute;
+}
 
-   if(InpUseTimeFilter && InpCloseEndOfDay && StartMinutes() < EndMinutes() && EndMinutes() > CloseMinutes())
-      PrintFormat("Aviso: el horario termina a las %s pero el cierre intradía es a las %s; "
-                  "no se abrirán operaciones después del cierre",
-                  FormatHM(InpEndHour, InpEndMinute), FormatHM(InpCloseHour, InpCloseMinute));
+int MinutesOfDay(const datetime t)
+{
+   MqlDateTime dt;
+   TimeToStruct(t, dt);
+   return dt.hour * 60 + dt.min;
+}
 
-   //--- Indicadores
-   g_fastHandle = iMA(_Symbol, g_timeframe, InpFastPeriod, 0, MODE_EMA, InpAppliedPrice);
-   g_slowHandle = iMA(_Symbol, g_timeframe, InpSlowPeriod, 0, MODE_EMA, InpAppliedPrice);
-   if(g_fastHandle == INVALID_HANDLE || g_slowHandle == INVALID_HANDLE)
-   {
-      PrintFormat("Error al crear las EMAs (código %d)", GetLastError());
-      return INIT_FAILED;
-   }
+datetime DayStart(const datetime t)
+{
+   MqlDateTime dt;
+   TimeToStruct(t, dt);
+   dt.hour = 0;
+   dt.min  = 0;
+   dt.sec  = 0;
+   return StructToTime(dt);
+}
 
-   //--- Configuración de ejecución
-   g_trade.SetExpertMagicNumber(InpMagicNumber);
-   g_trade.SetDeviationInPoints((ulong)InpSlippagePoints);
-   g_trade.SetTypeFillingBySymbol(_Symbol);
-   g_trade.LogLevel(LOG_LEVEL_ERRORS);
+string FormatHM(const int hour, const int minute)
+{
+   return StringFormat("%02d:%02d", hour, minute);
+}
 
-   //--- No operar un cruce antiguo: la primera evaluación será en la próxima vela
-   g_lastBarTime   = iTime(_Symbol, g_timeframe, 0);
-   g_signalBarTime = 0;
+bool IsTradingDay(const datetime t)
+{
+   MqlDateTime dt;
+   TimeToStruct(t, dt);
+   if(dt.day_of_week == 0) return InpTradeSunday;
+   if(dt.day_of_week == 1) return InpTradeMonday;
+   if(dt.day_of_week == 2) return InpTradeTuesday;
+   if(dt.day_of_week == 3) return InpTradeWednesday;
+   if(dt.day_of_week == 4) return InpTradeThursday;
+   if(dt.day_of_week == 5) return InpTradeFriday;
+   return InpTradeSaturday;
+}
 
-   PrintFormat("EMA Cross %d/%d iniciado en %s %s | Lote %.2f | SL %.1f pips | TP %.1f pips | 1 pip = %s",
-               InpFastPeriod, InpSlowPeriod, _Symbol, TimeframeToString(g_timeframe),
-               lots, InpStopLossPips, InpTakeProfitPips, DoubleToString(g_pip, _Digits));
-   return INIT_SUCCEEDED;
+//--- Si inicio == fin se opera todo el día; si inicio > fin la ventana cruza la medianoche
+bool IsInTradingWindow(const datetime t)
+{
+   if(!InpUseTimeFilter)
+      return true;
+
+   int current = MinutesOfDay(t);
+   int start   = StartMinutes();
+   int end     = EndMinutes();
+   if(start == end)
+      return true;
+   if(start < end)
+      return (current >= start && current < end);
+   return (current >= start || current < end);
+}
+
+bool IsAfterDailyClose(const datetime t)
+{
+   if(!InpCloseEndOfDay)
+      return false;
+   return (MinutesOfDay(t) >= CloseMinutes());
 }
 
 //+------------------------------------------------------------------+
-//| Desinicialización                                                |
+//| Utilidades de precio, volumen y texto                            |
 //+------------------------------------------------------------------+
-void OnDeinit(const int reason)
+//--- Pip estándar: 10 puntos en cotizaciones de 3 y 5 decimales, 1 punto en el resto
+double AutoPipSize()
 {
-   if(g_fastHandle != INVALID_HANDLE)
-      IndicatorRelease(g_fastHandle);
-   if(g_slowHandle != INVALID_HANDLE)
-      IndicatorRelease(g_slowHandle);
-   Comment("");
+   int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+   if(digits == 3 || digits == 5)
+      return _Point * 10.0;
+   return _Point;
+}
+
+double CurrentSpreadPips()
+{
+   MqlTick tick;
+   if(!SymbolInfoTick(_Symbol, tick) || g_pip <= 0.0)
+      return 0.0;
+   return (tick.ask - tick.bid) / g_pip;
+}
+
+double NormalizePrice(const double price)
+{
+   double tickSize = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
+   if(tickSize > 0.0)
+      return NormalizeDouble(MathRound(price / tickSize) * tickSize, _Digits);
+   return NormalizeDouble(price, _Digits);
+}
+
+//--- Ajusta el lote al paso del símbolo; devuelve 0 si queda por debajo del mínimo
+double NormalizeLots(const double lots)
+{
+   double minLot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
+   double maxLot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX);
+   double step   = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
+   if(step <= 0.0)
+      return 0.0;
+
+   double volume = MathFloor(lots / step + 0.0000001) * step;
+   if(volume < minLot)
+      return 0.0;
+   if(maxLot > 0.0 && volume > maxLot)
+      volume = maxLot;
+
+   int volumeDigits = 0;
+   if(step < 1.0)
+      volumeDigits = (int)MathCeil(-MathLog10(step));
+   return NormalizeDouble(volume, volumeDigits);
+}
+
+bool IsRetcodeSuccess(const uint retcode)
+{
+   return (retcode == TRADE_RETCODE_DONE ||
+           retcode == TRADE_RETCODE_DONE_PARTIAL ||
+           retcode == TRADE_RETCODE_PLACED);
+}
+
+string TimeframeToString(const ENUM_TIMEFRAMES tf)
+{
+   return StringSubstr(EnumToString(tf), 7); // "PERIOD_M15" -> "M15"
+}
+
+string YesNo(const bool value)
+{
+   if(value)
+      return "Sí";
+   return "No";
+}
+
+int InitError(const string message)
+{
+   Print("Parámetros incorrectos: ", message);
+   return INIT_PARAMETERS_INCORRECT;
+}
+
+//--- Tipo de llenado de órdenes admitido por el símbolo
+void ConfigureFilling()
+{
+   long filling = SymbolInfoInteger(_Symbol, SYMBOL_FILLING_MODE);
+   if((filling & SYMBOL_FILLING_FOK) == SYMBOL_FILLING_FOK)
+      g_trade.SetTypeFilling(ORDER_FILLING_FOK);
+   else if((filling & SYMBOL_FILLING_IOC) == SYMBOL_FILLING_IOC)
+      g_trade.SetTypeFilling(ORDER_FILLING_IOC);
+   else
+      g_trade.SetTypeFilling(ORDER_FILLING_RETURN);
 }
 
 //+------------------------------------------------------------------+
-//| Cada tick                                                        |
+//| Posiciones y operaciones de este EA                              |
 //+------------------------------------------------------------------+
-void OnTick()
+bool IsOwnPosition()
 {
-   const datetime now = TimeCurrent();
-
-   //--- 1) Day trade: cerrar posiciones al llegar la hora de cierre
-   if(InpCloseEndOfDay)
-      CloseDayTradePositions(now);
-
-   //--- 2) En cada vela nueva, buscar el cruce en las dos últimas velas cerradas
-   const datetime barTime = iTime(_Symbol, g_timeframe, 0);
-   if(barTime == 0)
-      return;
-
-   if(barTime != g_lastBarTime)
-   {
-      const int signal = CheckBullishCross();
-      if(signal < 0)
-         return; // datos del indicador aún no listos: reintentar en el siguiente tick
-
-      g_lastBarTime = barTime;
-      if(signal > 0)
-      {
-         g_signalBarTime = barTime;
-         g_entryAttempts = 0;
-         g_spreadWarned  = false;
-         PrintFormat("Señal de compra: la EMA %d cruzó hacia arriba la EMA %d (vela cerrada %s)",
-                     InpFastPeriod, InpSlowPeriod,
-                     TimeToString(iTime(_Symbol, g_timeframe, 1), TIME_DATE | TIME_MINUTES));
-      }
-   }
-
-   //--- 3) Ejecutar la señal pendiente, solo dentro de la vela en la que se generó
-   if(g_signalBarTime != 0)
-   {
-      if(g_signalBarTime != barTime)
-      {
-         Print("Señal de compra caducada: no se pudo ejecutar dentro de su vela");
-         g_signalBarTime = 0;
-      }
-      else
-         TryEnterLong(now);
-   }
-
-   //--- 4) Panel informativo
-   if(InpShowPanel)
-      UpdatePanel(now);
+   return (g_position.Symbol() == _Symbol && (ulong)g_position.Magic() == InpMagicNumber);
 }
 
-//+------------------------------------------------------------------+
-//| Señal: 1 = cruce alcista, 0 = sin cruce, -1 = datos no listos     |
-//+------------------------------------------------------------------+
-int CheckBullishCross()
+int CountOpenPositions()
 {
-   if(BarsCalculated(g_fastHandle) <= InpFastPeriod || BarsCalculated(g_slowHandle) <= InpSlowPeriod)
-      return -1;
-
-   //--- Orden cronológico: [0] = vela 2 (anterior), [1] = vela 1 (última cerrada)
-   double fast[], slow[];
-   if(CopyBuffer(g_fastHandle, 0, 1, 2, fast) != 2 || CopyBuffer(g_slowHandle, 0, 1, 2, slow) != 2)
-      return -1;
-
-   return (fast[0] <= slow[0] && fast[1] > slow[1]) ? 1 : 0;
+   int count = 0;
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      if(g_position.SelectByIndex(i) && IsOwnPosition())
+         count++;
+   }
+   return count;
 }
 
-//+------------------------------------------------------------------+
-//| Intenta abrir la compra de la señal pendiente                     |
-//+------------------------------------------------------------------+
-void TryEnterLong(const datetime now)
+//--- Operaciones abiertas hoy por este EA (según el historial)
+int CountTradesToday(const datetime now)
 {
-   string reason;
-   if(!IsEntryAllowed(now, reason))
-   {
-      PrintFormat("Señal de compra descartada: %s", reason);
-      g_signalBarTime = 0;
-      return;
-   }
+   if(!HistorySelect(DayStart(now), (datetime)(now + 60)))
+      return 0;
 
-   //--- Con spread alto se espera (dentro de la misma vela) a que se normalice
-   const double spreadPips = CurrentSpreadPips();
-   if(InpMaxSpreadPips > 0.0 && spreadPips > InpMaxSpreadPips)
+   int count = 0;
+   int total = HistoryDealsTotal();
+   for(int i = 0; i < total; i++)
    {
-      if(!g_spreadWarned)
-      {
-         PrintFormat("Spread demasiado alto (%.1f pips > %.1f). Se esperará dentro de la vela actual",
-                     spreadPips, InpMaxSpreadPips);
-         g_spreadWarned = true;
-      }
-      return;
+      ulong deal = HistoryDealGetTicket(i);
+      if(deal == 0)
+         continue;
+      if(HistoryDealGetString(deal, DEAL_SYMBOL) != _Symbol)
+         continue;
+      if((ulong)HistoryDealGetInteger(deal, DEAL_MAGIC) != InpMagicNumber)
+         continue;
+      if(HistoryDealGetInteger(deal, DEAL_ENTRY) != DEAL_ENTRY_IN)
+         continue;
+      count++;
    }
-
-   if(OpenBuy())
-   {
-      g_signalBarTime = 0;
-      return;
-   }
-
-   if(++g_entryAttempts >= MAX_ENTRY_ATTEMPTS)
-   {
-      PrintFormat("Señal de compra descartada tras %d intentos fallidos", MAX_ENTRY_ATTEMPTS);
-      g_signalBarTime = 0;
-   }
-}
-
-//+------------------------------------------------------------------+
-//| Filtros de entrada: día, horario, cierre intradía, límites        |
-//+------------------------------------------------------------------+
-bool IsEntryAllowed(const datetime now, string &reason)
-{
-   if(!IsTradingDay(now))
-   {
-      reason = "día no habilitado para operar";
-      return false;
-   }
-   if(!IsInTradingWindow(now))
-   {
-      reason = StringFormat("fuera del horario de operación (%s - %s)",
-                            FormatHM(InpStartHour, InpStartMinute), FormatHM(InpEndHour, InpEndMinute));
-      return false;
-   }
-   if(IsAfterDailyClose(now))
-   {
-      reason = StringFormat("ya pasó la hora de cierre intradía (%s)", FormatHM(InpCloseHour, InpCloseMinute));
-      return false;
-   }
-   if(!IsTradingPermitted(reason))
-      return false;
-   if(InpOnePosition && CountOpenPositions() > 0)
-   {
-      reason = "ya hay una posición abierta";
-      return false;
-   }
-   if(InpMaxTradesPerDay > 0 && CountTradesToday(now) >= InpMaxTradesPerDay)
-   {
-      reason = StringFormat("se alcanzó el máximo de %d operaciones por día", InpMaxTradesPerDay);
-      return false;
-   }
-   return true;
+   return count;
 }
 
 //+------------------------------------------------------------------+
@@ -316,10 +306,46 @@ bool IsTradingPermitted(string &reason)
       reason = "la cuenta no permite operar con asesores expertos";
       return false;
    }
-   const long mode = SymbolInfoInteger(_Symbol, SYMBOL_TRADE_MODE);
+   long mode = SymbolInfoInteger(_Symbol, SYMBOL_TRADE_MODE);
    if(mode != SYMBOL_TRADE_MODE_FULL && mode != SYMBOL_TRADE_MODE_LONGONLY)
    {
       reason = "el símbolo no admite nuevas compras en este momento";
+      return false;
+   }
+   return true;
+}
+
+//+------------------------------------------------------------------+
+//| Filtros de entrada: día, horario, cierre intradía, límites        |
+//+------------------------------------------------------------------+
+bool IsEntryAllowed(const datetime now, string &reason)
+{
+   if(!IsTradingDay(now))
+   {
+      reason = "día no habilitado para operar";
+      return false;
+   }
+   if(!IsInTradingWindow(now))
+   {
+      reason = "fuera del horario de operación (" + FormatHM(InpStartHour, InpStartMinute) +
+               " - " + FormatHM(InpEndHour, InpEndMinute) + ")";
+      return false;
+   }
+   if(IsAfterDailyClose(now))
+   {
+      reason = "ya pasó la hora de cierre intradía (" + FormatHM(InpCloseHour, InpCloseMinute) + ")";
+      return false;
+   }
+   if(!IsTradingPermitted(reason))
+      return false;
+   if(InpOnePosition && CountOpenPositions() > 0)
+   {
+      reason = "ya hay una posición abierta";
+      return false;
+   }
+   if(InpMaxTradesPerDay > 0 && CountTradesToday(now) >= InpMaxTradesPerDay)
+   {
+      reason = "se alcanzó el máximo de " + IntegerToString(InpMaxTradesPerDay) + " operaciones por día";
       return false;
    }
    return true;
@@ -337,46 +363,47 @@ bool OpenBuy()
       return false;
    }
 
-   const double lots = NormalizeLots(InpLots);
+   double lots = NormalizeLots(InpLots);
    if(lots <= 0.0)
    {
-      PrintFormat("Lote %.2f no válido para %s", InpLots, _Symbol);
+      Print("Lote no válido para ", _Symbol, ": ", DoubleToString(InpLots, 2));
       return false;
    }
 
-   const double sl = NormalizePrice(tick.ask - InpStopLossPips * g_pip);
-   const double tp = NormalizePrice(tick.ask + InpTakeProfitPips * g_pip);
+   double sl = NormalizePrice(tick.ask - InpStopLossPips * g_pip);
+   double tp = NormalizePrice(tick.ask + InpTakeProfitPips * g_pip);
 
    //--- Distancia mínima de stops exigida por el bróker (en compras se mide desde el Bid)
-   const double minDistance = (double)SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL) * _Point;
+   double minDistance = (double)SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL) * _Point;
    if(minDistance > 0.0 && (tick.bid - sl < minDistance || tp - tick.bid < minDistance))
    {
-      PrintFormat("SL/TP demasiado cerca del precio: el bróker exige al menos %.1f pips", minDistance / g_pip);
+      Print("SL/TP demasiado cerca del precio: el bróker exige al menos ",
+            DoubleToString(minDistance / g_pip, 1), " pips");
       return false;
    }
 
    //--- Margen suficiente
    double margin = 0.0;
-   if(OrderCalcMargin(ORDER_TYPE_BUY, _Symbol, lots, tick.ask, margin) &&
-      margin > AccountInfoDouble(ACCOUNT_MARGIN_FREE))
+   double freeMargin = AccountInfoDouble(ACCOUNT_MARGIN_FREE);
+   if(OrderCalcMargin(ORDER_TYPE_BUY, _Symbol, lots, tick.ask, margin) && margin > freeMargin)
    {
-      PrintFormat("Margen insuficiente: se necesitan %.2f y hay %.2f libres",
-                  margin, AccountInfoDouble(ACCOUNT_MARGIN_FREE));
+      Print("Margen insuficiente: se necesitan ", DoubleToString(margin, 2),
+            " y hay ", DoubleToString(freeMargin, 2), " libres");
       return false;
    }
 
-   if(!g_trade.Buy(lots, _Symbol, tick.ask, sl, tp, InpTradeComment) ||
-      !IsRetcodeSuccess(g_trade.ResultRetcode()))
+   bool sent = g_trade.Buy(lots, _Symbol, tick.ask, sl, tp, InpTradeComment);
+   if(!sent || !IsRetcodeSuccess(g_trade.ResultRetcode()))
    {
-      PrintFormat("Error al abrir la compra. Código %u: %s",
-                  g_trade.ResultRetcode(), g_trade.ResultRetcodeDescription());
+      Print("Error al abrir la compra. Código ", g_trade.ResultRetcode(), ": ",
+            g_trade.ResultRetcodeDescription());
       return false;
    }
 
-   PrintFormat("COMPRA abierta: %.2f lotes a %s | SL %s (-%.1f pips) | TP %s (+%.1f pips)",
-               lots, DoubleToString(g_trade.ResultPrice(), _Digits),
-               DoubleToString(sl, _Digits), InpStopLossPips,
-               DoubleToString(tp, _Digits), InpTakeProfitPips);
+   Print("COMPRA abierta: ", DoubleToString(lots, 2), " lotes a ",
+         DoubleToString(g_trade.ResultPrice(), _Digits),
+         " | SL ", DoubleToString(sl, _Digits), " (-", DoubleToString(InpStopLossPips, 1), " pips)",
+         " | TP ", DoubleToString(tp, _Digits), " (+", DoubleToString(InpTakeProfitPips, 1), " pips)");
    return true;
 }
 
@@ -386,65 +413,85 @@ bool OpenBuy()
 //+------------------------------------------------------------------+
 void CloseDayTradePositions(const datetime now)
 {
-   const bool     closeTimeReached = IsAfterDailyClose(now);
-   const datetime today            = DayStart(now);
+   bool     closeTimeReached = IsAfterDailyClose(now);
+   datetime today            = DayStart(now);
 
-   for(int i = PositionsTotal() - 1; i >= 0; --i)
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
    {
-      if(!g_position.SelectByIndex(i))
-         continue;
-      if(g_position.Symbol() != _Symbol || (ulong)g_position.Magic() != InpMagicNumber)
+      if(!g_position.SelectByIndex(i) || !IsOwnPosition())
          continue;
       if(!closeTimeReached && g_position.Time() >= today)
          continue;
 
-      const ulong ticket = g_position.Ticket();
+      ulong ticket = g_position.Ticket();
       if(g_trade.PositionClose(ticket) && IsRetcodeSuccess(g_trade.ResultRetcode()))
-         PrintFormat("Day trade: posición #%I64u cerrada (cierre intradía %s)",
-                     ticket, FormatHM(InpCloseHour, InpCloseMinute));
+         Print("Day trade: posición #", ticket, " cerrada (cierre intradía ",
+               FormatHM(InpCloseHour, InpCloseMinute), ")");
       else
-         PrintFormat("Day trade: no se pudo cerrar la posición #%I64u. Código %u: %s",
-                     ticket, g_trade.ResultRetcode(), g_trade.ResultRetcodeDescription());
+         Print("Day trade: no se pudo cerrar la posición #", ticket, ". Código ",
+               g_trade.ResultRetcode(), ": ", g_trade.ResultRetcodeDescription());
    }
 }
 
 //+------------------------------------------------------------------+
-//| Posiciones abiertas por este EA en este símbolo                   |
+//| Señal: 1 = cruce alcista, 0 = sin cruce, -1 = datos no listos     |
 //+------------------------------------------------------------------+
-int CountOpenPositions()
+int CheckBullishCross()
 {
-   int count = 0;
-   for(int i = PositionsTotal() - 1; i >= 0; --i)
-      if(g_position.SelectByIndex(i) && g_position.Symbol() == _Symbol &&
-         (ulong)g_position.Magic() == InpMagicNumber)
-         ++count;
-   return count;
+   if(BarsCalculated(g_fastHandle) <= InpFastPeriod || BarsCalculated(g_slowHandle) <= InpSlowPeriod)
+      return -1;
+
+   //--- Orden cronológico: [0] = vela 2 (anterior), [1] = vela 1 (última cerrada)
+   double fast[];
+   double slow[];
+   if(CopyBuffer(g_fastHandle, 0, 1, 2, fast) != 2)
+      return -1;
+   if(CopyBuffer(g_slowHandle, 0, 1, 2, slow) != 2)
+      return -1;
+
+   if(fast[0] <= slow[0] && fast[1] > slow[1])
+      return 1;
+   return 0;
 }
 
 //+------------------------------------------------------------------+
-//| Operaciones abiertas hoy por este EA (según el historial)         |
+//| Intenta abrir la compra de la señal pendiente                     |
 //+------------------------------------------------------------------+
-int CountTradesToday(const datetime now)
+void TryEnterLong(const datetime now)
 {
-   if(!HistorySelect(DayStart(now), now + 60))
-      return 0;
-
-   int count = 0;
-   const int total = HistoryDealsTotal();
-   for(int i = 0; i < total; ++i)
+   string reason = "";
+   if(!IsEntryAllowed(now, reason))
    {
-      const ulong deal = HistoryDealGetTicket(i);
-      if(deal == 0)
-         continue;
-      if(HistoryDealGetString(deal, DEAL_SYMBOL) != _Symbol)
-         continue;
-      if((ulong)HistoryDealGetInteger(deal, DEAL_MAGIC) != InpMagicNumber)
-         continue;
-      if((ENUM_DEAL_ENTRY)HistoryDealGetInteger(deal, DEAL_ENTRY) != DEAL_ENTRY_IN)
-         continue;
-      ++count;
+      Print("Señal de compra descartada: ", reason);
+      g_signalBarTime = 0;
+      return;
    }
-   return count;
+
+   //--- Con spread alto se espera (dentro de la misma vela) a que se normalice
+   double spreadPips = CurrentSpreadPips();
+   if(InpMaxSpreadPips > 0.0 && spreadPips > InpMaxSpreadPips)
+   {
+      if(!g_spreadWarned)
+      {
+         Print("Spread demasiado alto (", DoubleToString(spreadPips, 1), " pips > ",
+               DoubleToString(InpMaxSpreadPips, 1), "). Se esperará dentro de la vela actual");
+         g_spreadWarned = true;
+      }
+      return;
+   }
+
+   if(OpenBuy())
+   {
+      g_signalBarTime = 0;
+      return;
+   }
+
+   g_entryAttempts++;
+   if(g_entryAttempts >= MAX_ENTRY_ATTEMPTS)
+   {
+      Print("Señal de compra descartada tras ", MAX_ENTRY_ATTEMPTS, " intentos fallidos");
+      g_signalBarTime = 0;
+   }
 }
 
 //+------------------------------------------------------------------+
@@ -460,166 +507,172 @@ void UpdatePanel(const datetime now)
       return;
 
    string emaLine = "EMAs: calculando...";
-   double fast[], slow[];
+   double fast[];
+   double slow[];
    if(CopyBuffer(g_fastHandle, 0, 1, 1, fast) == 1 && CopyBuffer(g_slowHandle, 0, 1, 1, slow) == 1)
-      emaLine = StringFormat("EMA %d: %s | EMA %d: %s | EMA rápida %s",
-                             InpFastPeriod, DoubleToString(fast[0], _Digits),
-                             InpSlowPeriod, DoubleToString(slow[0], _Digits),
-                             fast[0] > slow[0] ? "por ENCIMA" : "por DEBAJO");
-
-   const string window = InpUseTimeFilter
-                         ? StringFormat("%s - %s", FormatHM(InpStartHour, InpStartMinute), FormatHM(InpEndHour, InpEndMinute))
-                         : "sin filtro";
-   const string dayClose = InpCloseEndOfDay ? FormatHM(InpCloseHour, InpCloseMinute) : "desactivado";
-
-   Comment(StringFormat("EMA Cross %d/%d - Day Trade\n"
-                        "%s %s | Lote %.2f | SL %.1f pips | TP %.1f pips\n"
-                        "%s\n"
-                        "Hora servidor: %s | Día habilitado: %s | En horario: %s (%s)\n"
-                        "Cierre intradía: %s\n"
-                        "Posiciones abiertas: %d | Spread: %.1f pips",
-                        InpFastPeriod, InpSlowPeriod,
-                        _Symbol, TimeframeToString(g_timeframe), NormalizeLots(InpLots),
-                        InpStopLossPips, InpTakeProfitPips,
-                        emaLine,
-                        TimeToString(now, TIME_MINUTES), IsTradingDay(now) ? "Sí" : "No",
-                        IsInTradingWindow(now) ? "Sí" : "No", window,
-                        dayClose,
-                        CountOpenPositions(), CurrentSpreadPips()));
-}
-
-//+------------------------------------------------------------------+
-//| Utilidades de tiempo                                             |
-//+------------------------------------------------------------------+
-bool IsValidTime(const int hour, const int minute)
-{
-   return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59;
-}
-
-int StartMinutes() { return InpStartHour * 60 + InpStartMinute; }
-int EndMinutes()   { return InpEndHour * 60 + InpEndMinute; }
-int CloseMinutes() { return InpCloseHour * 60 + InpCloseMinute; }
-
-int MinutesOfDay(const datetime t)
-{
-   MqlDateTime dt;
-   TimeToStruct(t, dt);
-   return dt.hour * 60 + dt.min;
-}
-
-datetime DayStart(const datetime t)
-{
-   MqlDateTime dt;
-   TimeToStruct(t, dt);
-   dt.hour = 0;
-   dt.min  = 0;
-   dt.sec  = 0;
-   return StructToTime(dt);
-}
-
-bool IsTradingDay(const datetime t)
-{
-   MqlDateTime dt;
-   TimeToStruct(t, dt);
-   switch(dt.day_of_week)
    {
-      case 0: return InpTradeSunday;
-      case 1: return InpTradeMonday;
-      case 2: return InpTradeTuesday;
-      case 3: return InpTradeWednesday;
-      case 4: return InpTradeThursday;
-      case 5: return InpTradeFriday;
-      case 6: return InpTradeSaturday;
+      string position = "por DEBAJO";
+      if(fast[0] > slow[0])
+         position = "por ENCIMA";
+      emaLine = "EMA " + IntegerToString(InpFastPeriod) + ": " + DoubleToString(fast[0], _Digits) +
+                " | EMA " + IntegerToString(InpSlowPeriod) + ": " + DoubleToString(slow[0], _Digits) +
+                " | EMA rápida " + position;
    }
-   return false;
-}
 
-//--- Si inicio == fin se opera todo el día; si inicio > fin la ventana cruza la medianoche
-bool IsInTradingWindow(const datetime t)
-{
-   if(!InpUseTimeFilter)
-      return true;
+   string window = "sin filtro";
+   if(InpUseTimeFilter)
+      window = FormatHM(InpStartHour, InpStartMinute) + " - " + FormatHM(InpEndHour, InpEndMinute);
 
-   const int now   = MinutesOfDay(t);
-   const int start = StartMinutes();
-   const int end   = EndMinutes();
-   if(start == end)
-      return true;
-   if(start < end)
-      return now >= start && now < end;
-   return now >= start || now < end;
-}
+   string dayClose = "desactivado";
+   if(InpCloseEndOfDay)
+      dayClose = FormatHM(InpCloseHour, InpCloseMinute);
 
-bool IsAfterDailyClose(const datetime t)
-{
-   return InpCloseEndOfDay && MinutesOfDay(t) >= CloseMinutes();
-}
-
-string FormatHM(const int hour, const int minute)
-{
-   return StringFormat("%02d:%02d", hour, minute);
+   string text = "EMA Cross " + IntegerToString(InpFastPeriod) + "/" + IntegerToString(InpSlowPeriod) +
+                 " - Day Trade\n";
+   text += _Symbol + " " + TimeframeToString(g_timeframe) +
+           " | Lote " + DoubleToString(NormalizeLots(InpLots), 2) +
+           " | SL " + DoubleToString(InpStopLossPips, 1) + " pips" +
+           " | TP " + DoubleToString(InpTakeProfitPips, 1) + " pips\n";
+   text += emaLine + "\n";
+   text += "Hora servidor: " + TimeToString(now, TIME_MINUTES) +
+           " | Día habilitado: " + YesNo(IsTradingDay(now)) +
+           " | En horario: " + YesNo(IsInTradingWindow(now)) + " (" + window + ")\n";
+   text += "Cierre intradía: " + dayClose + "\n";
+   text += "Posiciones abiertas: " + IntegerToString(CountOpenPositions()) +
+           " | Spread: " + DoubleToString(CurrentSpreadPips(), 1) + " pips";
+   Comment(text);
 }
 
 //+------------------------------------------------------------------+
-//| Utilidades de precio y volumen                                   |
+//| Inicialización                                                   |
 //+------------------------------------------------------------------+
-//--- Pip estándar: 10 puntos en cotizaciones de 3 y 5 decimales, 1 punto en el resto
-double AutoPipSize()
+int OnInit()
 {
-   const int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
-   return (digits == 3 || digits == 5) ? _Point * 10.0 : _Point;
+   //--- Validación de parámetros
+   if(InpFastPeriod < 1 || InpSlowPeriod < 1 || InpFastPeriod >= InpSlowPeriod)
+      return InitError("el periodo de la EMA rápida debe ser menor que el de la EMA lenta");
+   if(InpLots <= 0.0)
+      return InitError("el tamaño del lote debe ser mayor que 0");
+   if(InpStopLossPips <= 0.0 || InpTakeProfitPips <= 0.0)
+      return InitError("el stop loss y el take profit deben ser mayores que 0");
+   if(InpPipSize < 0.0 || InpMaxSpreadPips < 0.0 || InpSlippagePoints < 0 || InpMaxTradesPerDay < 0)
+      return InitError("valor de pip, spread, deslizamiento y máximo diario no pueden ser negativos");
+   if(!IsValidTime(InpStartHour, InpStartMinute) || !IsValidTime(InpEndHour, InpEndMinute))
+      return InitError("horario de operación inválido (horas 0-23, minutos 0-59)");
+   if(!IsValidTime(InpCloseHour, InpCloseMinute))
+      return InitError("hora de cierre intradía inválida (horas 0-23, minutos 0-59)");
+   if(InpCloseEndOfDay && CloseMinutes() == 0)
+      return InitError("la hora de cierre intradía no puede ser 00:00 (usa, por ejemplo, 23:55)");
+
+   g_timeframe = InpTimeframe;
+   if(g_timeframe == PERIOD_CURRENT)
+      g_timeframe = (ENUM_TIMEFRAMES)Period();
+
+   //--- Tamaño del pip
+   g_pip = InpPipSize;
+   if(g_pip <= 0.0)
+      g_pip = AutoPipSize();
+   if(g_pip <= 0.0)
+      return InitError("no se pudo determinar el tamaño del pip; indícalo manualmente");
+
+   //--- Lote válido para el símbolo
+   double lots = NormalizeLots(InpLots);
+   if(lots <= 0.0)
+      return InitError("el lote " + DoubleToString(InpLots, 2) + " es menor que el mínimo del símbolo (" +
+                       DoubleToString(SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN), 2) + ")");
+   if(MathAbs(lots - InpLots) > 0.00000001)
+      Print("Aviso: el lote ", DoubleToString(InpLots, 2), " se ajustará a ", DoubleToString(lots, 2),
+            " según las reglas del símbolo");
+
+   if(InpUseTimeFilter && InpCloseEndOfDay && StartMinutes() < EndMinutes() && EndMinutes() > CloseMinutes())
+      Print("Aviso: el horario termina a las ", FormatHM(InpEndHour, InpEndMinute),
+            " pero el cierre intradía es a las ", FormatHM(InpCloseHour, InpCloseMinute),
+            "; no se abrirán operaciones después del cierre");
+
+   //--- Indicadores
+   g_fastHandle = iMA(_Symbol, g_timeframe, InpFastPeriod, 0, MODE_EMA, InpAppliedPrice);
+   g_slowHandle = iMA(_Symbol, g_timeframe, InpSlowPeriod, 0, MODE_EMA, InpAppliedPrice);
+   if(g_fastHandle == INVALID_HANDLE || g_slowHandle == INVALID_HANDLE)
+   {
+      Print("Error al crear las EMAs. Código ", GetLastError());
+      return INIT_FAILED;
+   }
+
+   //--- Configuración de ejecución
+   g_trade.SetExpertMagicNumber(InpMagicNumber);
+   g_trade.SetDeviationInPoints((ulong)InpSlippagePoints);
+   ConfigureFilling();
+
+   //--- No operar un cruce antiguo: la primera evaluación será en la próxima vela
+   g_lastBarTime   = iTime(_Symbol, g_timeframe, 0);
+   g_signalBarTime = 0;
+
+   Print("EMA Cross ", InpFastPeriod, "/", InpSlowPeriod, " iniciado en ", _Symbol, " ",
+         TimeframeToString(g_timeframe), " | Lote ", DoubleToString(lots, 2),
+         " | SL ", DoubleToString(InpStopLossPips, 1), " pips | TP ", DoubleToString(InpTakeProfitPips, 1),
+         " pips | 1 pip = ", DoubleToString(g_pip, _Digits));
+   return INIT_SUCCEEDED;
 }
 
-double CurrentSpreadPips()
+//+------------------------------------------------------------------+
+//| Desinicialización                                                |
+//+------------------------------------------------------------------+
+void OnDeinit(const int reason)
 {
-   MqlTick tick;
-   if(!SymbolInfoTick(_Symbol, tick))
-      return DBL_MAX;
-   return (tick.ask - tick.bid) / g_pip;
+   if(g_fastHandle != INVALID_HANDLE)
+      IndicatorRelease(g_fastHandle);
+   if(g_slowHandle != INVALID_HANDLE)
+      IndicatorRelease(g_slowHandle);
+   Comment("");
 }
 
-double NormalizePrice(const double price)
+//+------------------------------------------------------------------+
+//| Cada tick                                                        |
+//+------------------------------------------------------------------+
+void OnTick()
 {
-   const double tickSize = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
-   if(tickSize > 0.0)
-      return NormalizeDouble(MathRound(price / tickSize) * tickSize, _Digits);
-   return NormalizeDouble(price, _Digits);
-}
+   datetime now = TimeCurrent();
 
-//--- Ajusta el lote al paso del símbolo; devuelve 0 si queda por debajo del mínimo
-double NormalizeLots(const double lots)
-{
-   const double minLot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
-   const double maxLot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX);
-   const double step   = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
-   if(step <= 0.0)
-      return 0.0;
+   //--- 1) Day trade: cerrar posiciones al llegar la hora de cierre
+   if(InpCloseEndOfDay)
+      CloseDayTradePositions(now);
 
-   double volume = MathFloor(lots / step + 1e-7) * step;
-   if(volume < minLot)
-      return 0.0;
-   if(maxLot > 0.0 && volume > maxLot)
-      volume = maxLot;
+   //--- 2) En cada vela nueva, buscar el cruce en las dos últimas velas cerradas
+   datetime barTime = iTime(_Symbol, g_timeframe, 0);
+   if(barTime == 0)
+      return;
 
-   const int volumeDigits = (int)MathMax(0.0, MathCeil(-MathLog10(step)));
-   return NormalizeDouble(volume, volumeDigits);
-}
+   if(barTime != g_lastBarTime)
+   {
+      int signal = CheckBullishCross();
+      if(signal < 0)
+         return; // datos del indicador aún no listos: reintentar en el siguiente tick
 
-bool IsRetcodeSuccess(const uint retcode)
-{
-   return retcode == TRADE_RETCODE_DONE ||
-          retcode == TRADE_RETCODE_DONE_PARTIAL ||
-          retcode == TRADE_RETCODE_PLACED;
-}
+      g_lastBarTime = barTime;
+      if(signal > 0)
+      {
+         g_signalBarTime = barTime;
+         g_entryAttempts = 0;
+         g_spreadWarned  = false;
+         Print("Señal de compra: la EMA ", InpFastPeriod, " cruzó hacia arriba la EMA ", InpSlowPeriod,
+               " (vela cerrada ", TimeToString(iTime(_Symbol, g_timeframe, 1), TIME_DATE | TIME_MINUTES), ")");
+      }
+   }
 
-string TimeframeToString(const ENUM_TIMEFRAMES tf)
-{
-   return StringSubstr(EnumToString(tf), 7); // "PERIOD_M15" -> "M15"
-}
+   //--- 3) Ejecutar la señal pendiente, solo dentro de la vela en la que se generó
+   if(g_signalBarTime != 0)
+   {
+      if(g_signalBarTime != barTime)
+      {
+         Print("Señal de compra caducada: no se pudo ejecutar dentro de su vela");
+         g_signalBarTime = 0;
+      }
+      else
+         TryEnterLong(now);
+   }
 
-int InitError(const string message)
-{
-   PrintFormat("Parámetros incorrectos: %s", message);
-   return INIT_PARAMETERS_INCORRECT;
+   //--- 4) Panel informativo
+   if(InpShowPanel)
+      UpdatePanel(now);
 }
 //+------------------------------------------------------------------+
