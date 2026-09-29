@@ -509,6 +509,18 @@ serían unas 3–4 por semana.
 
 Criterios fijados antes de ejecutarla: los del apartado 4.4 (a–h).
 
+**Primer intento (no es H1).** Se cambió el «Periodo» del probador a H1, pero el preset fija
+`InpTimeframe` = H4, así que las señales siguieron en H4. Es decir, se volvió a probar **T0-H4**, esta
+vez en **XAUUSDc** (cuenta Cent, depósito 10 000 USC):
+
+| Oper. | Acierto | PF | Esperanza | t | Estrés | DD equidad % | Resultado |
+|---|---|---|---|---|---|---|---|
+| 62 | 29.0 % | 0.76 | −14.95 | −1.04 | −16.15 | 12.93 | −926.65 USC (−9.3 %) |
+
+- Por año: 2022 **sin operaciones** (causa no identificada, probablemente el historial del símbolo cent), 2023 −688.15 (27 op.), 2024 −238.50 (35 op.).
+- Confirma lo visto en XAUUSD: **la configuración que está operando en real perdió en 2023 y en 2024 con los dos símbolos**. Su único año bueno fue 2022.
+- La prueba en H1 sigue pendiente. Hay que cambiar el primer parámetro, «Marco temporal de las señales», no el «Periodo» del probador.
+
 ## 8. Datos pendientes del usuario
 
 1. Apalancamiento, retrasos y divisa del depósito usados en la prueba de +236 USD (se deduce 1:100).
