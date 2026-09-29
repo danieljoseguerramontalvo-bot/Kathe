@@ -167,7 +167,14 @@ def _read_frame(path) -> pd.DataFrame:
     with open(path, "r", encoding=enc) as f:
         header = f.readline()
     sep = "\t" if "\t" in header else (";" if header.count(";") > header.count(",") else ",")
-    df = pd.read_csv(path, sep=sep, encoding=enc, dtype=str, skipinitialspace=True)
+    names = [c.strip().strip("<>").lower() for c in header.strip().split(sep)]
+    raw_names = [c.strip() for c in header.strip().split(sep)]
+    text_cols = {rn for rn, nm in zip(raw_names, names) if nm in ("time", "date")}
+    try:   # fast path: numeric columns parsed by the C reader
+        df = pd.read_csv(path, sep=sep, encoding=enc, skipinitialspace=True,
+                         dtype={c: str for c in text_cols} | {c: "float64" for c in raw_names if c not in text_cols})
+    except (ValueError, TypeError):
+        df = pd.read_csv(path, sep=sep, encoding=enc, dtype=str, skipinitialspace=True)
     df.columns = [c.strip().strip("<>").lower() for c in df.columns]
     # MT5 "Export bars" format: <DATE> <TIME> <OPEN> ... <TICKVOL> <VOL> <SPREAD>
     if "date" in df.columns and "time" not in df.columns:
@@ -201,13 +208,13 @@ def load_mt5_csv(path, start=None, end=None, repair: bool = True, return_report:
     idx = parse_server_times(raw["time"])
     df = pd.DataFrame(index=idx)
     df.index.name = "time"
+    def _num(col):
+        v = raw[col]
+        return v.to_numpy(dtype=float) if v.dtype.kind == "f" else pd.to_numeric(v.to_numpy(), errors="coerce")
     for c in PRICE_COLS:
-        df[c] = pd.to_numeric(raw[c].to_numpy(), errors="coerce")
-    for c, default in (("tick_volume", 0), ("spread", np.nan), ("real_volume", 0)):
-        if c in raw.columns:
-            df[c] = pd.to_numeric(raw[c].to_numpy(), errors="coerce")
-        else:
-            df[c] = default
+        df[c] = _num(c)
+    for c, default in (("tick_volume", 0.0), ("spread", np.nan), ("real_volume", 0.0)):
+        df[c] = _num(c) if c in raw.columns else default
     n_nospread = int(df["spread"].isna().sum())
     report["rows_missing_spread"] = n_nospread
     if n_nospread:

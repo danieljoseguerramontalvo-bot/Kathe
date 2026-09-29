@@ -150,7 +150,7 @@ class SessionBreakout(Strategy):
         k = self.dec_dayk[ctx.i]
         if not self._compression_ok(k):
             self.traded[k] = True          # skip the whole day
-            return "compression_filter"
+            return "compression_filter" if np.isfinite(self.day_ratio[k]) else "atr_d1_warmup"
         return None
 
     def entry_window_ok(self, ctx):

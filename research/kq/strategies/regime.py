@@ -22,7 +22,9 @@ def regime_series(md, er_period=20, er_threshold=0.3, atr_period=14, pct_window=
     er = efficiency_ratio(c, er_period)
     atr = atr_mt5(d1["high"].to_numpy(float), d1["low"].to_numpy(float), c, atr_period)
     pct = rolling_percentile_rank(atr, pct_window)
-    terc = np.where(np.isfinite(pct), np.minimum((pct * 3).astype(int, copy=False) if False else np.floor(np.nan_to_num(pct) * 3), 2), np.nan)
+    terc = np.full(len(pct), np.nan)
+    ok = np.isfinite(pct)
+    terc[ok] = np.minimum(np.floor(pct[ok] * 3.0), 2.0)
     trend = np.where(np.isfinite(er), er >= er_threshold, False)
     return {"close_time_ns": d1["close_time_ns"].to_numpy("int64"), "er": er, "atr": atr,
             "atr_pct": pct, "vol_tercile": terc, "is_trend": trend, "time": d1.index}

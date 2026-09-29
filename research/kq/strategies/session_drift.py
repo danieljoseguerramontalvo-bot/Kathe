@@ -57,14 +57,17 @@ class SessionDrift(Strategy):
         self.grid_utc = server_to_utc(self.grid)
         self.grid_hour = (self.grid_utc % NS_PER_DAY) // NS_PER_HOUR
         self.grid_wd = weekday_of_ns(self.grid_utc)
+        # a grid hour is 'live' when the market has an M1 bar within the delay tolerance
+        j = np.minimum(np.searchsorted(md.t, self.grid, "left"), len(md.t) - 1)
+        self.grid_live = (md.t[j] >= self.grid) & (md.t[j] - self.grid <= int(p["max_exec_delay_min"]) * NS_PER_MIN)
 
     def decision_times(self):
         return self.grid
 
     def signal(self, i):
         p = self.params
-        if self.grid_hour[i] != int(p["h_in"]):
-            return 0
+        if self.grid_hour[i] != int(p["h_in"]) or not self.grid_live[i]:
+            return 0      # not the entry hour, or market closed (weekend/holiday): silent
         if p["weekdays"] is not None and int(self.grid_wd[i]) not in set(p["weekdays"]):
             return 0
         return int(p["side"])

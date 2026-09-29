@@ -273,8 +273,18 @@ class Engine:
         skipped = pd.DataFrame(self.skips, columns=SKIP_COLUMNS)
         if len(skipped):
             skipped["time"] = pd.to_datetime(skipped["time"].to_numpy(dtype="int64"), unit="ns")
+        warnings_ = []
+        n_roll = sum(1 for x in self.skips if x[3] == "rollover")
+        n_attempts = len(self.closed) + sum(1 for x in self.skips if x[2] in ("execution", "sizing"))
+        if n_roll and n_roll >= 0.5 * max(n_attempts, 1):
+            warnings_.append(
+                f"{n_roll} of {n_attempts} entry attempts were skipped by the rollover no-entry window "
+                f"[{cfg.rollover_from_min}, {cfg.rollover_to_min}) min server. Decisions at 00:00 server (e.g. every "
+                f"D1 bar close) execute at the daily open inside that window; disable it (from == to) or use "
+                f"another timeframe if that is not intended.")
         stats = {
             "engine_version": ENGINE_VERSION,
+            "warnings": warnings_,
             "runtime_s": round(_time.perf_counter() - t_start, 4),
             "n_m1_bars_in_range": int(j1 - j0),
             "n_decisions": int(n_valid),
