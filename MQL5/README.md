@@ -1,12 +1,30 @@
-# Robot XAUUSD v4 – Tendencia EMA 40/200 y Reversión RSI(2) (MetaTrader 5)
+# Robot XAUUSD – investigación v5 (MetaTrader 5)
+
+> **Estado (2026-09-29):**
+> - Las rondas v4 terminaron **sin ninguna configuración defendible**.
+> - La v5 reabre la investigación con un protocolo prerregistrado (`docs/PROTOCOLO_V5.md`) y un motor de ejecución nuevo, KatheQuant v5.
+> - **Ningún sistema de este repositorio ha demostrado todavía una ventaja estadística.**
+
+## Estructura
 
 | Archivo | Qué es |
 |---|---|
-| `Experts/EMA_Cross_DayTrade.mq5` | **v4**: la versión actual |
-| `Experts/archive/EMA_Cross_DayTrade_v3_referencia.mq5` | v3 exacta, la que generó el informe de +236 USD. **Solo para reproducirlo** |
-| `Experts/archive/EMA_Cross_DayTrade_v1_original.mq5` | Versión original pedida (compra en el cruce EMA 40/200) |
-| `Presets/*.set` | Parámetros de la referencia y de las 13 variantes del protocolo |
-| `PROTOCOLO.md` | Recuperación del proyecto, análisis del informe, protocolo de pruebas y criterios de aceptación |
+| `Experts/KatheQuant_v5.mq5` | **v5**: motor modular. En cuentas reales **solo emite señales**; opera en automático solo en el probador o en una demo habilitada |
+| `Scripts/KQ_AuditoriaEntorno.mq5` | Vuelca especificaciones, sesiones, spreads, comisiones e historial disponible (solo lectura) |
+| `Scripts/KQ_ExportarHistorial.mq5` | Exporta velas con spread a CSV para el motor de investigación en Python (solo lectura) |
+| `Presets/v5/*.set` | Una configuración por hipótesis prerregistrada, más la referencia T0 para contrastar con la v4 |
+| `docs/AUDITORIA.md` | Auditoría del trabajo existente: qué está comprobado, qué es supuesto y qué es desconocido |
+| `docs/LITERATURA.md` | Revisión bibliográfica, con sus fuentes |
+| `docs/PROTOCOLO_V5.md` | Hipótesis, costes, cortes de datos, criterios, presupuesto y fase de demo, fijados **antes** de ver datos |
+| `docs/INSTALACION_Y_DEMO.md` | Instalación, exportación de datos, contraste v5 frente a v4 y fase prospectiva en demo |
+| `../research/` | Motor de investigación en Python (backtest con costes bid/ask, walk-forward y registro de experimentos) |
+| `Experts/EMA_Cross_DayTrade.mq5` | v4.01 (histórica; no usar en real) |
+| `Experts/archive/` | Copias exactas de la v1, la v3 (la del +236) y la v4.00 (la que produjo todos los resultados registrados) |
+| `Presets/*.set`, `PROTOCOLO.md` | Protocolo y presets de la v4 (cerrado) |
+
+---
+
+# Histórico: robot v4 – Tendencia EMA 40/200 y Reversión RSI(2)
 
 ## Dos estrategias, no una
 
