@@ -1,0 +1,254 @@
+# Protocolo de investigación v5 (prerregistrado)
+
+**Fecha de registro:** 2026-09-29, antes de disponer de ningún dato para esta fase.
+
+Lo que aquí se fija (hipótesis, reglas, cortes de datos, métricas, criterios y presupuesto) **no
+se cambia después de ver resultados**. Cualquier cambio posterior se añade al final con fecha y
+motivo. Si un experimento lo sigue, se marca como no prerregistrado.
+
+Relación con lo anterior:
+- El protocolo v4 (`../PROTOCOLO.md`) quedó cerrado sin ninguna configuración defendible.
+- La v5 **no reutiliza** las familias EMA 40/200 ni RSI(2) como candidatas: solo como referencias.
+
+## 1. Datos y contaminación
+
+| Escenario | Fuente | Periodo | Estado |
+|---|---|---|---|
+| A | Exportación del MT5 del usuario (`Scripts/KQ_ExportarHistorial.mq5`), XAUUSD M1 con spread | 2022-01-03 → hoy (≈ 4.7 años) | Pendiente de que el usuario lo exporte |
+| B | Proveedor externo con historial largo (por ejemplo, ticks de Dukascopy desde 2003) | ≈ 2008 → hoy | Bloqueado por la política de red del entorno; necesita que el usuario lo habilite |
+
+Cortes cronológicos:
+
+| Tramo | Escenario A | Escenario B | Uso |
+|---|---|---|---|
+| Desarrollo (DEV) | 2022-01-03 → 2024-06-30 | 2008-01-01 → 2016-12-31 | Selección de familias y parámetros, solo con walk-forward |
+| Validación (VAL) | 2024-07-01 → 2025-06-30 | 2017-01-01 → 2021-12-31 | Continuación del walk-forward. Las candidatas se congelan al terminar |
+| Reserva final (HOLD) | 2025-07-01 → fin | 2022-01-01 → fin | **Una sola ejecución** por candidata congelada |
+| Prospectiva | Demo, desde el congelado | Ídem | Única prueba realmente no vista |
+
+**Contaminación declarada:**
+- 2022–2024 y 2025-09 → 2026-09 ya se usaron en MT5 para las familias EMA/RSI.
+- Además, el equipo conoce la trayectoria general del oro: fuerte subida en 2024–2026.
+- Por tanto, **ningún tramo histórico posterior a 2022 es limpio**. HOLD es «el menos contaminado» y la validación definitiva es la **prospectiva en demo**.
+- En el escenario B, DEV y VAL (2008–2021) sí son limpios para todas las familias nuevas.
+
+## 2. Modelo de costes (común a todo)
+
+- Las velas son de precio BID. Ask = Bid + spread de la vela M1 (dato del bróker).
+  - Compras: entran al Ask y salen al Bid.
+  - Ventas: entran al Bid y salen al Ask.
+  - Los SL y TP se disparan con el lado del precio que corresponde a cada posición.
+- **Deslizamiento adicional** adverso en cada ejecución: base de 3 puntos (0.03 USD).
+- **Comisión**: la que se observe en la cuenta (script de auditoría). Si no se conoce, se usa 0 en base y se cubre con el estrés.
+- **Swap**: el observado. En la cuenta Cent, 0 si se confirma que no tiene swap.
+- **Estrés** obligatorio: +10, +20 y +40 puntos por operación completa (0.10 / 0.20 / 0.40 USD), y el coste que anula la ventaja (*break-even cost*).
+- Ejecución: la señal usa velas **cerradas** y se ejecuta en la apertura de la siguiente vela M1.
+  - Si SL y TP caen dentro de la misma vela M1, se asume el SL.
+  - Un hueco que salta el stop se ejecuta en la apertura de la vela.
+
+## 3. Hipótesis (conjunto acotado)
+
+Cada hipótesis tiene su mecanismo, dónde debería funcionar y fallar, sus reglas exactas y lo que la descarta.
+Las reglas están implementadas igual en el motor Python (`research/`) y en el EA v5, para poder
+contrastar ambos.
+
+### H1. Continuación de tendencia (momentum de serie temporal)
+
+- **Mecanismo:**
+  - infrarreacción a la información y difusión lenta (flujos de bancos centrales, ETF, cobertura);
+  - comportamiento de rebaño.
+  - Está documentado en futuros, oro incluido: Moskowitz, Ooi y Pedersen (2012); Hurst, Ooi y Pedersen (2017).
+- **Por qué sobreviviría a los costes:** los movimientos diarios o de 4 horas son de decenas de USD frente a un spread de 0.2–0.5 (< 2 % del riesgo por operación).
+- **Funciona** en tendencias macro sostenidas. **Falla** en rangos laterales con rupturas falsas.
+- **Reglas (`TREND_DONCHIAN`):**
+  - Compra si el cierre supera el máximo de las N velas anteriores; venta, simétrica.
+  - SL inicial: 2×ATR14.
+  - Trailing tipo *chandelier*: 3×ATR14 desde el extremo alcanzado desde la entrada. Solo se estrecha.
+  - La ruptura contraria cierra la posición y la invierte.
+- **Rejilla:** N ∈ {20, 55} × TF ∈ {H4, D1} = **4 configuraciones**.
+- **Se descarta si:** tras el walk-forward, la esperanza fuera de muestra es ≤ 0 después de costes, o todo el beneficio es de compras sin superar al comprar y mantener con la misma exposición.
+
+### H2. Ruptura tras compresión en el cambio de liquidez de Londres
+
+- **Mecanismo:**
+  - la volatilidad se agrupa (clustering);
+  - el rango asiático, de baja liquidez, se rompe cuando entra la liquidez de Londres y la información de la mañana europea;
+  - la compresión precede a la expansión.
+- **Por qué sobreviviría a los costes:** una operación al día como mucho, con riesgo igual al ancho del rango (normalmente 5–15 USD) frente a 0.3 de spread.
+- **Funciona** en días de expansión direccional. **Falla** en días de rango (rupturas falsas) y con noticias que invierten el movimiento.
+- **Reglas (`SESSION_BREAKOUT`):**
+  - Rango: máximo y mínimo entre las 00:00 y las 07:00 UTC.
+  - Filtro de compresión: se opera el día solo si ancho / ATR14 diario ≤ c_max.
+  - Entrada: entre las 07:00 y las 12:00 UTC, con el cierre de una vela M5 fuera del rango ± 0.1×ancho. Como mucho una operación al día.
+  - SL: el otro lado del rango.
+  - TP: m×ancho.
+  - Cierre forzado a las 20:00 UTC.
+- **Rejilla:** c_max ∈ {0.4, sin filtro} × m ∈ {1, 2} = **4 configuraciones**.
+- **Se descarta si:** la esperanza fuera de muestra es ≤ 0, o desaparece con +10 puntos de coste, o no es estable entre años.
+
+### H3. Estacionalidad intradía (sesiones)
+
+- **Mecanismo:**
+  - flujos recurrentes por sesión (demanda física asiática, fijaciones de la LBMA, apertura de COMEX y datos de EE. UU.);
+  - efectos de noche frente a día descritos en futuros.
+- **Riesgo principal:** *data snooping*. Hay cientos de ventanas horarias posibles.
+- **Procedimiento (`SESSION_DRIFT`):**
+  - **Solo en DEV** se evalúan todas las ventanas (hora de entrada, hora de salida y dirección, de 1 a 12 h) después de costes.
+  - Se elige la mejor y se registra cuántas ventanas se probaron (del orden de 550).
+  - Su significación se ajusta con el *Deflated Sharpe Ratio* usando ese número de pruebas.
+  - SL de protección: 3×ATR14 de H1.
+- **Rejilla:** **1 configuración** seleccionada (el número de ventanas probadas cuenta para la corrección).
+- **Se descarta si:** no supera el *Deflated Sharpe Ratio* ≥ 0.95, o su signo cambia en VAL o HOLD.
+
+### H4. Reversión a la media condicionada al régimen (prioridad baja)
+
+- **Mecanismo:**
+  - provisión de liquidez tras movimientos extremos de corto plazo;
+  - solo en régimen de rango, porque en tendencia la reversión pierde.
+- **Evidencia previa en contra:** RSI(2) en M15 perdió en 2022–2024 (t = −5.1). Se incluye para comprobar si el **régimen** explica ese fracaso, no porque se espere que funcione.
+- **Reglas:**
+  - RSI(2) 10/90 con filtro EMA200. Salidas: RSI 70/30, SL 1.5×ATR14 y TP 6×ATR14.
+  - Solo cuando el *efficiency ratio* diario de 20 días es menor que 0.3 (régimen de rango).
+- **Rejilla:** TF ∈ {H1, H4} × filtro de régimen {sí, no} = **4 configuraciones**.
+- **Se descarta si:** el filtro de régimen no convierte la esperanza en positiva fuera de muestra.
+
+### Referencias obligatorias (no son candidatas)
+
+| Id | Qué es | Para qué sirve |
+|---|---|---|
+| B0 | Comprar y mantener, y comprar y mantener con la misma exposición que cada candidata | Separar la ventaja de la simple beta alcista del oro |
+| B1 | `REF_T0` (la configuración en real: EMA 40/200 H4, ADX 20, SL 1.5 / TP 3 ATR) | Contrastar el motor Python con el probador de MT5 (resultado conocido: 2022–2024, 100 operaciones, PF 1.21) |
+| B2 | `REF_RSI2` (la del +236) | Ídem (conocido: F0-H4 con 230 operaciones y PF 0.96) |
+| B3 | Entradas aleatorias con las mismas salidas y el mismo riesgo (1 000 semillas) | Medir cuánto aporta la entrada y cuánto la gestión |
+
+### Estudios adicionales (solo si una familia supera el walk-forward)
+
+- **Régimen:** la misma familia con y sin filtro de régimen, detectado solo con datos pasados:
+  - tendencia o rango según el ER diario de 20 días;
+  - terciles de volatilidad según el percentil del ATR de 250 días.
+  - Cuenta **2 configuraciones** por familia superviviente.
+- **Combinación:** si dos o más familias superan el walk-forward y la correlación de su P&L diario es < 0.5, se prueba una combinación con el mismo riesgo para cada una (**1 configuración**). Tiene que mejorar a cada componente por separado.
+- **Aprendizaje automático:** excluido en el escenario A por falta de datos.
+  - En el escenario B, como mucho un metaetiquetado con regresión logística de ≤ 5 variables, entrenado en walk-forward (**1 configuración**).
+  - Solo se acepta si mejora la esperanza fuera de muestra en ≥ 20 % y el *Deflated Sharpe*.
+
+## 4. Diseño de validación
+
+1. **Walk-forward** sobre DEV y VAL:
+   - ventanas deslizantes de 18 meses de entrenamiento y 6 meses de prueba (escenario A), o de 4 años y 1 año (B);
+   - en cada ventana de entrenamiento se elige la configuración de la familia con mayor esperanza en R, con n ≥ 30 (el desempate lo gana la más simple);
+   - las operaciones de todas las ventanas de prueba se concatenan: ese es el resultado fuera de muestra.
+2. **Sensibilidad:** la tabla de configuraciones vecinas de la rejilla. Ninguna vecina puede tener esperanza ≤ 0 (sin acantilados).
+3. **Costes:** estrés de +10, +20 y +40 puntos y coste de equilibrio.
+4. **Desgloses:** por año, por semestre, por sesión y hora de entrada, por dirección y por régimen de volatilidad.
+5. **Concentración:** el peso de las 5 mejores operaciones y de los 5 mejores días en el beneficio neto.
+6. **Ablación:** quitar cada componente (filtro, trailing, régimen) y medir su aportación.
+7. **Incertidumbre:**
+   - *bootstrap* por bloques estacionario (Politis-Romano) sobre los rendimientos diarios, para los intervalos de la esperanza y del Sharpe;
+   - Monte Carlo del orden de las operaciones, para la distribución del drawdown máximo y de las rachas de pérdidas.
+8. **Número de pruebas:**
+   - *Deflated Sharpe Ratio* con el número total de configuraciones registradas en todas las familias;
+   - Holm-Bonferroni sobre los p-valores de las cuatro hipótesis.
+9. **Prueba del mono:** la esperanza fuera de muestra debe superar el percentil 95 de B3.
+
+## 5. Qué significa «el mejor»: criterios de aceptación
+
+Todos con riesgo equivalente: **1 % del capital por operación** y la misma gestión de límites. Una candidata es **defendible** si cumple TODO esto:
+
+| # | Criterio (fuera de muestra: walk-forward DEV y VAL concatenados) | Umbral |
+|---|---|---|
+| a | Operaciones | ≥ 100 (A) / ≥ 200 (B) |
+| b | Esperanza neta en R y su t | > 0 y t ≥ 2.0 |
+| c | *Deflated Sharpe Ratio* (con todas las pruebas registradas) | ≥ 0.95 |
+| d | Factor de beneficio | ≥ 1.20 |
+| e | Esperanza con +20 puntos de coste por operación | > 0 |
+| f | Drawdown de equidad (1 % de riesgo) y percentil 95 del Monte Carlo | ≤ 20 % y ≤ 30 % |
+| g | Periodos positivos | ≥ 60 % de los semestres. Ningún año aporta > 50 % del beneficio |
+| h | Concentración | 5 mejores operaciones ≤ 30 % y 5 mejores días ≤ 35 % del beneficio |
+| i | Vecindario de parámetros | Todas las vecinas con esperanza > 0 |
+| j | Dirección | Ventas con resultado ≥ 0, o compras que superen a B0 con la misma exposición |
+| k | Prueba del mono | > percentil 95 de B3 |
+
+**Reserva final (una sola ejecución, con los parámetros congelados):** PF ≥ 1.10, esperanza > 0,
+drawdown ≤ 20 % y ≥ 30 operaciones.
+
+**Elección entre candidatas defendibles**, en este orden:
+1. mayor Sharpe fuera de muestra con riesgo equivalente;
+2. menor drawdown y menor tiempo de recuperación;
+3. más simple (menos parámetros y componentes).
+
+Se presentará la tabla de compensaciones:
+- rentabilidad;
+- drawdown;
+- frecuencia;
+- capital mínimo: el que hace que el lote mínimo arriesgue ≤ 1 % con el stop mediano.
+
+**Si ninguna es defendible**, se entregan:
+- la investigación;
+- las causas del descarte;
+- el siguiente experimento con más valor informativo.
+
+## 6. Presupuesto de experimentos
+
+- Candidatas: H1 4 + H2 4 + H3 1 (con ≈ 550 ventanas contadas) + H4 4 = **13 configuraciones**.
+- Adicionales: régimen, combinación y aprendizaje automático, como mucho **6**.
+- Referencias: B0–B3 (no compiten).
+- A la reserva final llegan **como mucho 3 candidatas**, y cada una se ejecuta **una vez**.
+- Todo experimento se anota en `research/registry/experiments.jsonl` (solo añadir; nunca borrar). El *Deflated Sharpe* usa el recuento total del registro.
+
+## 7. Fase prospectiva (demo, parámetros congelados)
+
+- **Duración:** ≥ 3 meses y ≥ 30 operaciones. Si es intradía, ≥ 60.
+- **Registro del EA v5** en CSV, por operación y por señal:
+  - la señal y su vela, y el precio esperado y el ejecutado;
+  - el spread al entrar y al salir, el deslizamiento, la comisión y el swap;
+  - los motivos de descarte y los errores.
+- **Continuar** si se cumplen las tres condiciones:
+  - el ≥ 95 % de las señales del backtest del mismo periodo aparecen en el registro real;
+  - el deslizamiento medio es ≤ 1.5 veces el modelado;
+  - la esperanza realizada en R está dentro del intervalo de predicción del 90 % del *bootstrap*.
+- **Suspender** (revisión) si:
+  - el drawdown supera el 10 %;
+  - o, después de 30 operaciones, la esperanza en R cae por debajo del percentil 10 del *bootstrap*;
+  - o hay > 5 % de señales sin ejecutar por errores.
+- **Descartar** si:
+  - el drawdown supera el 15 %;
+  - o la esperanza en R cae por debajo del percentil 5 después de 30 operaciones;
+  - o las señales divergen de forma sistemática (> 10 % de discrepancias).
+
+## 8. Estados del sistema (para no confundirlos)
+
+| Estado | Significado |
+|---|---|
+| Implementado | El código existe en el repositorio |
+| Verificado estáticamente | Pasa `tools/mql5check` (aproximado, no sustituye a MetaEditor) |
+| Compilado | 0 errores en MetaEditor, confirmado por el usuario con captura |
+| Probado históricamente | Resultados en el motor Python y/o en el probador de MT5, en el registro |
+| Evaluado fuera de muestra | Cumple la sección 5 con walk-forward y reserva final |
+| Observado prospectivamente | Cumple la sección 7 en demo |
+
+## 9. Registro de cambios del protocolo
+
+- 2026-09-29: versión inicial.
+- 2026-09-29, **enmienda 1, antes de ver ningún dato**: cambios motivados por la revisión bibliográfica (`LITERATURA.md`). Ver el apartado 10.
+
+## 10. Enmienda 1 (antes de ver ningún dato)
+
+1. **H3 se divide en dos:**
+   - **H3a, confirmatoria (1 configuración):** compra de 00:00 a 08:00 UTC (sesión asiática), con SL de protección de 3×ATR14 de H1. Se fija de antemano por la literatura (Blose y Gondhalekar 2014 y 2018; Wei 2026), así que no hay búsqueda y cuenta como una sola prueba. Es la hipótesis de **mayor prioridad en el escenario A**: da unas 1 150 observaciones diarias.
+   - **H3b, exploratoria (1 configuración):** el barrido de ventanas del apartado 3, con el *Deflated Sharpe* sobre unas 550 ventanas. No puede ser candidata final si H3a no la respalda.
+2. **Nueva referencia para H1: «siempre comprado» escalado por volatilidad** (Huang et al. 2020; Kim, Tse y Wald 2016).
+   - Una candidata de tendencia solo se acepta si mejora su Sharpe fuera de muestra con el mismo riesgo.
+   - Esto sustituye al criterio j para H1.
+   - En el escenario A, H1 en D1 tendrá del orden de 20–40 operaciones, así que **no puede alcanzar el criterio a**. Se informa, pero para evaluarla hace falta el escenario B.
+3. **Controles de H2:**
+   - la misma mecánica con **anclas aleatorias** (rangos de igual duración en horas aleatorias del mismo día, con muchas semillas);
+   - la ruptura **sin filtro de compresión**.
+   - H2 solo es candidata si supera el percentil 95 de las anclas aleatorias y si el filtro de compresión mejora la esperanza en más que el coste.
+   - La prioridad de H2 baja (Fetna 2026: las rupturas de apertura no sobreviven a unos 0.25 USD/oz de coste).
+4. **Regla de costes común:** no se abren entradas entre las 23:45 y las 01:15 del servidor (rollover). La aplican igual el motor Python y el EA v5 (`InpRolloverFromMin` / `InpRolloverToMin`).
+   - No hay filtro de noticias: el calendario económico no existe en el probador. Queda como limitación.
+5. **Orden de prioridad:**
+   - Escenario A: H3a > H2 > H1 (infrapotenciada) > H4.
+   - Escenario B: H1 > H3a > H2 > H4.
+6. **Presupuesto:** H3 pasa de 1 a 2 configuraciones (H3a + H3b). El total de candidatas es **14**. Las demás cifras del apartado 6 no cambian.
