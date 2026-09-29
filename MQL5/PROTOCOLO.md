@@ -315,7 +315,8 @@ Copiar los datos del informe (pestaña Backtest) y de las líneas `[RESULTADO]` 
 | **F7** (`.set`, riesgo 1 %) | Desarrollo | 1 482 | 48.9 % | 0.76 | −5.37 | **−4.15** | −8.80 | **82.02** | −0.96 | **0 de 3** | – | ✘ falla b, c, d, e, f y g |
 | **F0** (†) | Desarrollo | 1 905 | 49.1 % | 0.72 | −4.84 | **−5.13** | −7.32 | **92.62** | −0.97 | **0 de 3** | – | ✘ falla b, c, d, e, f y g |
 | **T0** (‡) | Desarrollo | 989 | 31.4 % | 0.75 | −7.83 | **−3.90** | −10.74 | **79.20** | −0.97 | **0 de 3** | – | ✘ falla b, c, d, e, f y g |
-| F1 … F6, S1 … S3, T1 | Desarrollo | | | | | | | | | | | |
+| **T1** | Desarrollo | 1 024 | 31.8 % | 0.67 | −7.87 | **−4.43** | −10.66 | **81.74** | −0.98 | **0 de 3** | – | ✘ falla b, c, d, e, f y g |
+| F1 … F6, S1 … S3 | Desarrollo | no ejecutadas: ver la conclusión de la ronda 1 | | | | | | | | | | |
 
 (‡) Identificada por el modo «Tendencia: cruces + retrocesos», TP = 2 × SL (ATR 3 / 1.5) y la
 ausencia de trailing. Por año: 2022 −3 982.63 (321 op.), 2023 −2 653.62 (358 op.), 2024
@@ -360,7 +361,81 @@ que es el valor por defecto de la v4:
 - Total: 409 operaciones, +197.69, drawdown de equidad 299.57 (20.01 %). Las 97 operaciones restantes no se abrieron.
 - Sin la protección, esa caída llegó al 25.66 %.
 
-## 6. Datos pendientes del usuario
+## 6. Conclusión de la ronda 1 (M15)
+
+**Ninguna variante cumple los criterios.** Las cuatro ejecutadas pierden en 2022, 2023 y 2024:
+
+| Variante | Estrategia | Balance final (de 10 000) | t | Pérdida por operación (≈ pips) |
+|---|---|---|---|---|
+| F7 | RSI(2) con trailing, H1 y ADX (la del +236) | 2 035.84 | −4.15 | 3.1 |
+| F0 | RSI(2) sin nada | 772.70 | −5.13 | 3.9 |
+| T0 | Tendencia EMA 40/200, TP 3 ATR | 2 252.07 | −3.90 | 5.4 |
+| T1 | Tendencia EMA 40/200, trailing y TP 6 ATR | 1 942.94 | −4.43 | 5.6 |
+
+- La pérdida en pips sale de la prueba de estrés: 2 pips más de coste por operación bajan la media en una cantidad conocida.
+- Un SL típico en M15 a final de 2024 es 1.5 × ATR ≈ 3.2–3.6 de precio (32–36 pips). Perder 3–6 pips por operación es un 10–17 % del riesgo. Es del tamaño de uno o dos spreads.
+- **Las entradas no muestran ninguna ventaja medible, y el coste de cada operación decide el resultado.**
+
+F1–F6 y S1–S3 no se ejecutaron. Los dos extremos del diseño factorial, F0 (ningún componente) y
+F7 (los tres), dan PF 0.72 y 0.76, y ninguno se acerca a 1.15. S1–S3 solo servían para el
+criterio i, que se aplica si se elige F7. Ejecutarlas añadiría comparaciones sin posibilidad de
+cambiar la decisión.
+
+Por la regla 3, **ninguna configuración de la ronda 1 es defendible**: no se opera en real ni en demo.
+
+## 7. Ronda 2 (fijada antes de ejecutarla): las mismas reglas en H4
+
+**Hipótesis.** Las pérdidas en M15 se deben sobre todo a que el coste es grande frente a un
+stop pequeño. En H4 el ATR es unas 4 veces mayor, así que el mismo spread pesa unas 4 veces
+menos por unidad de riesgo. Se repiten las reglas sin cambiarlas: solo cambia la temporalidad.
+
+| Archivo | Reglas |
+|---|---|
+| `R2_H4_F0_rsi` | F0 en H4 |
+| `R2_H4_T0_tendencia` | T0 en H4, sin filtro H1 porque es un marco menor |
+| `R2_H4_T1_tendencia_trailing` | T1 en H4, sin filtro H1 |
+
+**Condiciones.** Las del apartado 4.2, con estas diferencias:
+- `InpTimeframe` = H4: el archivo lo fija, así que el gráfico del probador puede quedarse en M15;
+- sin horario;
+- sin cierre intradía: las posiciones duran días, y el probador aplica swaps (los actuales) y huecos de fin de semana.
+
+Periodo: 2022.01.01–2024.12.31. El calentamiento son 600 velas H4, así que las señales empiezan
+hacia mayo de 2022.
+
+**Criterios en desarrollo** (menos operaciones que en M15, así que se exige más ventaja por operación):
+
+| # | Criterio | Umbral |
+|---|---|---|
+| a | Operaciones | ≥ 60 |
+| b | Factor de beneficio | ≥ 1.3 |
+| c | t de la esperanza | ≥ 2.0 |
+| d | Esperanza con estrés de +2 pips | > 0 |
+| e | Drawdown de equidad | ≤ 25 % |
+| f | Factor de recuperación | ≥ 2.0 |
+| g | Años positivos | ≥ 2 de 3 (2022 incompleto cuenta) |
+| h | Mayor ganancia / beneficio neto | ≤ 25 % |
+
+**Contexto.** El oro subió de ≈ 1 830 a ≈ 2 620 entre finales de 2021 y finales de 2024 (≈ +43 %).
+Una estrategia de tendencia puede ganar solo por ir comprada. Se anota el acierto de las compras
+y de las ventas (pestaña Backtest) para verlo.
+
+**Validación:** 2025.01.01–2025.08.31, solo las que cumplan a–h, una vez. Debe dar PF ≥ 1.1 y
+beneficio neto > 0. Después, demo durante 3 meses como mínimo.
+
+**Regla de cierre:** si ninguna cumple a–h, el proyecto termina con esta conclusión. Con estos
+indicadores (EMA 40/200, RSI(2), ATR, ADX) no hay un robot defendible para el oro ni en M15 ni en H4,
+y no se opera con dinero real. No habrá ronda 3 con estos mismos datos.
+
+Presupuesto: 3 pruebas de desarrollo y ≤ 2 de validación.
+
+| Variante | Oper. | Acierto | PF | Esperanza | t | Estrés | DD equidad % | Recuperación | Años + | Mayor ganancia % | ¿Cumple? |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| R2_H4_F0_rsi | | | | | | | | | | | |
+| R2_H4_T0_tendencia | | | | | | | | | | | |
+| R2_H4_T1_tendencia_trailing | | | | | | | | | | | |
+
+## 8. Datos pendientes del usuario
 
 1. Apalancamiento, retrasos y divisa del depósito usados en la prueba de +236 USD (se deduce 1:100).
 2. Tipo de cuenta real en HF Markets (Premium, Zero, Pro, cent…), divisa (USD o USC), comisión por lote y balance aproximado.
