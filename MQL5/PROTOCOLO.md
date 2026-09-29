@@ -312,7 +312,14 @@ Copiar los datos del informe (pestaña Backtest) y de las líneas `[RESULTADO]` 
 | 00 (v3) | Informe original | 506 | 55.3 % | 1.09 | 0.47 | – | – | 25.66 | 0.61 | – | 44 | referencia |
 | 00 (v4) | Compatibilidad | 506 | 55.3 % | 1.09 | 0.47 | 0.74 | 0.27 | 25.66 | 0.61 | 1 de 2 | 43.9 | ✔ idéntico |
 | F7 con lote fijo 0.01 (*) | Desarrollo | 1 483 | 49.0 % | 0.79 | −0.33 | **−3.62** | −0.53 | 5.48 | −0.88 | **0 de 3** | – | ✘ falla b, c, d, f y g |
-| F0 … T1 | Desarrollo | | | | | | | | | | | |
+| **F7** (`.set`, riesgo 1 %) | Desarrollo | 1 482 | 48.9 % | 0.76 | −5.37 | **−4.15** | −8.80 | **82.02** | −0.96 | **0 de 3** | – | ✘ falla b, c, d, e, f y g |
+| F0 … F6, S1 … S3, T0, T1 | Desarrollo | | | | | | | | | | | |
+
+**F7 con su archivo** (riesgo 1 % sobre 10 000):
+- Por año: 2022 −2 887.67 (459 op.), 2023 −3 938.81 (535 op.), 2024 −1 137.68 (488 op.).
+- Balance final 2 035.84: **pierde el 80 % de la cuenta**.
+- El drawdown de 82 % se ve porque el drawdown máximo está desactivado (0) en las pruebas. Con el valor por defecto de la v4 (20 %), el EA se habría bloqueado al perder un 20 % desde el máximo.
+- La configuración de referencia queda **descartada**. S1-S3 solo sirven para el criterio i, que se aplica si se elige F7, así que ya no deciden nada.
 
 (*) Se ejecutó sin cargar `F7_rsi_completo.set`: son los parámetros de la referencia (trailing,
 H1, ADX 20, RSI 10/90) con lote fijo 0.01 en vez del 1 % de riesgo. Las señales y las salidas
