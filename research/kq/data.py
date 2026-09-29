@@ -86,8 +86,9 @@ class SymbolSpec:
         if isinstance(spec.swap_mode, (int, float)) or str(spec.swap_mode).isdigit():
             code = int(spec.swap_mode)
             if code not in _SWAP_MODE_INT:
-                warnings.warn(f"swap_mode {code} not supported; treating swap as points")
-            spec.swap_mode = _SWAP_MODE_INT.get(code, "points")
+                raise ValueError(f"swap_mode {code} (MT5 ENUM_SYMBOL_SWAP_MODE) is not supported: only 0 (disabled), "
+                                 f"1 (points) and 4 (account currency); pass the swap explicitly or disable it")
+            spec.swap_mode = _SWAP_MODE_INT[code]
         spec.swap_mode = str(spec.swap_mode).lower()
         if spec.gmt_offset_seconds is not None:
             spec.gmt_offset_seconds = int(float(spec.gmt_offset_seconds))
@@ -107,6 +108,40 @@ class SymbolSpec:
     def default_units_per_usd(self) -> float:
         """100 for cent accounts (USC), else 1."""
         return 100.0 if self.account_currency.strip().upper() in ("USC", "USCENT", "US CENT") else 1.0
+
+    def money_per_lot_check(self, units_per_usd: float, tol: float = 1e-3) -> dict:
+        """Compare the value the engine assumes for a 1.0 price move on 1.0 lot
+        (contract_size x units_per_usd, account currency) with what the broker reports:
+        ``money_per_price_unit_per_lot`` from the audit script (OrderCalcProfit), else
+        tick_value / tick_size. ``ok`` is False when they differ by more than ``tol``."""
+        expected = float(self.contract_size) * float(units_per_usd)
+        observed, source = None, None
+        v = self.extra.get("money_per_price_unit_per_lot")
+        try:
+            if v is not None and float(v) > 0:
+                observed, source = float(v), "money_per_price_unit_per_lot"
+        except (TypeError, ValueError):
+            pass
+        if observed is None and self.tick_size > 0 and self.tick_value > 0:
+            observed, source = self.tick_value / self.tick_size, "tick_value/tick_size"
+        ok = observed is None or abs(observed / expected - 1.0) <= tol
+        return {"expected": expected, "observed": observed, "source": source, "ok": bool(ok)}
+
+    def server_offset_check(self) -> dict:
+        """Check the NY+7 server-time assumption against the audit's GMT offset
+        (``gmt_offset_seconds`` measured at ``export_time_server``)."""
+        from .timeutil import server_utc_offset_hours
+        t = self.extra.get("export_time_server")
+        if self.gmt_offset_seconds is None or not t:
+            return {"checked": False, "ok": True}
+        try:
+            ts = pd.Timestamp(str(t).replace(".", "-", 2))
+        except (ValueError, TypeError):
+            return {"checked": False, "ok": True}
+        exp = server_utc_offset_hours(ts) * 3600.0
+        # the audit rounds TimeTradeServer - TimeGMT; allow a few minutes of clock skew
+        return {"checked": True, "expected_seconds": exp, "observed_seconds": self.gmt_offset_seconds,
+                "ok": bool(abs(exp - self.gmt_offset_seconds) <= 300)}
 
 
 def load_spec(path=None, **overrides) -> SymbolSpec:
@@ -213,6 +248,9 @@ def load_mt5_csv(path, start=None, end=None, repair: bool = True, return_report:
         return v.to_numpy(dtype=float) if v.dtype.kind == "f" else pd.to_numeric(v.to_numpy(), errors="coerce")
     for c in PRICE_COLS:
         df[c] = _num(c)
+    if "spread" not in raw.columns:
+        raise ValueError(f"{path}: no 'spread' column. Costs cannot be modelled without the bar spread; "
+                         "export with Scripts/KQ_ExportarHistorial.mq5")
     for c, default in (("tick_volume", 0.0), ("spread", np.nan), ("real_volume", 0.0)):
         df[c] = _num(c) if c in raw.columns else default
     n_nospread = int(df["spread"].isna().sum())
@@ -264,6 +302,7 @@ def bar_report(df: pd.DataFrame) -> dict:
         "gaps_1h_to_1d": int(((gaps >= 60) & (gaps < 24 * 60)).sum()),
         "spread_median_points": float(np.median(df["spread"].to_numpy())),
         "spread_p99_points": float(np.percentile(df["spread"].to_numpy(), 99)),
+        "share_spread_le_1_point": float(np.mean(df["spread"].to_numpy() <= 1.0)),
     }
 
 

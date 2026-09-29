@@ -14,16 +14,16 @@ def test_buy_hold_volscaled_sizing_costs_and_timing(synth_md):
     costs = CostModel(commission_per_lot_rt=7.0, slippage_points=5, apply_swap=True)
     out = buy_hold_volscaled(synth_md, "2023-02-01", "2024-01-01", costs, initial_equity=10_000)
     f = out["fills"]
-    assert len(f) > 20 and out["metrics"]["total_costs"] > 0 and out["metrics"]["total_swap"] < 0
+    assert len(f) > 10 and out["metrics"]["total_costs"] > 0 and out["metrics"]["total_swap"] < 0
     # never rebalanced inside the rollover window
     t = f["time"].to_numpy("datetime64[ns]").astype("int64")
     assert not in_minute_window(t, 1425, 75).any()
-    # first fill: lots = 1 % of equity per ATR14(D1) move (nearest volume step)
+    # first fill: lots = 1 % of equity per ATR14(D1) move, rounded DOWN to the volume step
     d1 = synth_md.bars("D1")
     atr = atr_mt5(d1.high.to_numpy(), d1.low.to_numpy(), d1.close.to_numpy(), 14)
     k = int(last_closed_index(d1.close_time_ns.to_numpy(), t[0]))
-    want = round(0.01 * 10_000 / (atr[k] * 100), 2)
-    assert f.lots_after.iloc[0] == pytest.approx(want, abs=0.011)
+    want = np.floor(0.01 * 10_000 / (atr[k] * 100) / 0.01 + 1e-9) * 0.01
+    assert f.lots_after.iloc[0] == pytest.approx(want, abs=1e-9)
     assert f.atr_d1.iloc[0] == pytest.approx(atr[k])
     free = buy_hold_volscaled(synth_md, "2023-02-01", "2024-01-01", CostModel(spread_multiplier=0.0))
     assert free["metrics"]["total_costs"] == 0.0

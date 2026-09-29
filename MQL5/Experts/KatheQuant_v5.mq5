@@ -85,9 +85,9 @@ input double InpMaxDrawdownPct   = 15.0;  // Drawdown maximo de la cuenta desde 
 input bool   InpResetLocks       = false; // Reiniciar los bloqueos de riesgo al cargar (usar una vez)
 
 input group "=== Ejecucion y dias ==="
-input int               InpMaxSpreadPoints = 60;          // Spread maximo para entrar (puntos, 0 = sin limite)
+input double            InpMaxSpreadUsd    = 0.60;        // Spread maximo para entrar, en precio (USD por onza; 0 = sin limite)
 input int               InpMaxEntryDelayMin = 90;         // Retraso maximo de la entrada desde la apertura de la vela (min)
-input int               InpSlippagePoints  = 30;          // Desviacion maxima al ejecutar (puntos)
+input double            InpMaxDeviationUsd = 0.30;        // Desviacion maxima al ejecutar, en precio (USD por onza)
 input ENUM_KQ_DIRECTION InpDirection       = KQ_DIR_BOTH; // Direcciones permitidas
 input bool              InpTradeMonday     = true;        // Operar el lunes
 input bool              InpTradeTuesday    = true;        // Operar el martes
@@ -105,7 +105,9 @@ input group "=== Filtro de regimen (comun a todas) ==="
 input ENUM_KQ_REGIME InpRegime      = KQ_REGIME_OFF; // Filtro de regimen
 input int            InpErPeriod    = 20;            // Dias del Efficiency Ratio
 input double         InpErThreshold = 0.30;          // Umbral del ER (tendencia si >= umbral)
-input double         InpVolPctMax   = 100.0;         // No entrar si el ATR diario supera este percentil de 250 dias (100 = sin filtro)
+input bool           InpVolAllowLow  = true;         // Volatilidad: permitir el tercil bajo (ATR diario frente a los 250 dias anteriores)
+input bool           InpVolAllowMid  = true;         // Volatilidad: permitir el tercil medio
+input bool           InpVolAllowHigh = true;         // Volatilidad: permitir el tercil alto
 input int            InpAtrPeriod   = 14;            // Periodo del ATR (todas las estrategias)
 
 input group "=== H1 Tendencia (Donchian) ==="
@@ -647,24 +649,52 @@ bool EfficiencyRatioD1(double &er)
    return true;
 }
 
-//--- Percentil del ATR diario actual (vela cerrada) dentro de los ultimos 250 dias
+//--- Percentil (0-100) del ATR diario de la ultima vela cerrada frente a los 250 ATR ANTERIORES
+//--- (sin incluirse): (menores + 0.5 x iguales) / 250. Misma definicion que el motor Python
+//--- (indicators.rolling_percentile_rank); tercil = min(floor(pct / 100 x 3), 2)
 bool AtrPercentileD1(double &pct)
 {
    int    lookback = 250;
    double a[];
-   if(!IndicatorReady(g_hAtrD1, lookback + InpAtrPeriod))
+   if(!IndicatorReady(g_hAtrD1, lookback + 1 + InpAtrPeriod))
       return false;
-   if(CopyBuffer(g_hAtrD1, 0, 1, lookback, a) != lookback)
+   if(CopyBuffer(g_hAtrD1, 0, 1, lookback + 1, a) != lookback + 1)
       return false;
-   double last  = a[lookback - 1];
-   int    below = 0;
+   double last  = a[lookback];
+   double below = 0.0;
    for(int i = 0; i < lookback; i++)
    {
-      if(a[i] <= last)
-         below++;
+      if(a[i] < last)
+         below += 1.0;
+      else if(a[i] == last)
+         below += 0.5;
    }
    pct = 100.0 * below / lookback;
    return true;
+}
+
+int VolTercile(const double pct)
+{
+   int t = (int)MathFloor(pct / 100.0 * 3.0);
+   if(t > 2)
+      t = 2;
+   if(t < 0)
+      t = 0;
+   return t;
+}
+
+bool VolFilterActive()
+{
+   return !(InpVolAllowLow && InpVolAllowMid && InpVolAllowHigh);
+}
+
+bool VolTercileAllowed(const int t)
+{
+   if(t == 0)
+      return InpVolAllowLow;
+   if(t == 1)
+      return InpVolAllowMid;
+   return InpVolAllowHigh;
 }
 
 void ResetSignal(KQSignal &s)
@@ -1045,7 +1075,7 @@ int RegimeCheck(string &reason)
          return -1;
       }
    }
-   if(InpVolPctMax < 100.0)
+   if(VolFilterActive())
    {
       double pct = 0.0;
       if(!AtrPercentileD1(pct))
@@ -1053,9 +1083,10 @@ int RegimeCheck(string &reason)
          reason = "percentil del ATR diario no disponible";
          return 0;
       }
-      if(pct > InpVolPctMax)
+      int tercile = VolTercile(pct);
+      if(!VolTercileAllowed(tercile))
       {
-         reason = "volatilidad alta (percentil " + DoubleToString(pct, 0) + " > " + DoubleToString(InpVolPctMax, 0) + ")";
+         reason = "volatilidad en el tercil " + IntegerToString(tercile) + " (percentil " + DoubleToString(pct, 0) + "), no permitido";
          return -1;
       }
    }
@@ -1138,10 +1169,11 @@ int EntryGate(const int dir, const datetime now, string &reason)
       reason = "mercado cerrado (fuera de la sesion de trading)";
       return 0;
    }
-   long spread = SymbolInfoInteger(g_sym, SYMBOL_SPREAD);
-   if(InpMaxSpreadPoints > 0 && spread > InpMaxSpreadPoints)
+   long   spread      = SymbolInfoInteger(g_sym, SYMBOL_SPREAD);
+   double spreadPrice = (double)spread * g_point;
+   if(InpMaxSpreadUsd > 0.0 && spreadPrice > InpMaxSpreadUsd + g_point * 0.5)
    {
-      reason = "spread alto (" + IntegerToString(spread) + " > " + IntegerToString(InpMaxSpreadPoints) + " puntos)";
+      reason = "spread alto (" + DoubleToString(spreadPrice, g_digits) + " > " + DoubleToString(InpMaxSpreadUsd, 2) + " en precio)";
       return 0;
    }
    return 1;
@@ -2189,7 +2221,7 @@ void UpdatePanel(const datetime now)
    }
    double pct = 0.0;
    if(AtrPercentileD1(pct))
-      regimeText += " | ATR diario percentil " + DoubleToString(pct, 0);
+      regimeText += " | ATR diario percentil " + DoubleToString(pct, 0) + " (tercil " + IntegerToString(VolTercile(pct)) + ")";
 
    string position = "ninguna";
    if(g_auto)
@@ -2544,8 +2576,12 @@ int OnInit()
       return InitError("limites de margen, perdida diaria, drawdown o comision fuera de rango");
    if(InpRolloverFromMin < 0 || InpRolloverFromMin > 1439 || InpRolloverToMin < 0 || InpRolloverToMin > 1439)
       return InitError("la franja del rollover debe estar entre 0 y 1439 minutos");
-   if(InpAtrPeriod < 1 || InpErPeriod < 2 || InpErThreshold <= 0.0 || InpErThreshold >= 1.0 || InpVolPctMax <= 0.0)
+   if(InpAtrPeriod < 1 || InpErPeriod < 2 || InpErThreshold <= 0.0 || InpErThreshold >= 1.0)
       return InitError("parametros de ATR o de regimen fuera de rango");
+   if(!InpVolAllowLow && !InpVolAllowMid && !InpVolAllowHigh)
+      return InitError("el filtro de volatilidad no permite ningun tercil");
+   if(InpMaxSpreadUsd < 0.0 || InpMaxDeviationUsd <= 0.0)
+      return InitError("spread maximo y desviacion maxima deben ser positivos (en precio)");
    if(InpStrategy == KQ_STRAT_TREND_DONCHIAN && (InpTdChannel < 2 || InpTdSlAtr <= 0.0 || InpTdTrailAtr < 0.0))
       return InitError("tendencia: canal >= 2 y stop > 0");
    if(InpStrategy == KQ_STRAT_SESSION_BREAKOUT)
@@ -2661,7 +2697,7 @@ int OnInit()
 
    //--- Ejecucion
    g_trade.SetExpertMagicNumber(InpMagic);
-   g_trade.SetDeviationInPoints((ulong)InpSlippagePoints);
+   g_trade.SetDeviationInPoints((ulong)MathMax(1.0, MathRound(InpMaxDeviationUsd / g_point)));
    ConfigureFilling();
 
    //--- Estado persistente: bloqueos, ultima vela procesada y posicion virtual
@@ -2695,7 +2731,8 @@ int OnInit()
    Print("[INICIO] KatheQuant v", KQ_VERSION, " | ", StrategyName(), " | ", g_sym, " | senal ", TfName(g_signalTf), " | ", g_modeText);
    Print("[INICIO] Cuenta ", accountType, " en ", AccountInfoString(ACCOUNT_CURRENCY), " | riesgo ", DoubleToString(InpRiskPercent, 2),
          "% | perdida diaria max ", DoubleToString(InpMaxDailyLossPct, 1), "% | DD max ", DoubleToString(InpMaxDrawdownPct, 1),
-         "% | spread max ", InpMaxSpreadPoints, " pts | hora servidor ", TimeToString(TimeCurrent(), TIME_MINUTES),
+         "% | spread max ", DoubleToString(InpMaxSpreadUsd, 2), " (", DoubleToString(InpMaxSpreadUsd / g_point, 0),
+         " pts) | hora servidor ", TimeToString(TimeCurrent(), TIME_MINUTES),
          " = UTC ", TimeToString(ServerToUtc(TimeCurrent()), TIME_MINUTES));
    return INIT_SUCCEEDED;
 }

@@ -24,7 +24,8 @@ from .costs import CostModel, commission_rt_from_spec
 from .data import MarketData
 from .engine import BacktestConfig, run_backtest
 from .metrics import compute_metrics
-from .registry import DEFAULT_REGISTRY, append_experiment, build_record, git_info, sanitize
+from .registry import (DEFAULT_REGISTRY, append_experiment, build_record, config_key, distinct_config_keys,
+                       git_info, read_registry, sanitize)
 from .strategies import BENCHMARKS, STRATEGIES, make_strategy
 from .validation import bootstrap_ci, calibrate_random_entry, deflated_sharpe_ratio, monte_carlo_trades
 
@@ -44,11 +45,14 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--fixed-lots", type=float, default=None, help="use fixed lots instead of risk sizing")
     ap.add_argument("--units-per-usd", type=float, default=None,
                     help="1 (USD account) or 100 (USC cent account); default from spec account_currency")
-    ap.add_argument("--slippage-points", type=float, default=0.0)
+    ap.add_argument("--slippage-points", type=float, default=3.0,
+                    help="adverse slippage per fill in points (protocol base: 0.03 USD = 3 points on a 2-digit quote)")
     ap.add_argument("--commission", type=float, default=None,
                     help="per lot round turn, account currency (default: 2 x |commission_per_lot_side_observed| "
                          "from the spec if present, else 0)")
-    ap.add_argument("--swap", action="store_true", help="apply swaps (values from the spec unless overridden)")
+    ap.add_argument("--swap", dest="swap", action="store_true", default=True,
+                    help="apply swaps (default; values from the spec unless overridden)")
+    ap.add_argument("--no-swap", dest="swap", action="store_false", help="do not charge swaps")
     ap.add_argument("--swap-long", type=float, default=None)
     ap.add_argument("--swap-short", type=float, default=None)
     ap.add_argument("--spread-mult", type=float, default=1.0)
@@ -62,7 +66,9 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--hypothesis-id", default=None)
     ap.add_argument("--experiment-id", default=None)
     ap.add_argument("--split", default=None, help="split name, e.g. dev / validation / holdout")
-    ap.add_argument("--n-trials", type=int, default=1, help="trials tried so far (Deflated Sharpe)")
+    ap.add_argument("--n-trials", type=int, default=None,
+                    help="trials tried so far for the Deflated Sharpe (default: distinct configurations in the "
+                         "registry, this one included)")
     ap.add_argument("--registry", default=str(DEFAULT_REGISTRY))
     ap.add_argument("--no-registry", action="store_true")
     ap.add_argument("--equity-freq", default="H1", help="M1 | M5 | M15 | H1 | H4 | D1")
@@ -146,7 +152,16 @@ def main(argv=None) -> int:
         dr = result.daily_returns()
         metrics["bootstrap_sharpe"] = bootstrap_ci(dr.to_numpy(), "sharpe", n_boot=a.n_boot)
         metrics["bootstrap_mean_daily"] = bootstrap_ci(dr.to_numpy(), "mean", n_boot=a.n_boot)
-        metrics["deflated_sharpe"] = deflated_sharpe_ratio(dr.to_numpy(), n_trials=a.n_trials)
+        n_trials, n_src = a.n_trials, "--n-trials"
+        if n_trials is None:
+            keys = distinct_config_keys(read_registry(a.registry)) if not a.no_registry else set()
+            keys.add(config_key(result.strategy["name"], result.strategy.get("params")))
+            n_trials, n_src = len(keys), "registry"
+        dsr = deflated_sharpe_ratio(dr.to_numpy(), n_trials=n_trials)
+        dsr["n_trials_source"] = n_src
+        if n_trials <= 1:
+            dsr["note"] = "N = 1: this is the PSR against 0, NOT a deflated Sharpe"
+        metrics["deflated_sharpe"] = dsr
         if len(result.trades) >= 2:
             metrics["monte_carlo_trades"] = monte_carlo_trades(result.trades["r_net"].to_numpy(), n_sims=a.n_mc,
                                                                risk_fraction=(cfg.risk_pct or 1.0) / 100.0)

@@ -232,6 +232,7 @@ Se presentará la tabla de compensaciones:
 - 2026-09-29: versión inicial.
 - 2026-09-29, **enmienda 1, antes de ver ningún dato**: cambios motivados por la revisión bibliográfica (`LITERATURA.md`). Ver el apartado 10.
 - 2026-09-29, **enmienda 2, antes de ver ningún dato**: detalles operativos que el texto dejaba abiertos, fijados al escribir el ejecutor `research/kq/protocol.py`. Ver el apartado 11.
+- 2026-09-29, **enmienda 3, antes de ver ningún dato**: correcciones tras la revisión independiente del motor (1 bloqueante, 7 mayores y 14 menores). Ver el apartado 12.
 
 ## 10. Enmienda 1 (antes de ver ningún dato)
 
@@ -314,3 +315,72 @@ Lo que sigue concreta lo que el texto anterior no fijaba. No cambia hipótesis, 
     | Deriva de +0.08 USD/h | H3a **no** es defendible (+0.04 R): falla c, g y h |
 
     **Potencia del escenario A:** detecta ventajas de ≈ +0.09 R por operación con unas 500 operaciones fuera de muestra. Una ventaja real más pequeña pasaría por «no defendible».
+
+## 12. Enmienda 3 (antes de ver ningún dato): correcciones de la revisión independiente del motor
+
+Un revisor independiente auditó `research/` contra este protocolo y contra el EA.
+
+**Lo que confirmó correcto:**
+- sin datos futuros, con prueba de perturbación;
+- ejecuciones, costes, indicadores idénticos a MT5, estadística y conversión de hora.
+
+**Lo que obligó a corregir**, sin tocar hipótesis, rejillas ni umbrales:
+
+1. **Prueba del mono con filtro de régimen (era bloqueante).** Las entradas aleatorias no podían operar con estrategias filtradas, así que el criterio k fallaba siempre.
+   - El filtro ahora delega en la estrategia que envuelve.
+   - Las entradas aleatorias se enfrentan al mismo régimen que las reales.
+   - Un control sin ejecuciones aleatorias detiene el proceso en lugar de fallar en silencio.
+2. **Criterio k, con comparaciones homogéneas:**
+   - superan el percentil 95 de las aleatorias **tanto** la esperanza del walk-forward **como** la de la configuración modal sobre el mismo periodo;
+   - el control solo vale si el stop mediano de las aleatorias está entre 0.8 y 1.25 veces el real.
+   - En H2, las entradas aleatorias usan la misma distancia de riesgo que una ruptura real: (1 + margen) × ancho. Con la regla del «otro lado del rango» tenían stops mucho más cortos, y una H2 perdedora pasaba k.
+3. **Calentamiento del régimen:** solo se espera a los componentes que el filtro usa. El filtro de ER no espera 250 días de percentil de ATR, igual que el EA.
+4. **Terciles de volatilidad idénticos en el EA y en Python:**
+   - percentil del ATR diario frente a los 250 anteriores, sin incluirse, con los empates contados como 0.5;
+   - tercil = mín(⌊3·p⌋, 2).
+   - El EA sustituye `InpVolPctMax` por tres casillas: `InpVolAllowLow`, `InpVolAllowMid` e `InpVolAllowHigh`.
+5. **Costes en USD por onza, no en puntos**, para que valgan con 2 o 3 decimales:
+   - deslizamiento de 0.03 por ejecución;
+   - spread máximo para entrar de 0.60, que es regla común del motor y del EA, junto con el plazo de entrada de 90 min;
+   - estrés de +0.10, +0.20 y +0.40 por operación;
+   - coste del filtro de H2 de 0.10;
+   - contraste con MT5: spread de 0.80.
+   - El EA sustituye `InpMaxSpreadPoints` e `InpSlippagePoints` por `InpMaxSpreadUsd` e `InpMaxDeviationUsd`.
+   - Esto sustituye las cifras en puntos del apartado 2 y de la enmienda 2, puntos 13 y 15.
+6. **Valor por lote y hora del servidor verificados al cargar.**
+   - Si `contract_size × unidades` no coincide con el valor del bróker, el ejecutor se detiene. El valor del bróker es `money_per_price_unit_per_lot` de la auditoría, o `tick_value / tick_size`.
+   - También se detiene si la diferencia con GMT auditada no corresponde a NY+7.
+   - Por defecto, las unidades salen de la divisa de la cuenta: 100 en USC.
+7. **Spread que las velas M1 no recogen:** con `--spread-audit` se suma la diferencia media por hora entre el spread de ticks y el de M1 del script de auditoría, como deslizamiento repartido entre entrada y salida.
+8. **H3 sin entradas en sábado ni domingo UTC**, igual que el EA. Afecta a la vecina con entrada a las 23 UTC y al barrido H3b.
+9. **Walk-forward:** una ventana sin configuración elegible cuenta como tiempo sin posición, con rendimiento diario 0, en el Sharpe y el Deflated Sharpe.
+10. **Número de pruebas del Deflated Sharpe:** el mayor entre la fórmula de la enmienda 2 y las configuraciones distintas que constan en el registro (más las 8 de la v4). Así, cada nueva ejecución del protocolo, por ejemplo el escenario B tras el A, aumenta N.
+11. **Registro a prueba de manipulación:**
+    - cadena de hashes;
+    - archivo de cabecera `experiments.jsonl.head`, que detecta borrar o editar las últimas líneas;
+    - comprobación de que la versión de git es un prefijo del archivo actual;
+    - identificadores únicos.
+    - El bloqueo de la reserva final va **dentro** del registro (sustituye a `holdout_lock.jsonl` de la enmienda 2, punto 14).
+    - Si el registro no supera la verificación, el ejecutor no arranca.
+    - Hay que hacer *commit* del registro después de cada ejecución con datos reales.
+12. **Motor:**
+    - un movimiento de stop también se valida contra la apertura M1 en la que llega al servidor; tras un hueco, MT5 lo rechaza;
+    - el comprar y mantener escalado por volatilidad redondea el lote hacia abajo;
+    - un archivo sin columna `spread`, o con un modo de swap no soportado, detiene la carga.
+    - `kq.run` usa por defecto deslizamiento de 3 puntos y swap. Con N = 1 etiqueta el valor como PSR, no como Deflated Sharpe.
+13. **Anclas aleatorias de H2:** se toman en las 24 h anteriores a las 07:00 UTC, no «del mismo día». Con una ventana de 7 h, dentro del mismo día solo cabría la real, así que esta es la interpretación posible.
+14. **R en la fase prospectiva:** se usa la definición del motor, R = neto / (lotes × valor por 1.0 de precio y lote × |precio ejecutado − SL inicial|). Se calcula con las columnas del diario del EA:
+    - de `FILL`: el precio ejecutado, el SL y el volumen;
+    - de `EXIT`: el neto;
+    - y `money_per_price_unit_per_lot` de la auditoría.
+    - La columna `r_multiple` del EA (neto / riesgo planificado) solo se informa.
+15. **Sugerencia no adoptada: varianza del Deflated Sharpe de H3b.**
+    - El revisor propuso usar la dispersión de los Sharpe entre las ventanas barridas. Se probó con datos sintéticos: con una deriva plantada fuerte (+0.30 USD/h), esa dispersión incluye la propia señal, y el DSR caía a 0.05. H3b no podría aprobar nunca.
+    - Decide la varianza bajo H0 (todas las ventanas sin ventaja), con N = todas las ventanas, aunque estén muy correlacionadas. Eso ya es conservador en N.
+    - La otra variante se informa.
+    - H3b sigue sin poder ser candidata si H3a no lo es.
+16. **Nueva validación con datos sintéticos, tras las correcciones:**
+    - paseo aleatorio: nada aprobado;
+    - derivas de +0.30 y +0.15 USD/h: H3a aprobada;
+    - deriva de +0.08 USD/h: rechazada.
+    - La potencia no cambia respecto a la enmienda 2.

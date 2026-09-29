@@ -169,6 +169,20 @@ class SessionBreakout(Strategy):
         m = self.params["tp_mult"]
         return {"sl_price": rl if side > 0 else rh, "tp_dist": float(m) * w if m else None}
 
+    def random_stops(self, ctx, side):
+        """Stops for RANDOM_ENTRY: the SAME risk distance as a real breakout entry, which
+        enters beyond range edge + buffer with the stop on the other edge, i.e. at least
+        (1 + buffer_frac) x width. With the real rule a random entry inside the range would
+        get a much tighter stop, costs would weigh more in R and the control would be biased
+        against the random entries."""
+        k = self.dec_dayk[ctx.i]
+        rh, rl = self.day_rh[k], self.day_rl[k]
+        if not np.isfinite(rh) or rh <= rl:
+            return None
+        w = rh - rl
+        m = self.params["tp_mult"]
+        return {"sl_dist": (1.0 + float(self.params["buffer_frac"])) * w, "tp_dist": float(m) * w if m else None}
+
     def manage(self, ctx, pos):
         flat = (pos.entry_time_utc // NS_PER_DAY) * NS_PER_DAY + self._flat_min * NS_PER_MIN
         if ctx.decision_time_utc >= flat:

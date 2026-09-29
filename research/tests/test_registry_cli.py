@@ -38,7 +38,26 @@ def test_registry_appends_to_existing_content(tmp_path):
     for k in range(3):
         append_experiment({"experiment_id": f"n{k}"}, p)
         assert p.read_bytes().startswith(before)
-    assert verify_registry(p) == {"ok": True, "n": 4, "first_bad_line": None}
+    assert verify_registry(p) == {"ok": True, "n": 4, "first_bad_line": None, "problems": []}
+
+
+def test_registry_detects_removed_or_edited_tail_and_duplicates(tmp_path):
+    p = tmp_path / "r.jsonl"
+    for k in range(3):
+        append_experiment({"experiment_id": f"e{k}", "v": k}, p)
+    assert verify_registry(p)["ok"]
+    with pytest.raises(ValueError):
+        append_experiment({"experiment_id": "e1"}, p)
+    full = p.read_bytes()
+    lines = full.decode().splitlines()
+    p.write_text("\n".join(lines[:-1]) + "\n")           # drop the last record
+    assert not verify_registry(p)["ok"]
+    p.write_text("\n".join(lines[:-1] + [lines[-1].replace('"v": 2', '"v": 7')]) + "\n")   # edit the last one
+    assert not verify_registry(p)["ok"]
+    p.write_bytes(b"")                                      # truncate
+    assert not verify_registry(p)["ok"]
+    p.write_bytes(full)
+    assert verify_registry(p)["ok"]
 
 
 @pytest.fixture(scope="module")

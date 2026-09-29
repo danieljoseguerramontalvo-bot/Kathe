@@ -115,7 +115,7 @@ def buy_hold_volscaled(md: MarketData, start=None, end=None, costs: CostModel | 
             target = 0.0
             if np.isfinite(a_) and a_ > 0 and equity > 0:
                 raw = target_pct / 100.0 * equity / (a_ * vpl)
-                target = floor_to_step(raw + spec.volume_step / 2.0, spec.volume_step)  # nearest step
+                target = floor_to_step(raw, spec.volume_step)  # round DOWN, like the strategies' sizing
                 target = min(target, spec.volume_max)
                 if target < spec.volume_min - 1e-12:
                     target = 0.0

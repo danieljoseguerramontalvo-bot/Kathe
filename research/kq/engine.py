@@ -409,6 +409,11 @@ class Engine:
         # the move is decided at the bar close: it must be a valid stop at that price
         jc = max(ctx.exec_index - 1, 0)
         valid = (self.c[jc] - new > self.min_stop) if p.side > 0 else (new - self.ac[jc] > self.min_stop)
+        # ... and at the price where the modification actually reaches the server (the next M1
+        # open): after a gap through the new level MT5 rejects it (EA parity), the old stop stays
+        e = ctx.exec_index
+        if valid and e < len(self.o):
+            valid = (self.o[e] - new > self.min_stop) if p.side > 0 else (new - self.ao[e] > self.min_stop)
         if not valid:
             self.n_stop_rejected += 1
             return

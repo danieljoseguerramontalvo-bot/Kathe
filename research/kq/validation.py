@@ -99,15 +99,25 @@ def _run(md, name, params, cfg, start, end):
     return res, compute_metrics(res, benchmarks=False)
 
 
+def _flat_days(md, start, end) -> pd.Series:
+    """Zero daily returns for every server day with data in [start, end) (a skipped window
+    is time spent flat, not time that did not exist)."""
+    from .timeutil import NS_PER_DAY, to_ns
+    t = md.t[(md.t >= to_ns(start)) & (md.t < to_ns(end))]
+    days = np.unique(t // NS_PER_DAY)
+    return pd.Series(0.0, index=pd.to_datetime(days * NS_PER_DAY, unit="ns"), name="ret")
+
+
 def walk_forward(md, strategy_name: str, param_grid: dict, cfg: BacktestConfig, windows: list[WFWindow],
-                 base_params: dict | None = None, objective: str = "t_stat_r", min_trades: int = 20) -> dict:
+                 base_params: dict | None = None, objective: str = "expectancy_r", min_trades: int = 30) -> dict:
     """Walk-forward optimisation.
 
     For each window, every combination of ``param_grid`` (merged over ``base_params``) is run
     on the TRAIN range; the combination with the best ``objective`` among those with at least
     ``min_trades`` trades is selected (ties -> first in grid order; none eligible -> the
-    window is skipped) and run once on the TEST range. OOS trades are concatenated; OOS
-    daily returns are chained. Default objective: t-stat of the mean R.
+    window is skipped: no trades and ZERO daily returns in its test range) and run once on the
+    TEST range. OOS trades are concatenated; OOS daily returns are chained. Defaults follow
+    PROTOCOLO_V5: objective = mean R, at least 30 training trades.
     """
     base = dict(base_params or {})
     obj = OBJECTIVES[objective] if isinstance(objective, str) else objective
@@ -135,6 +145,10 @@ def walk_forward(md, strategy_name: str, param_grid: dict, cfg: BacktestConfig, 
             row.update({"test_n_trades": m.get("n_trades", 0), "test_expectancy_r": m.get("expectancy_r"),
                         "test_t_stat_r": m.get("t_stat_r"), "test_net_profit": m.get("net_profit", 0.0),
                         "test_sharpe": m.get("sharpe_ann")})
+        else:
+            oos_daily.append(_flat_days(md, w.test_start, w.test_end))
+            row.update({"test_n_trades": 0, "test_expectancy_r": None, "test_t_stat_r": None,
+                        "test_net_profit": 0.0, "test_sharpe": None})
         rows.append(row)
     trades = pd.concat(oos_trades, ignore_index=True) if oos_trades else pd.DataFrame()
     daily = pd.concat(oos_daily) if oos_daily else pd.Series(dtype=float)

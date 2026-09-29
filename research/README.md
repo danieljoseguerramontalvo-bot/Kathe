@@ -157,7 +157,7 @@ python -m kq.dukascopy --symbol XAUUSD --start 2007-01-01 --end 2026-09-25 \
 - El divisor de precio se detecta y se valida por rango. Queda anotado en el resumen.
 
 **Límites**
-- Precios y spreads son de Dukascopy, no de HF Markets, y su spread suele ser menor. Hay que añadir la diferencia observada con `KQ_AuditoriaEntorno`, por ejemplo con `--slippage-points` o `--spread-mult`. Como mínimo, hay que exigir las pruebas de estrés de +10, +20 y +40 puntos del protocolo.
+- Precios y spreads son de Dukascopy, no de HF Markets, y su spread suele ser menor. Hay que añadir la diferencia observada con `KQ_AuditoriaEntorno`, con `--extra-spread-usd` o `--spread-audit` de `kq.protocol`. Como mínimo, hay que exigir las pruebas de estrés de +0.10, +0.20 y +0.40 USD del protocolo.
 - El spread es el de la apertura del minuto; MT5 guarda un único valor por vela.
 
 ## 4. Ejecutar estrategias (CLI)
@@ -166,7 +166,7 @@ python -m kq.dukascopy --symbol XAUUSD --start 2007-01-01 --end 2026-09-25 \
 cd research
 python -m kq.run --data KQ_XAUUSD_M1.csv --spec KQ_XAUUSD_spec.json \
     --strategy REF_T0 --params '{}' --start 2022-01-01 --end 2024-12-31 --out runs/t0_dev \
-    --hypothesis-id H0_T0 --split dev --commission 0 --slippage-points 0 --swap
+    --hypothesis-id H0_T0 --split dev
 ```
 
 - `--start`/`--end`: fechas en hora del servidor; **`--end` es inclusivo** (se prueba el día completo).
@@ -175,9 +175,9 @@ python -m kq.run --data KQ_XAUUSD_M1.csv --spec KQ_XAUUSD_spec.json \
   línea al registro (`--registry` para otro archivo, `--no-registry` para no registrar).
 - Otras opciones: `--initial-equity`, `--risk-pct` (1.0), `--fixed-lots`, `--units-per-usd`, `--commission`
   (por lote ida y vuelta; si se omite, 2 × |`commission_per_lot_side_observed`| del spec, o 0),
-  `--slippage-points`, `--swap` (+ `--swap-long/--swap-short`), `--spread-mult`, `--spread-floor`,
+  `--slippage-points` (3, la base del protocolo), `--no-swap` (por defecto se cobra swap; `--swap-long/--swap-short`), `--spread-mult`, `--spread-floor`,
   `--rollover-from/--rollover-to` (1425/75), `--max-spread-points` (60; 0 = sin tope), `--entry-deadline-min` (90),
-  `--n-trials` (para el Deflated Sharpe), `--no-benchmarks`.
+  `--n-trials` (para el Deflated Sharpe; por defecto, las configuraciones distintas del registro, esta incluida; con N = 1 el valor es el PSR frente a 0 y así se indica), `--no-benchmarks`.
 - `metrics.json` incluye además bootstrap del Sharpe y de la media diaria, Deflated Sharpe, Monte Carlo de las
   operaciones y los benchmarks.
 
@@ -286,10 +286,11 @@ from kq.strategies import scan_session_windows
 chronological_split("2022-01-01", "2026-07-01", cuts=["2025-01-01", "2025-09-01"],
                     names=["dev", "validation", "holdout"])
 
-# Walk-forward (rolling o anclado). Objetivo declarado: t de la media de R ('t_stat_r'; también
-# 'expectancy_r', 'sharpe', 'profit_factor', 'net_profit' o una función), con min_trades.
+# Walk-forward (rolling o anclado). Por defecto, como el protocolo: esperanza en R ('expectancy_r'; también
+# 't_stat_r', 'sharpe', 'profit_factor', 'net_profit' o una función) con min_trades = 30. Una ventana sin
+# configuración elegible cuenta como tiempo sin posición (rendimientos diarios 0).
 ws = walk_forward_windows("2022-01-01", "2026-07-01", train_months=24, test_months=6, anchored=False)
-wf = walk_forward(md, "TREND_DONCHIAN", {"n": [20, 55], "k_trail": [2, 3]}, cfg, ws, objective="t_stat_r")
+wf = walk_forward(md, "TREND_DONCHIAN", {"n": [20, 55], "k_trail": [2, 3]}, cfg, ws)
 wf["windows"], wf["oos_trades"], wf["oos_metrics"]          # operaciones OOS concatenadas
 
 # Sensibilidad en el vecindario de parámetros
@@ -339,9 +340,20 @@ python -m kq.protocol holdout --scenario A --data KQ_XAUUSD_M1.csv --spec KQ_XAU
 - `oos_trades_<familia>.csv`;
 - una línea por familia en el registro.
 
-**Opciones:** `--commission`, `--slippage-points` (3), `--extra-spread-points` (para datos de Dukascopy), `--n-monkey` y `--n-anchor` (1 000), `--workers`.
+**Opciones:**
+- Costes **en USD por onza**, convertidos con el `point` del símbolo, así que valen igual con 2 o 3 decimales:
+  - `--slippage-usd` (0.03);
+  - `--max-spread-usd` (0.60);
+  - `--extra-spread-usd`, para datos de Dukascopy;
+  - `--spread-audit KQ_<SÍMBOLO>_spread_por_hora.csv`, que añade el spread de ticks que las velas M1 no recogen.
+- `--commission`, `--units-per-usd` (por defecto, según la divisa del spec), `--n-monkey` y `--n-anchor` (1 000), `--workers`.
 
-**Etapa `holdout`:** anota cada ejecución en `registry/holdout_lock.jsonl` antes de calcularla, y rechaza una segunda ejecución de la misma candidata.
+**Comprobaciones al cargar** (si no se cumplen, se detiene):
+- el valor por lote que supone el motor coincide con el del bróker;
+- la hora del servidor es NY+7 según la auditoría;
+- el registro no ha sido alterado.
+
+**Etapa `holdout`:** anota cada ejecución en el registro encadenado (`record_type = holdout_lock`) antes de calcularla, y rechaza una segunda ejecución de la misma candidata. Hay que hacer *commit* del registro después de cada ejecución con datos reales, porque git es el ancla externa que impide borrar anotaciones.
 
 **Tiempos:** con datos sintéticos del escenario A, unos 40 s con 20 simulaciones de control y unos 5–10 min con 1 000, en 4 núcleos.
 

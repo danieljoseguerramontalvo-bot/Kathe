@@ -1,5 +1,5 @@
 ; KatheQuant v5 - Referencia T0 en H4 con las condiciones de R2_H4_T0 (v4), para contrastar ambos motores
-; Riesgo 1%, perdida diaria 5% con cierre (como la v4), spread max 80, margen 50%, sin franja de rollover (la v4 no la tenia), DD sin limite
+; Riesgo 1%, perdida diaria 5% con cierre (como la v4), spread max 0.80 USD, margen 50%, sin franja de rollover (la v4 no la tenia), DD sin limite
 InpStrategy=5
 InpAllowDemoTrading=false
 InpNotifySignals=false
@@ -12,9 +12,9 @@ InpMaxDailyLossPct=5.0
 InpCloseOnDailyLoss=true
 InpMaxDrawdownPct=0.0
 InpResetLocks=true
-InpMaxSpreadPoints=80
+InpMaxSpreadUsd=0.80
 InpMaxEntryDelayMin=90
-InpSlippagePoints=30
+InpMaxDeviationUsd=0.30
 InpDirection=0
 InpTradeMonday=true
 InpTradeTuesday=true
@@ -28,7 +28,9 @@ InpServerGmtOffset=2.0
 InpRegime=0
 InpErPeriod=20
 InpErThreshold=0.30
-InpVolPctMax=100.0
+InpVolAllowLow=true
+InpVolAllowMid=true
+InpVolAllowHigh=true
 InpAtrPeriod=14
 InpTdTimeframe=16408
 InpTdChannel=55

@@ -68,6 +68,8 @@ class SessionDrift(Strategy):
         p = self.params
         if self.grid_hour[i] != int(p["h_in"]) or not self.grid_live[i]:
             return 0      # not the entry hour, or market closed (weekend/holiday): silent
+        if int(self.grid_wd[i]) >= 5:
+            return 0      # no entries on UTC Saturday/Sunday (EA parity: EvalSessionDrift)
         if p["weekdays"] is not None and int(self.grid_wd[i]) not in set(p["weekdays"]):
             return 0
         return int(p["side"])
@@ -155,10 +157,11 @@ def scan_session_windows(md: MarketData, start, end, costs: CostModel | None = N
     entry_ok = ent < end_h
     ent_c = np.minimum(ent, len(t) - 1)
     hod = (grid % NS_PER_DAY) // NS_PER_HOUR
+    utc_weekday = weekday_of_ns(grid)                                    # Mon=0; no Sat/Sun entries (EA parity)
     rows = []
     for side in sides:
         for h in hours:
-            ks = np.flatnonzero((hod == h) & entry_ok)
+            ks = np.flatnonzero((hod == h) & entry_ok & (utc_weekday < 5))
             for d in durations:
                 ke = ks + d
                 keep = ke < len(grid)

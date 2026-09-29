@@ -74,7 +74,8 @@ class RandomEntry(Strategy):
         for p in ctx.positions:
             acts.extend(tgt.manage(ctx, p))
         exiting = {a.position_id for a in acts if isinstance(a, Exit)}
-        if self.params["use_target_exits"] and tgt.params.get("close_on_opposite", True):
+        rules = getattr(tgt, "rule_params", tgt.params)   # a regime gate exposes its inner strategy's
+        if self.params["use_target_exits"] and rules.get("close_on_opposite", True):
             ts = int(tgt.signal(ctx.i))
             if ts:
                 for p in ctx.positions:
@@ -90,10 +91,13 @@ class RandomEntry(Strategy):
         self.stats["flat_eligible_decisions"] += 1
         if side == 0:
             return acts
-        st = tgt.stops(ctx, side)
+        # same risk distance as a real entry when the target defines it (e.g. SESSION_BREAKOUT,
+        # whose real stop sits across the whole range)
+        stops_fn = getattr(tgt, "random_stops", None) or tgt.stops
+        st = stops_fn(ctx, side)
         if st is None:
             return acts
-        acts.append(Enter(side, max_spread_points=tgt.params.get("max_spread_points"), tag="random", **st))
+        acts.append(Enter(side, max_spread_points=rules.get("max_spread_points"), tag="random", **st))
         self.stats["entries_emitted"] += 1
         tgt.on_enter(ctx, side)
         return acts

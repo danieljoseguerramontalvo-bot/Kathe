@@ -3,8 +3,8 @@
 Aquí figuran todas las configuraciones que se han ejecutado **con datos reales**, incluidas las que salieron mal y las que quedaron fuera del protocolo.
 
 - Sirve para contar cuántas pruebas se han hecho: el *Deflated Sharpe* las penaliza (`PROTOCOLO_V5.md`, enmienda 2, punto 4).
-- Los registros automáticos de la v5 van en `research/registry/experiments.jsonl` (solo se añade, nunca se borra) y `research/registry/holdout_lock.jsonl`.
-- **Estado a 2026-09-29:** los dos archivos están vacíos, porque la v5 no ha tocado todavía ningún dato real.
+- Los registros automáticos de la v5 van en `research/registry/experiments.jsonl`, que solo admite añadidos y está encadenado por hashes. Los bloqueos de la reserva final van dentro del mismo archivo. Su cabecera, `experiments.jsonl.head`, y el historial de git impiden borrar las últimas líneas sin que se note.
+- **Estado a 2026-09-29:** el registro está vacío, porque la v5 no ha tocado todavía ningún dato real.
 
 ## Fase v4 (probador de MT5 del usuario, XAUUSD HF Markets, riesgo 1 %)
 
