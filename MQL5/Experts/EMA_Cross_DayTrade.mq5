@@ -3,7 +3,7 @@
 //|  v4: tendencia EMA 40/200 o reversión RSI(2) - pensado para XAUUSD |
 //+------------------------------------------------------------------+
 #property copyright   "Kathe"
-#property version     "4.00"
+#property version     "4.01"
 #property description "Dos estrategias independientes: tendencia EMA 40/200 (cruce o retroceso) y reversión RSI(2) (Connors)."
 #property description "Lote calculado por riesgo con OrderCalcProfit; límites de exposición, pérdida diaria y drawdown."
 #property description "Señales sobre velas cerradas, filtro del marco mayor sin datos futuros. Sin martingala ni grid."
@@ -169,6 +169,7 @@ int             g_signalDir        = 0;  // 1 = compra, -1 = venta
 string          g_signalKind       = ""; // descripción de la señal pendiente
 int             g_entryAttempts    = 0;
 bool            g_waitWarned       = false;
+datetime        g_entryRetryAfter  = 0;  // no reintentar la entrada antes de esta hora (mercado cerrado)
 string          g_lastSignalText   = "ninguna todavía";
 
 datetime        g_lastPanelUpdate = 0;
@@ -1104,9 +1105,39 @@ bool PassesHardFilters(const datetime now, const int dir, string &reason)
    return true;
 }
 
+//--- ¿Está abierta ahora la sesión de trading del símbolo? (hora del servidor)
+//--- Si el bróker no publica sesiones para ese día, se considera abierta y decide el servidor
+bool IsTradeSessionOpen(const datetime t)
+{
+   MqlDateTime dt;
+   TimeToStruct(t, dt);
+   long     secondsOfDay = dt.hour * 3600 + dt.min * 60 + dt.sec;
+   datetime from         = 0;
+   datetime to           = 0;
+   bool     anySession   = false;
+   for(uint i = 0; i < 10; i++)
+   {
+      if(!SymbolInfoSessionTrade(_Symbol, (ENUM_DAY_OF_WEEK)dt.day_of_week, i, from, to))
+         break;
+      anySession = true;
+      long start = (long)from;
+      long end   = (long)to;
+      if(end <= start)
+         end = 86400; // sesión hasta el final del día
+      if(secondsOfDay >= start && secondsOfDay < end)
+         return true;
+   }
+   return !anySession;
+}
+
 //--- Condiciones de mercado: 1 = entrar, 0 = esperar dentro de la vela, -1 = descartar
 int MarketConditions(const int dir, string &reason)
 {
+   if(!IsTradeSessionOpen(TimeCurrent()))
+   {
+      reason = "mercado cerrado (fuera de la sesión de trading del símbolo)";
+      return 0;
+   }
    if(InpUseHtfFilter)
    {
       bool ready = false;
@@ -1151,9 +1182,11 @@ int MarketConditions(const int dir, string &reason)
 //+------------------------------------------------------------------+
 //| Abre la operación (1 = compra, -1 = venta)                       |
 //| Devuelve 1 si abre, 0 si conviene reintentar, -1 si se descarta  |
+//| marketClosed = true si el servidor rechazó por mercado cerrado   |
 //+------------------------------------------------------------------+
-int OpenPosition(const int dir, string &reason)
+int OpenPosition(const int dir, string &reason, bool &marketClosed)
 {
+   marketClosed = false;
    MqlTick tick;
    if(!SymbolInfoTick(_Symbol, tick) || tick.ask <= 0.0 || tick.bid <= 0.0)
    {
@@ -1231,6 +1264,7 @@ int OpenPosition(const int dir, string &reason)
 
    if(!sent || !IsRetcodeSuccess(g_trade.ResultRetcode()))
    {
+      marketClosed = (g_trade.ResultRetcode() == TRADE_RETCODE_MARKET_CLOSED);
       reason = "error del servidor. Código " + IntegerToString((long)g_trade.ResultRetcode()) + ": " +
                g_trade.ResultRetcodeDescription();
       return 0;
@@ -1331,9 +1365,10 @@ bool GetSignal(int &signal, string &kind)
 
 void ClearSignal()
 {
-   g_signalBarTime = 0;
-   g_signalDir     = 0;
-   g_signalKind    = "";
+   g_signalBarTime    = 0;
+   g_signalDir        = 0;
+   g_signalKind       = "";
+   g_entryRetryAfter  = 0;
 }
 
 void DiscardSignal(const string reason)
@@ -1348,6 +1383,9 @@ void DiscardSignal(const string reason)
 //+------------------------------------------------------------------+
 void TryEnter(const datetime now)
 {
+   if(now < g_entryRetryAfter)
+      return; // el servidor dijo «mercado cerrado»: se espera antes de reintentar
+
    string reason = "";
    if(!PassesHardFilters(now, g_signalDir, reason))
    {
@@ -1371,7 +1409,8 @@ void TryEnter(const datetime now)
       return;
    }
 
-   int result = OpenPosition(g_signalDir, reason);
+   bool marketClosed = false;
+   int  result       = OpenPosition(g_signalDir, reason, marketClosed);
    if(result > 0)
    {
       g_lastEntryBarTime = g_signalBarTime;
@@ -1381,6 +1420,18 @@ void TryEnter(const datetime now)
    if(result < 0)
    {
       DiscardSignal(reason);
+      return;
+   }
+
+   //--- Mercado cerrado: no cuenta como intento. Se reintenta dentro de la vela en 60 segundos
+   if(marketClosed)
+   {
+      g_entryRetryAfter = now + 60;
+      if(!g_waitWarned)
+      {
+         Print("[ESPERA] Señal de ", DirName(g_signalDir), ": mercado cerrado según el servidor. Se reintentará dentro de la vela actual");
+         g_waitWarned = true;
+      }
       return;
    }
 

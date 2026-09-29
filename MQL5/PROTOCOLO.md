@@ -431,7 +431,7 @@ Presupuesto: 3 pruebas de desarrollo y ≤ 2 de validación.
 
 | Variante | Oper. | Acierto | PF | Esperanza | t | Estrés | DD equidad % | Recuperación | Años + | Mayor ganancia % | ¿Cumple? |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| R2_H4_F0_rsi | | | | | | | | | | | |
+| R2_H4_F0_rsi | 230 | 57.4 % | 0.96 | −1.36 | −0.25 | −2.69 | 10.46 | −0.28 | 1 de 3 | – | ✘ falla b, c, d, f y g |
 | R2_H4_T0_tendencia | 100 | 40.0 % | 1.21 | 13.70 | 0.89 | 12.15 | 13.32 | 0.81 | 1 de 3 | 16.5 | ✘ falla b, c, f y g |
 | R2_H4_T1_tendencia_trailing | 107 | 36.4 % | 0.81 | −8.47 | −1.09 | −11.02 | 17.57 | −0.48 | 1 de 3 | – | ✘ falla b, c, d, f y g |
 
@@ -450,12 +450,50 @@ Presupuesto: 3 pruebas de desarrollo y ≤ 2 de validación.
 - Con trailing y TP lejano sale peor que T0 en H4: PF 0.81 frente a 1.21.
 - Las dos variantes de tendencia solo ganan en 2022 y pierden en 2023 y 2024, cuando el oro subió con más fuerza. Las ventas aciertan poco (28–31 %).
 
+**R2_H4_F0_rsi:**
+- Resultado: beneficio neto −311.73 (balance final 9 688.27).
+- Compras: 143 (55.2 % de acierto). Ventas: 87 (60.9 %).
+- Por año: 2022 +245.73 (79 op.), 2023 −101.24 (83 op.), 2024 −456.22 (68 op.).
+- Acierta el 57 % y aun así pierde: gana 61.15 de media y pierde 85.55.
+
+### 7.1 Conclusión de la ronda 2 y del protocolo
+
+**Ninguna variante cumple a–h.** En H4 los costes dejan de hundir los resultados, que pasan de
+−77 % / −92 % a entre −9 % y +14 %. Pero ninguna tiene una ventaja que se distinga del azar:
+- t entre −1.09 y +0.89;
+- las tres ganan solo en 2022 y pierden en 2023 y en 2024.
+
+La mejor, R2_H4_T0 (+13.7 %, PF 1.21), tampoco está cerca: le falta más de una unidad de t y
+tiene dos de tres años negativos.
+
+Referencia: comprar y mantener oro en el mismo periodo daba ≈ +43 % (≈ 1 830 → ≈ 2 620).
+Ninguna variante se acerca.
+
+Por la regla de cierre fijada de antemano, **el proyecto termina aquí**:
+- con EMA 40/200, RSI(2), ATR y ADX no hay un robot defendible para XAUUSD, ni en M15 ni en H4;
+- no se opera con dinero real;
+- no se hace una ronda 3 con estos datos.
+
+Para una idea nueva ya no quedan datos históricos limpios: 2022–2024 y 2025.09–2026.09 ya se han
+usado, y solo queda 2025.01–2025.08, que son unas 8 semanas de H4. Habría que evaluarla en demo,
+hacia delante.
+
+El defecto de «market closed» no cambia esta conclusión, así que no se repitieron las pruebas.
+Aunque recuperase las señales perdidas de la primera vela del día (≈ 1 de cada 6), no podría
+hacer positivos 2023 y 2024 ni llevar la t de 0.89 a 2.0. Se corrige igualmente en la v4.01 (apartado 7.2).
+
 **Defecto de ejecución encontrado.**
 - En la primera vela H4 del día, el primer tick llega a la 01:00:00, antes de que abra la sesión de trading.
 - Los 3 intentos fallan en el mismo segundo con el código 10018 («market closed») y la señal se descarta. Ejemplo: 2024.12.19 01:00, venta por cruce bajista.
 - Afecta por igual a las 3 variantes de la ronda 2. En M15 no ocurría porque el horario 08–20 lo evitaba.
 - Se corrige después de la ronda 2: esperar dentro de la vela mientras la sesión esté cerrada, sin gastar intentos.
 - Si alguna variante queda cerca de los criterios, se repiten las 3 con el código corregido.
+
+### 7.2 Corrección v4.01
+
+- `IsTradeSessionOpen` consulta las sesiones de trading del símbolo (`SymbolInfoSessionTrade`). Mientras la sesión esté cerrada, `MarketConditions` devuelve «esperar dentro de la vela».
+- Si aun así el servidor responde 10018 (`TRADE_RETCODE_MARKET_CLOSED`), no cuenta como intento: se reintenta dentro de la misma vela al cabo de 60 segundos.
+- Ningún resultado de este documento usa la v4.01. Todos se obtuvieron con la v4.00.
 
 ## 8. Datos pendientes del usuario
 

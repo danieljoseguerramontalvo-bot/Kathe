@@ -53,6 +53,20 @@ Sigue `PROTOCOLO.md`:
 Los criterios de aceptación están fijados de antemano. Si ninguna variante los cumple, la
 conclusión es no operar en real.
 
+## Resultado de la evaluación (2026-09-29)
+
+El protocolo se ejecutó completo. **Ninguna configuración cumple los criterios.** Periodo:
+2022–2024, datos que no se usaron para diseñar las estrategias.
+
+| Ronda | Qué se probó | Resultado |
+|---|---|---|
+| 1 (M15) | La configuración del +236 (F7), RSI(2) solo (F0), tendencia EMA 40/200 (T0, T1) | Pierden entre el 77 % y el 92 % de la cuenta, en los tres años (t de −3.9 a −5.1). Pierden 3–6 pips por operación, más o menos el coste del spread |
+| 2 (H4) | Las mismas reglas en velas de 4 horas | Entre −9 % y +14 %, sin ventaja distinguible del azar (t ≤ 0.89). Las tres ganan solo en 2022 y pierden en 2023 y 2024 |
+
+**Conclusión: no usar este EA con dinero real.** El código se deja como herramienta de prueba.
+Tiene gestión de riesgo, protecciones y el informe estadístico en `OnTester`, y sirve para
+evaluar otras ideas con el mismo método. El detalle está en `PROTOCOLO.md`, apartados 5 a 7.
+
 ## Aviso de riesgo
 
 El trading con apalancamiento conlleva un riesgo alto de pérdida. Ningún backtest garantiza
