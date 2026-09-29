@@ -1,116 +1,124 @@
-# Robot tendencial EMA 40/200 – Day Trade (MetaTrader 5)
+# Robot tendencial EMA 40/200 v3 – Day Trade (MetaTrader 5)
 
 Asesor experto (EA) en MQL5: `Experts/EMA_Cross_DayTrade.mq5`. Está pensado para el
 **oro (XAUUSD)**, pero funciona en cualquier símbolo.
 
+## Qué aprendimos del primer backtest
+
+XAUUSD M15, septiembre 2025 – septiembre 2026, SL 20 / TP 40 pips (2 / 4 USD), sin filtros:
+
+| Dato | Resultado |
+|---|---|
+| Operaciones | 676 |
+| Acierto | 27.2 % (compras 32.1 %, ventas 21.8 %) |
+| Ganancia media / pérdida media | +4.00 / −2.11 USD |
+| Factor de beneficio | 0.71 (pierde) |
+| Esperanza por operación | −0.45 USD |
+
+El Diario mostró operaciones cerradas en el stop a los **16 segundos**, **52 segundos** y
+**3 minutos** de abrirse. Un stop de 2 USD está dentro del ruido normal del oro, y el
+spread (≈ 0.48 USD) ya consume casi una cuarta parte del stop al entrar.
+
+## Fundamentos de cada mejora
+
+| Mejora | Fuente | Qué hace en el robot |
+|---|---|---|
+| **Stops por volatilidad (ATR)** | Curtis Faith, *Way of the Turtle*; Van K. Tharp, *Trade Your Way to Financial Freedom* | SL = ATR × 1.5, TP = ATR × 3. El stop se adapta a lo que se mueve el oro en cada momento |
+| **Filtro del marco mayor** | Alexander Elder, *Trading for a Living* («triple pantalla») | En M15 solo compra si H1 está por encima de su EMA 200 y solo vende si está por debajo |
+| **Filtro de fuerza de tendencia (ADX)** | J. Welles Wilder, *New Concepts in Technical Trading Systems* | No entra si el ADX es menor que 20: el mercado va de lado |
+| **Trailing stop por ATR** | Chuck LeBeau («chandelier exit»); Michael Covel, *Trend Following* | El SL sigue al precio para dejar correr las ganancias |
+| **Reversión RSI(2)** | Larry Connors y Cesar Alvarez, *Short Term Trading Strategies That Work* | Estrategia distinta: compra caídas extremas a favor de la tendencia. Suele acertar más, pero gana poco en cada acierto |
+| **Pausa de noticias** | Práctica habitual en el oro | No abre operaciones en la franja de los datos de EE. UU. |
+| **Validar sin sobreoptimizar** | Robert Pardo, *The Evaluation and Optimization of Trading Strategies* | Optimizar con prueba *forward* para no ajustar los parámetros al pasado |
+
+### La fórmula que manda (Van Tharp)
+
+```
+Esperanza = (% acierto × ganancia media) − (% fallo × pérdida media)
+```
+
+Primer backtest: 0.272 × 4.00 − 0.728 × 2.11 = **−0.45 USD por operación**. Un sistema puede
+ganar dinero acertando el 35 % si sus ganancias son el doble que sus pérdidas, y perderlo
+acertando el 90 % si cada pérdida borra diez ganancias. El objetivo es una esperanza
+positiva (factor de beneficio > 1), no un porcentaje de acierto alto.
+
 ## Estrategia
 
-La tendencia la marcan dos medias exponenciales: **EMA 40** (rápida) y **EMA 200** (lenta).
-
-| Señal | Compra | Venta |
+| Modo | Compra | Venta |
 |---|---|---|
-| **Cruce** (cambio de tendencia) | La EMA 40 cruza hacia arriba la EMA 200 | La EMA 40 cruza hacia abajo la EMA 200 |
-| **Retroceso** (solo en el modo «Cruce + retrocesos») | Con la EMA 40 por encima de la EMA 200, el precio cierra por debajo de la EMA 40 y en la vela siguiente vuelve a cerrar por encima | Con la EMA 40 por debajo de la EMA 200, el precio cierra por encima de la EMA 40 y en la vela siguiente vuelve a cerrar por debajo |
+| **Solo cruce** | La EMA 40 cruza hacia arriba la EMA 200 | La EMA 40 cruza hacia abajo la EMA 200 |
+| **Cruce + retrocesos** (predeterminado) | Además: con la EMA 40 sobre la EMA 200, el precio cierra bajo la EMA 40 y vuelve a cerrar por encima | Lo contrario |
+| **Reversión RSI(2)** | Precio sobre la EMA 200 y RSI(2) < 10. Sale cuando el RSI > 70 | Precio bajo la EMA 200 y RSI(2) > 90. Sale cuando el RSI < 30 |
 
-- Todas las señales se confirman con **velas cerradas**.
-- Cada señal se ejecuta solo dentro de su vela. Si no se puede operar en ese
-  momento (fuera de horario, posición abierta...), se descarta y no entra tarde.
-- Con «Cerrar la posición contraria» activado, una señal de venta cierra las
-  compras abiertas y una de compra cierra las ventas.
-- El modo «Solo cruces» es la estrategia original: opera poco (los cruces 40/200
-  pueden tardar días). «Cruce + retrocesos» entra muchas más veces a favor de la tendencia.
+Todas las señales se confirman con **velas cerradas** y pasan por los filtros: horario,
+pausa, marco mayor, ADX, spread, límites diarios y cierre intradía.
 
 ## Instalación
 
-1. En MetaEditor: **Archivo → Nuevo → Asesor experto (plantilla)**, ponle un nombre y pulsa Finalizar.
-   Si ya tienes el robot creado, simplemente ábrelo.
-2. **Ctrl+A** y **Supr** para borrar el contenido, pega el código de `EMA_Cross_DayTrade.mq5`.
-3. Compila con **F7** (debe decir `0 errors`).
-4. En MT5, arrastra el robot al gráfico de **XAUUSD** y activa **Algo Trading**.
+1. En MetaEditor, abre tu robot (o crea uno nuevo: **Archivo → Nuevo → Asesor experto**).
+2. **Ctrl+A** y **Supr** para vaciarlo, pega el código **una sola vez** y compila con **F7** (`0 errors`).
+3. En MT5, arrastra el robot al gráfico de **XAUUSD M15** y activa **Algo Trading**.
 
-## Parámetros
+## Parámetros principales
 
-| Grupo | Parámetro | Por defecto | Descripción |
-|---|---|---|---|
-| Estrategia | Marco temporal | Actual | Temporalidad de las EMAs (M15 recomendado; M5 da más operaciones) |
-| | Periodo EMA rápida / lenta | 40 / 200 | |
-| | Tipo de entrada | Cruce + retrocesos | «Solo cruces» = estrategia original, pocas operaciones |
-| | Dirección | Compras y ventas | También «Solo compras» o «Solo ventas» |
-| | Cerrar la posición contraria | Sí | Una señal opuesta cierra la posición abierta |
-| Operación | Tamaño del lote | 0.5 | Se usa si el riesgo % es 0 |
-| | Riesgo por operación (%) | 0 | Si es mayor que 0, el lote se calcula para perder ese % del balance si toca el SL |
-| | Stop Loss / Take Profit | 20 / 40 pips | En el oro: 2.00 / 4.00 USD de movimiento |
-| | Tipo de SL/TP | Pips fijos | «Según la volatilidad (ATR)»: SL = ATR × 1.5 y TP = ATR × 3.0 |
-| | Periodo / multiplicadores ATR | 14 / 1.5 / 3.0 | Solo en modo ATR |
-| | Valor de 1 pip | 0 (auto) | Automático: oro 0.1, plata 0.01, divisas 0.0001 (0.01 en pares con JPY) |
-| | Spread máximo | 8 pips | Con el spread más alto, espera dentro de la vela (0 = sin límite) |
-| | Deslizamiento máximo | 30 puntos | |
-| | Solo una posición a la vez | Sí | |
-| | Máximo de operaciones por día | 10 | 0 = sin límite |
-| Filtro ADX | Periodo / ADX mínimo | 14 / 0 | Solo entra si el ADX es al menos ese valor (0 = sin filtro; típico 20-25) |
-| Protección | Pérdida máxima diaria (%) | 5 | Al llegar, cierra todo y no opera más ese día (0 = sin límite) |
-| | Breakeven (pips) | 0 | Con ganancia de X pips mueve el SL a la entrada (0 = desactivado) |
-| | Pips asegurados | 2 | Ganancia que deja asegurada el breakeven |
-| Horario | Inicio / Fin | 08:00 / 20:00 | Hora del **servidor** del bróker |
-| Días | Lunes … Domingo | L–V sí, S–D no | |
-| Day trade | Cerrar todo al final del día | Sí, 22:00 | No quedan posiciones abiertas de un día para otro |
-| Visualización | Panel informativo | Sí | Tendencia, horario, posiciones, resultado del día, última señal |
+| Grupo | Parámetro | Por defecto |
+|---|---|---|
+| Estrategia | Tipo de entrada | Cruce + retrocesos |
+| | Dirección | Compras y ventas |
+| Operación | Tamaño del lote | **0.01** |
+| | Tipo de SL/TP | **Según la volatilidad (ATR)**: SL = ATR × 1.5, TP = ATR × 3 |
+| | Stop Loss / Take Profit en pips | 20 / 40 (solo en modo «Pips fijos») |
+| | Spread máximo | 8 pips |
+| | Máximo de operaciones por día | 10 |
+| Marco mayor | Filtro activado / marco / EMA | Sí / H1 / 200 |
+| Reversión RSI | Periodo / compra / venta / salidas | 2 / 10 / 90 / 70 y 30 |
+| ADX | ADX mínimo | **20** |
+| Protección | Pérdida máxima diaria | 5 % |
+| | Breakeven | desactivado |
+| | Trailing ATR | desactivado (0) |
+| Horario (servidor) | Inicio / Fin / Cierre intradía | 08:00 / 20:00 / 22:00 |
+| | Pausa de noticias | desactivada (15:15 – 16:00) |
 
-### Hora del servidor
+## Plan de pruebas (Probador de estrategias)
 
-Los horarios son en hora del servidor (la de «Observación del Mercado»), que puede ir
-varias horas por delante o por detrás de la hora de tu PC. El panel muestra las dos
-horas (servidor y PC) para que sea fácil convertir.
+Configuración común: **XAUUSD, M15, 2025.09.01 – 2026.09.25, «Cada tick basado en ticks
+reales», depósito 1000, Visualización sin marcar.** Lánzalo desde MetaTrader
+(Ver → Probador de estrategias → **Empezar**), no desde MetaEditor.
 
-## Cómo probarlo (Probador de estrategias)
+El probador recuerda los valores de pruebas anteriores. En la pestaña *Parámetros de
+entrada*, restablece los valores por defecto (clic derecho) o comprueba a mano que coinciden
+con la tabla de arriba. Luego cambia solo lo que indica cada prueba:
 
-1. **Ver → Probador de estrategias** (Ctrl+R) y elige el robot.
-2. Símbolo **XAUUSD**, **M15**, periodo de 1 año o más, modelo **«Cada tick basado en ticks reales»**.
-3. **Desmarca «Visualización»**. Con la visualización activada el probador va vela a vela
-   y puede parecer que no opera; sin ella, el informe completo sale en pocos minutos.
-4. Revisa la pestaña **Backtest**: *Operaciones rentables (%)*, *Factor de beneficio*
-   (tiene que ser mayor que 1), *Reducción máxima* y número de operaciones.
-5. Antes de pasar a real, déjalo varias semanas en una **cuenta demo**.
-
-## Cómo mejorarlo
-
-Haz estas pruebas en el probador (XAUUSD, M15, mismo periodo, sin visualización)
-y compara el *Factor de beneficio*, el *% de operaciones rentables* y la *Reducción máxima*:
-
-| Prueba | Qué cambiar en los parámetros |
+| Prueba | Cambios |
 |---|---|
-| A | Nada (configuración actual: SL 20 / TP 40 pips) |
-| B | Tipo de SL/TP = «Según la volatilidad (ATR)» |
-| C | Como B y además ADX mínimo = 25 |
-| D | Como C y además Tipo de entrada = «Solo cruce» |
+| 1 | Nada (v3 por defecto: retrocesos + ATR + filtro H1 + ADX 20) |
+| 2 | Trailing ATR = **2.0** y TP = ATR × **6** (dejar correr las ganancias) |
+| 3 | Tipo de entrada = **Reversión RSI(2)**, SL = ATR × **2.5** |
+| 4 | La mejor de las anteriores + Pausa de noticias = **true** |
 
-- El **ATR** adapta el SL y el TP a lo que se mueve el oro en cada momento, en vez de
-  usar siempre 2 USD.
-- El **ADX** evita entrar cuando el precio va de lado, que es donde más pierde una
-  estrategia de tendencia.
-- Para afinar más, usa **Optimización** en el probador: marca los parámetros a probar
-  (por ejemplo, los multiplicadores del ATR y el ADX mínimo) y activa **Adelante (Forward) 1/3**.
-  Así se comprueba que los valores ganadores también funcionan en datos que no se
-  usaron para elegirlos.
+Compara el **factor de beneficio** (tiene que ser mayor que 1), la **reducción máxima**, el
+número de operaciones y el % de acierto.
+
+### Optimización (cuando una prueba sea prometedora)
+
+1. En *Configuración*: Optimización = **Algoritmo genético rápido**, criterio **Factor de
+   beneficio máximo**, **Forward = 1/3**.
+2. En *Parámetros de entrada*, marca solo 2 o 3 parámetros. Por ejemplo, multiplicador del
+   SL de 1.0 a 3.0 (paso 0.5), del TP de 2 a 6 (paso 1) y ADX mínimo de 15 a 30 (paso 5).
+3. Da por buenos solo los resultados que también ganan en el periodo *forward*. Si solo
+   ganan en el periodo optimizado, están sobreajustados al pasado.
 
 ## Sobre el porcentaje de acierto
 
-**Este EA no garantiza ningún porcentaje de acierto**, tampoco un 92 %.
-
-- Con SL 20 / TP 40 (relación 1:2) basta con acertar algo más del **33 %** para no
-  perder, sin contar spread ni comisiones.
-- En el oro, 20 pips son solo 2 USD y las velas de M15 se mueven varios dólares:
-  el ruido y el spread cerrarán muchas operaciones en el SL. Prueba en el probador
-  valores como 50/100 pips antes de decidir.
-- Más operaciones no significa más ganancia: cada operación paga spread.
-- Los EA que anuncian acertar el 90 % o más casi siempre usan un stop loss mucho
-  mayor que el take profit, o martingala. Ganan poco muchas veces y, cuando
-  pierden, pierden mucho.
+**Este EA no garantiza ningún porcentaje de acierto.** Los sistemas de tendencia suelen
+acertar entre el 35 y el 50 % y ganan porque sus ganancias son mayores que sus pérdidas.
+Los de reversión (como el RSI(2)) suelen acertar más, pero sus pérdidas son mayores que sus
+ganancias. En ambos casos, lo que decide es la esperanza. Los EA que anuncian acertar el
+90 % o más suelen usar martingala o stops enormes.
 
 ## Aviso de riesgo
 
-El trading con apalancamiento conlleva un riesgo alto de pérdida. En el oro,
-**0.5 lotes = 50 onzas: cada dólar que se mueve el precio son 50 USD**, así que con
-SL de 2 USD cada operación perdedora cuesta unos 100 USD. Los resultados pasados,
-incluidos los del backtest, no garantizan resultados futuros. Usa este EA bajo tu
-propia responsabilidad y pruébalo primero en demo.
+El trading con apalancamiento conlleva un riesgo alto de pérdida. En el oro, 0.01 lotes
+equivalen a 1 USD por cada dólar que se mueve el precio, y 0.5 lotes a 50 USD. Los resultados
+pasados, incluidos los del backtest, no garantizan resultados futuros. Prueba siempre en
+demo antes de usar dinero real.

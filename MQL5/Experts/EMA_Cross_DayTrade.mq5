@@ -3,10 +3,11 @@
 //|     Robot tendencial EMA 40 / EMA 200: compras y ventas (oro)    |
 //+------------------------------------------------------------------+
 #property copyright   "Kathe"
-#property version     "2.10"
+#property version     "3.00"
 #property description "Robot tendencial con EMA 40 / EMA 200: compra y vende. Pensado para el oro (XAUUSD)."
-#property description "Entra en los cruces de las medias y, si se activa, en los retrocesos a favor de la tendencia."
-#property description "SL/TP en pips o por ATR, filtro ADX, horario, días, cierre intradía, límite de pérdida diaria y breakeven."
+#property description "Modos: cruce de medias, retrocesos a favor de la tendencia o reversión RSI(2) (Connors)."
+#property description "Filtros: tendencia del marco mayor (Elder), ADX (Wilder), horario, pausa de noticias y spread."
+#property description "Gestión: SL/TP por ATR, trailing por ATR, breakeven, límite de pérdida diaria y cierre intradía."
 
 #include <Trade\Trade.mqh>
 #include <Trade\PositionInfo.mqh>
@@ -19,8 +20,9 @@
 //+------------------------------------------------------------------+
 enum ENUM_EA_ENTRY_MODE
 {
-   EA_ENTRY_CROSS_ONLY     = 0, // Solo cruce EMA 40 / EMA 200 (pocas operaciones)
-   EA_ENTRY_CROSS_PULLBACK = 1  // Cruce + retrocesos a favor de la tendencia (más operaciones)
+   EA_ENTRY_CROSS_ONLY     = 0, // Tendencia: solo cruce EMA 40 / EMA 200 (pocas operaciones)
+   EA_ENTRY_CROSS_PULLBACK = 1, // Tendencia: cruce + retrocesos a la EMA 40 (más operaciones)
+   EA_ENTRY_RSI_REVERSION  = 2  // Reversión: RSI(2) extremo a favor de la EMA 200 (Connors)
 };
 
 enum ENUM_EA_DIRECTION
@@ -49,12 +51,12 @@ input ENUM_EA_DIRECTION  InpDirection       = EA_DIR_BOTH;             // Direcc
 input bool               InpCloseOnOpposite = true;                    // Cerrar la posición contraria cuando cambia la señal
 
 input group "=== Gestión de la operación ==="
-input double InpLots            = 0.5;         // Tamaño del lote (si el riesgo % es 0)
+input double InpLots            = 0.01;        // Tamaño del lote (si el riesgo % es 0)
 input double InpRiskPercent     = 0.0;         // Riesgo por operación en % del balance (0 = lote fijo)
 input double InpStopLossPips    = 20.0;        // Stop Loss (pips)
 input double InpTakeProfitPips  = 40.0;        // Take Profit (pips)
-input ENUM_EA_STOP_MODE InpStopMode = EA_STOPS_PIPS; // Tipo de Stop Loss / Take Profit
-input int    InpAtrPeriod       = 14;          // Periodo del ATR (modo ATR)
+input ENUM_EA_STOP_MODE InpStopMode = EA_STOPS_ATR;  // Tipo de Stop Loss / Take Profit
+input int    InpAtrPeriod       = 14;          // Periodo del ATR (stops y trailing)
 input double InpAtrSlMultiplier = 1.5;         // Stop Loss = ATR x este valor (modo ATR)
 input double InpAtrTpMultiplier = 3.0;         // Take Profit = ATR x este valor (modo ATR)
 input double InpPipSize         = 0.0;         // Valor de 1 pip en precio (0 = automático; oro = 0.1)
@@ -65,14 +67,27 @@ input int    InpMaxTradesPerDay = 10;          // Máximo de operaciones por dí
 input ulong  InpMagicNumber     = 4020040;     // Número mágico
 input string InpTradeComment    = "EMA40x200"; // Comentario de las órdenes
 
+input group "=== Filtro de tendencia del marco mayor ==="
+input bool            InpUseHtfFilter = true;      // Operar solo a favor de la tendencia del marco mayor
+input ENUM_TIMEFRAMES InpHtfTimeframe = PERIOD_H1; // Marco temporal mayor
+input int             InpHtfPeriod    = 200;       // Periodo de la EMA del marco mayor
+
+input group "=== Reversión RSI (solo en el modo Reversión) ==="
+input int    InpRsiPeriod    = 2;    // Periodo del RSI
+input double InpRsiBuyLevel  = 10.0; // Comprar cuando el RSI baja de este nivel
+input double InpRsiSellLevel = 90.0; // Vender cuando el RSI sube de este nivel
+input double InpRsiExitBuy   = 70.0; // Cerrar las compras cuando el RSI supera este nivel
+input double InpRsiExitSell  = 30.0; // Cerrar las ventas cuando el RSI baja de este nivel
+
 input group "=== Filtro de fuerza de tendencia (ADX) ==="
 input int    InpAdxPeriod = 14;  // Periodo del ADX
-input double InpAdxMin    = 0.0; // ADX mínimo para entrar (0 = sin filtro; típico 20-25)
+input double InpAdxMin    = 20.0; // ADX mínimo para entrar (0 = sin filtro; típico 20-25)
 
 input group "=== Protección ==="
 input double InpMaxDailyLossPercent = 5.0; // Pérdida máxima diaria en % del balance (0 = sin límite)
 input double InpBreakEvenPips       = 0.0; // Mover el SL a la entrada tras X pips de ganancia (0 = desactivado)
 input double InpBreakEvenLockPips   = 2.0; // Pips de ganancia que se aseguran al mover a breakeven
+input double InpTrailAtrMultiplier  = 0.0; // Trailing stop a ATR x este valor del precio (0 = desactivado)
 
 input group "=== Horario de operación (hora del servidor del bróker) ==="
 input bool InpUseTimeFilter = true; // Activar filtro de horario
@@ -80,6 +95,11 @@ input int  InpStartHour     = 8;    // Hora de inicio (0-23)
 input int  InpStartMinute   = 0;    // Minuto de inicio (0-59)
 input int  InpEndHour       = 20;   // Hora de fin (0-23)
 input int  InpEndMinute     = 0;    // Minuto de fin (0-59)
+input bool InpUsePause         = false; // Pausa sin nuevas entradas (noticias de EE. UU.)
+input int  InpPauseStartHour   = 15;    // Hora de inicio de la pausa (0-23)
+input int  InpPauseStartMinute = 15;    // Minuto de inicio de la pausa (0-59)
+input int  InpPauseEndHour     = 16;    // Hora de fin de la pausa (0-23)
+input int  InpPauseEndMinute   = 0;     // Minuto de fin de la pausa (0-59)
 
 input group "=== Días de operación ==="
 input bool InpTradeMonday    = true;  // Operar el lunes
@@ -106,8 +126,11 @@ CPositionInfo   g_position;
 
 int             g_fastHandle      = INVALID_HANDLE;
 int             g_slowHandle      = INVALID_HANDLE;
-int             g_atrHandle       = INVALID_HANDLE; // solo en modo ATR
+int             g_atrHandle       = INVALID_HANDLE; // stops por ATR y trailing
 int             g_adxHandle       = INVALID_HANDLE; // solo con filtro ADX
+int             g_htfHandle       = INVALID_HANDLE; // solo con filtro del marco mayor
+int             g_rsiHandle       = INVALID_HANDLE; // solo en modo Reversión RSI
+ENUM_TIMEFRAMES g_htfTimeframe    = PERIOD_H1;
 ENUM_TIMEFRAMES g_timeframe       = PERIOD_CURRENT;
 double          g_pip             = 0.0;
 bool            g_warmingUp       = false; // la EMA lenta aún no tiene historial suficiente
@@ -182,20 +205,33 @@ bool IsTradingDay(const datetime t)
    return InpTradeSaturday;
 }
 
-//--- Si inicio == fin se opera todo el día; si inicio > fin la ventana cruza la medianoche
-bool IsInTradingWindow(const datetime t)
+//--- Si inicio == fin la franja es todo el día; si inicio > fin la franja cruza la medianoche
+bool IsInWindow(const datetime t, const int start, const int end)
 {
-   if(!InpUseTimeFilter)
-      return true;
-
    int current = MinutesOfDay(t);
-   int start   = StartMinutes();
-   int end     = EndMinutes();
    if(start == end)
       return true;
    if(start < end)
       return (current >= start && current < end);
    return (current >= start || current < end);
+}
+
+bool IsInTradingWindow(const datetime t)
+{
+   if(!InpUseTimeFilter)
+      return true;
+   return IsInWindow(t, StartMinutes(), EndMinutes());
+}
+
+bool IsInPauseWindow(const datetime t)
+{
+   if(!InpUsePause)
+      return false;
+   int start = InpPauseStartHour * 60 + InpPauseStartMinute;
+   int end   = InpPauseEndHour * 60 + InpPauseEndMinute;
+   if(start == end)
+      return false;
+   return IsInWindow(t, start, end);
 }
 
 bool IsAfterDailyClose(const datetime t)
@@ -219,7 +255,18 @@ string EntryModeName()
 {
    if(InpEntryMode == EA_ENTRY_CROSS_ONLY)
       return "Solo cruces";
+   if(InpEntryMode == EA_ENTRY_RSI_REVERSION)
+      return "Reversión RSI(" + IntegerToString(InpRsiPeriod) + ")";
    return "Cruces + retrocesos";
+}
+
+string TrendName(const int trend)
+{
+   if(trend > 0)
+      return "ALCISTA";
+   if(trend < 0)
+      return "BAJISTA";
+   return "sin datos";
 }
 
 string DirectionName()
@@ -310,6 +357,15 @@ double NormalizeLots(const double lots)
    return NormalizeDouble(volume, volumeDigits);
 }
 
+//--- ATR de la última vela cerrada (0 si no hay datos)
+double CurrentAtr()
+{
+   double atr[];
+   if(g_atrHandle == INVALID_HANDLE || CopyBuffer(g_atrHandle, 0, 1, 1, atr) != 1)
+      return 0.0;
+   return atr[0];
+}
+
 //--- Distancias de SL y TP en precio: pips fijos o ATR de la última vela cerrada
 bool GetStopDistances(double &slDistance, double &tpDistance)
 {
@@ -318,12 +374,30 @@ bool GetStopDistances(double &slDistance, double &tpDistance)
    if(InpStopMode != EA_STOPS_ATR)
       return true;
 
-   double atr[];
-   if(CopyBuffer(g_atrHandle, 0, 1, 1, atr) != 1 || atr[0] <= 0.0)
+   double atr = CurrentAtr();
+   if(atr <= 0.0)
       return false;
-   slDistance = atr[0] * InpAtrSlMultiplier;
-   tpDistance = atr[0] * InpAtrTpMultiplier;
+   slDistance = atr * InpAtrSlMultiplier;
+   tpDistance = atr * InpAtrTpMultiplier;
    return true;
+}
+
+//--- Tendencia del marco mayor (cierre frente a su EMA): 1 = alcista, -1 = bajista, 0 = sin datos
+int HigherTimeframeTrend()
+{
+   if(g_htfHandle == INVALID_HANDLE)
+      return 0;
+   double ema[];
+   double closes[];
+   if(CopyBuffer(g_htfHandle, 0, 1, 1, ema) != 1)
+      return 0;
+   if(CopyClose(_Symbol, g_htfTimeframe, 1, 1, closes) != 1)
+      return 0;
+   if(closes[0] > ema[0])
+      return 1;
+   if(closes[0] < ema[0])
+      return -1;
+   return 0;
 }
 
 //--- Fuerza de la tendencia (ADX) en la última vela cerrada; -1 si no hay datos
@@ -569,6 +643,68 @@ void ManageBreakEven()
    }
 }
 
+//--- Trailing stop: el SL sigue al precio a ATR x multiplicador y nunca retrocede
+void ManageTrailing()
+{
+   if(InpTrailAtrMultiplier <= 0.0)
+      return;
+   double atr = CurrentAtr();
+   if(atr <= 0.0)
+      return;
+   MqlTick tick;
+   if(!SymbolInfoTick(_Symbol, tick))
+      return;
+
+   double distance    = atr * InpTrailAtrMultiplier;
+   double step        = MathMax(g_pip, atr * 0.1); // evita modificar el SL en cada tick
+   double minDistance = MinStopDistance();
+
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      if(!g_position.SelectByIndex(i) || !IsOwnPosition())
+         continue;
+
+      double currentSl = g_position.StopLoss();
+      double newSl     = 0.0;
+      bool   move      = false;
+      if(SelectedPositionDir() > 0)
+      {
+         newSl = NormalizePrice(tick.bid - distance);
+         move  = ((currentSl == 0.0 || newSl > currentSl + step) && tick.bid - newSl > minDistance);
+      }
+      else
+      {
+         newSl = NormalizePrice(tick.ask + distance);
+         move  = ((currentSl == 0.0 || newSl < currentSl - step) && newSl - tick.ask > minDistance);
+      }
+      if(!move)
+         continue;
+
+      ulong  ticket = g_position.Ticket();
+      double tp     = g_position.TakeProfit();
+      if(g_trade.PositionModify(ticket, newSl, tp) && IsRetcodeSuccess(g_trade.ResultRetcode()))
+         Print("Trailing: SL de la posición #", ticket, " movido a ", DoubleToString(newSl, _Digits));
+      else
+         Print("Trailing: no se pudo mover el SL de la posición #", ticket, ". Código ",
+               g_trade.ResultRetcode(), ": ", g_trade.ResultRetcodeDescription());
+   }
+}
+
+//--- Modo Reversión RSI: cerrar cuando el RSI vuelve a la zona contraria
+void ManageRsiExits()
+{
+   if(InpEntryMode != EA_ENTRY_RSI_REVERSION || g_rsiHandle == INVALID_HANDLE)
+      return;
+   double rsi[];
+   if(CopyBuffer(g_rsiHandle, 0, 1, 1, rsi) != 1)
+      return;
+
+   if(rsi[0] > InpRsiExitBuy && CountOpenPositions(1) > 0)
+      ClosePositions(1, "salida por RSI (" + DoubleToString(rsi[0], 1) + " > " + DoubleToString(InpRsiExitBuy, 1) + ")");
+   if(rsi[0] < InpRsiExitSell && CountOpenPositions(-1) > 0)
+      ClosePositions(-1, "salida por RSI (" + DoubleToString(rsi[0], 1) + " < " + DoubleToString(InpRsiExitSell, 1) + ")");
+}
+
 //+------------------------------------------------------------------+
 //| Permisos y filtros de entrada                                    |
 //+------------------------------------------------------------------+
@@ -627,6 +763,18 @@ bool IsEntryAllowed(const datetime now, const int dir, string &reason)
    if(IsAfterDailyClose(now))
    {
       reason = "ya pasó la hora de cierre intradía (" + FormatHM(InpCloseHour, InpCloseMinute) + ")";
+      return false;
+   }
+   if(IsInPauseWindow(now))
+   {
+      reason = "pausa de noticias (" + FormatHM(InpPauseStartHour, InpPauseStartMinute) + " - " +
+               FormatHM(InpPauseEndHour, InpPauseEndMinute) + ")";
+      return false;
+   }
+   if(InpUseHtfFilter && HigherTimeframeTrend() != dir)
+   {
+      reason = "va contra la tendencia de " + TimeframeToString(g_htfTimeframe) +
+               " (EMA " + IntegerToString(InpHtfPeriod) + "), que está " + TrendName(HigherTimeframeTrend());
       return false;
    }
    if(IsLossLimitReached(now))
@@ -780,6 +928,26 @@ bool GetSignal(int &signal, string &kind)
 
    string emas = "EMA " + IntegerToString(InpFastPeriod) + "/" + IntegerToString(InpSlowPeriod);
 
+   //--- Modo Reversión (Connors): RSI extremo en la dirección que marca la EMA lenta
+   if(InpEntryMode == EA_ENTRY_RSI_REVERSION)
+   {
+      double rsi[];
+      if(CopyBuffer(g_rsiHandle, 0, 1, 1, rsi) != 1)
+         return false;
+      string rsiText = "RSI(" + IntegerToString(InpRsiPeriod) + ") = " + DoubleToString(rsi[0], 1);
+      if(closes[1] > slow[1] && rsi[0] < InpRsiBuyLevel)
+      {
+         signal = 1;
+         kind   = rsiText + " sobrevendido con el precio sobre la EMA " + IntegerToString(InpSlowPeriod);
+      }
+      else if(closes[1] < slow[1] && rsi[0] > InpRsiSellLevel)
+      {
+         signal = -1;
+         kind   = rsiText + " sobrecomprado con el precio bajo la EMA " + IntegerToString(InpSlowPeriod);
+      }
+      return true;
+   }
+
    //--- 1) Cruce de las medias: cambio de tendencia
    if(fast[0] <= slow[0] && fast[1] > slow[1])
    {
@@ -921,6 +1089,17 @@ void UpdatePanel(const datetime now)
    if(InpAdxMin > 0.0)
       adxText = "ADX " + DoubleToString(CurrentAdx(), 1) + " (mínimo " + DoubleToString(InpAdxMin, 1) + ")";
 
+   string filterText = "Filtro " + TimeframeToString(g_htfTimeframe) + ": desactivado";
+   if(InpUseHtfFilter)
+      filterText = "Filtro " + TimeframeToString(g_htfTimeframe) + ": " + TrendName(HigherTimeframeTrend());
+   string trailText = "Trailing: no";
+   if(InpTrailAtrMultiplier > 0.0)
+      trailText = "Trailing: ATR x" + DoubleToString(InpTrailAtrMultiplier, 1);
+   string pauseText = "";
+   if(InpUsePause)
+      pauseText = " | Pausa " + FormatHM(InpPauseStartHour, InpPauseStartMinute) + " - " +
+                  FormatHM(InpPauseEndHour, InpPauseEndMinute) + ": " + YesNo(IsInPauseWindow(now));
+
    int    trades       = 0;
    double closedProfit = 0.0;
    GetTodayStats(now, trades, closedProfit);
@@ -932,6 +1111,7 @@ void UpdatePanel(const datetime now)
            " | 1 pip = " + DoubleToString(g_pip, _Digits) + "\n";
    text += trendLine + "\n";
    text += "Entradas: " + EntryModeName() + " | " + DirectionName() + " | " + adxText + "\n";
+   text += filterText + " | " + trailText + pauseText + "\n";
    text += "Hora servidor: " + TimeToString(now, TIME_MINUTES) +
            " | Hora PC: " + TimeToString(TimeLocal(), TIME_MINUTES) +
            " | Día habilitado: " + YesNo(IsTradingDay(now)) +
@@ -966,8 +1146,16 @@ int OnInit()
       return InitError("valor de pip, spread, deslizamiento y máximo diario no pueden ser negativos");
    if(InpMaxDailyLossPercent < 0.0 || InpBreakEvenPips < 0.0 || InpBreakEvenLockPips < 0.0)
       return InitError("la pérdida diaria y el breakeven no pueden ser negativos");
-   if(InpStopMode == EA_STOPS_ATR && (InpAtrPeriod < 1 || InpAtrSlMultiplier <= 0.0 || InpAtrTpMultiplier <= 0.0))
-      return InitError("en modo ATR, el periodo y los multiplicadores deben ser mayores que 0");
+   if(InpAtrPeriod < 1 || InpTrailAtrMultiplier < 0.0)
+      return InitError("el periodo del ATR debe ser mayor que 0 y el trailing no puede ser negativo");
+   if(InpStopMode == EA_STOPS_ATR && (InpAtrSlMultiplier <= 0.0 || InpAtrTpMultiplier <= 0.0))
+      return InitError("en modo ATR, los multiplicadores del SL y del TP deben ser mayores que 0");
+   if(InpHtfPeriod < 1)
+      return InitError("el periodo de la EMA del marco mayor debe ser mayor que 0");
+   if(InpRsiPeriod < 1 || InpRsiBuyLevel <= 0.0 || InpRsiSellLevel >= 100.0 || InpRsiBuyLevel >= InpRsiSellLevel)
+      return InitError("RSI: el periodo debe ser mayor que 0 y el nivel de compra menor que el de venta (entre 0 y 100)");
+   if(!IsValidTime(InpPauseStartHour, InpPauseStartMinute) || !IsValidTime(InpPauseEndHour, InpPauseEndMinute))
+      return InitError("horario de la pausa inválido (horas 0-23, minutos 0-59)");
    if(InpAdxPeriod < 1 || InpAdxMin < 0.0 || InpAdxMin > 100.0)
       return InitError("el periodo del ADX debe ser mayor que 0 y el ADX mínimo estar entre 0 y 100");
    if(InpBreakEvenPips > 0.0 && InpBreakEvenLockPips >= InpBreakEvenPips)
@@ -982,6 +1170,9 @@ int OnInit()
    g_timeframe = InpTimeframe;
    if(g_timeframe == PERIOD_CURRENT)
       g_timeframe = (ENUM_TIMEFRAMES)Period();
+   g_htfTimeframe = InpHtfTimeframe;
+   if(g_htfTimeframe == PERIOD_CURRENT)
+      g_htfTimeframe = (ENUM_TIMEFRAMES)Period();
 
    //--- Tamaño del pip
    g_pip = InpPipSize;
@@ -1020,12 +1211,27 @@ int OnInit()
       Print("Error al crear las EMAs. Código ", GetLastError());
       return INIT_FAILED;
    }
-   if(InpStopMode == EA_STOPS_ATR)
+   g_atrHandle = iATR(_Symbol, g_timeframe, InpAtrPeriod);
+   if(g_atrHandle == INVALID_HANDLE)
    {
-      g_atrHandle = iATR(_Symbol, g_timeframe, InpAtrPeriod);
-      if(g_atrHandle == INVALID_HANDLE)
+      Print("Error al crear el ATR. Código ", GetLastError());
+      return INIT_FAILED;
+   }
+   if(InpUseHtfFilter)
+   {
+      g_htfHandle = iMA(_Symbol, g_htfTimeframe, InpHtfPeriod, 0, MODE_EMA, PRICE_CLOSE);
+      if(g_htfHandle == INVALID_HANDLE)
       {
-         Print("Error al crear el ATR. Código ", GetLastError());
+         Print("Error al crear la EMA del marco mayor. Código ", GetLastError());
+         return INIT_FAILED;
+      }
+   }
+   if(InpEntryMode == EA_ENTRY_RSI_REVERSION)
+   {
+      g_rsiHandle = iRSI(_Symbol, g_timeframe, InpRsiPeriod, PRICE_CLOSE);
+      if(g_rsiHandle == INVALID_HANDLE)
+      {
+         Print("Error al crear el RSI. Código ", GetLastError());
          return INIT_FAILED;
       }
    }
@@ -1060,9 +1266,16 @@ int OnInit()
    if(InpAdxMin > 0.0)
       adxText = "ADX mínimo " + DoubleToString(InpAdxMin, 1);
 
-   Print("Robot tendencial iniciado en ", _Symbol, " ", TimeframeToString(g_timeframe),
+   string filterText = "sin filtro de marco mayor";
+   if(InpUseHtfFilter)
+      filterText = "filtro " + TimeframeToString(g_htfTimeframe) + " EMA " + IntegerToString(InpHtfPeriod);
+   string trailText = "sin trailing";
+   if(InpTrailAtrMultiplier > 0.0)
+      trailText = "trailing ATR x" + DoubleToString(InpTrailAtrMultiplier, 1);
+
+   Print("Robot tendencial v3 iniciado en ", _Symbol, " ", TimeframeToString(g_timeframe),
          " | 1 pip = ", DoubleToString(g_pip, _Digits), " | ", stopsText, " | ", lotText,
-         " | ", EntryModeName(), " | ", DirectionName(), " | ", adxText);
+         " | ", EntryModeName(), " | ", DirectionName(), " | ", adxText, " | ", filterText, " | ", trailText);
    return INIT_SUCCEEDED;
 }
 
@@ -1079,6 +1292,10 @@ void OnDeinit(const int reason)
       IndicatorRelease(g_atrHandle);
    if(g_adxHandle != INVALID_HANDLE)
       IndicatorRelease(g_adxHandle);
+   if(g_htfHandle != INVALID_HANDLE)
+      IndicatorRelease(g_htfHandle);
+   if(g_rsiHandle != INVALID_HANDLE)
+      IndicatorRelease(g_rsiHandle);
    Comment("");
 }
 
@@ -1094,6 +1311,7 @@ void OnTick()
       CloseDayTradePositions(now);
    CheckDailyLoss(now);
    ManageBreakEven();
+   ManageTrailing();
 
    //--- 2) En cada vela nueva, buscar señales en las velas cerradas
    datetime barTime = iTime(_Symbol, g_timeframe, 0);
@@ -1108,6 +1326,7 @@ void OnTick()
          return; // datos del indicador aún no listos: reintentar en el siguiente tick
 
       g_lastBarTime = barTime;
+      ManageRsiExits();
       if(signal != 0)
       {
          g_lastSignalText = DirName(signal) + " - " + kind + " (" + TimeToString(barTime, TIME_DATE | TIME_MINUTES) + ")";
