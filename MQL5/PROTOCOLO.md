@@ -432,8 +432,22 @@ Presupuesto: 3 pruebas de desarrollo y ≤ 2 de validación.
 | Variante | Oper. | Acierto | PF | Esperanza | t | Estrés | DD equidad % | Recuperación | Años + | Mayor ganancia % | ¿Cumple? |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | R2_H4_F0_rsi | | | | | | | | | | | |
-| R2_H4_T0_tendencia | | | | | | | | | | | |
+| R2_H4_T0_tendencia | 100 | 40.0 % | 1.21 | 13.70 | 0.89 | 12.15 | 13.32 | 0.81 | 1 de 3 | 16.5 | ✘ falla b, c, f y g |
 | R2_H4_T1_tendencia_trailing | | | | | | | | | | | |
+
+**R2_H4_T0_tendencia:**
+- Resultado: beneficio neto +1 370.05 (balance final 11 370.05). Drawdown de balance 1 654.16 (13.13 %).
+- Compras: 55 (47.3 % de acierto). Ventas: 45 (31.1 %).
+- Por año: 2022 **+1 964.32** (30 op.), 2023 −181.02 (35 op.), 2024 **−413.25** (35 op.). Todo el beneficio viene de 2022.
+- En 2024 pierde aunque el oro subió con fuerza ese año.
+- Pasar a H4 elimina la sangría de costes: de −77 % en M15 a +13.7 %. Aun así, t = 0.89 **no se distingue de cero**.
+
+**Defecto de ejecución encontrado.**
+- En la primera vela H4 del día, el primer tick llega a la 01:00:00, antes de que abra la sesión de trading.
+- Los 3 intentos fallan en el mismo segundo con el código 10018 («market closed») y la señal se descarta. Ejemplo: 2024.12.19 01:00, venta por cruce bajista.
+- Afecta por igual a las 3 variantes de la ronda 2. En M15 no ocurría porque el horario 08–20 lo evitaba.
+- Se corrige después de la ronda 2: esperar dentro de la vela mientras la sesión esté cerrada, sin gastar intentos.
+- Si alguna variante queda cerca de los criterios, se repiten las 3 con el código corregido.
 
 ## 8. Datos pendientes del usuario
 
