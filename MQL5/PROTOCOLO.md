@@ -15,8 +15,10 @@ resultados y no se cambian después.
 | Diseñar el protocolo, las 13 variantes y sus archivos `.set` | |
 
 Las comprobaciones estáticas de la v4 (paréntesis y llaves equilibrados, funciones definidas
-antes de usarse, solo API estándar de MQL5, mismos parámetros que la v3) están hechas. La
-compilación con F7 queda pendiente.
+antes de usarse, solo API estándar de MQL5, mismos parámetros que la v3) están hechas.
+
+**Actualización 2026-09-29:** la v4 **compila sin errores** en el MetaTrader del usuario y
+**reproduce exactamente** el informe de referencia: fase 1 superada (resultados en el apartado 5).
 
 ## 1. Recuperación del proyecto
 
@@ -137,6 +139,18 @@ Archivo: `Presets/00_referencia_v3.set`.
 | Peso de la mayor operación | 44 % del beneficio neto (sin ella: +132) |
 | Coste extra que anula la ventaja | 0.47 USD de precio por operación (≈ 4.7 pips) con 0.01 lotes |
 
+**Cifras exactas** (líneas `[RESULTADO]` de la v4 en la fase 1, que coinciden con el informe):
+
+| | Valor |
+|---|---|
+| Media / desviación típica por operación | +0.47 / 14.16 USD (n = 506) |
+| t de la esperanza | **0.74** |
+| IC 95 % de la esperanza por operación | de **−0.76** a **+1.70** USD |
+| Operaciones necesarias para confirmar esa ventaja | ≈ 2 450 (95 % unilateral) – 3 500 (bilateral); ≈ 5 700 para t = 2.5 |
+| Media con estrés de +2 pips | +0.27 USD |
+| Por año | 2025 (sep–dic): **−0.53** en 161 op. · 2026: +236.55 en 345 op. |
+| Mayor ganancia | 103.54 = 43.9 % del beneficio neto |
+
 **Conclusión**: el +236 USD **no se distingue estadísticamente de cero**. Es compatible con
 una estrategia sin ventaja que tuvo un buen año, y además depende mucho de una sola
 operación. Por eso no se optimiza sobre él: primero se reproduce y después se contrasta
@@ -177,8 +191,8 @@ y 3 de la tabla y la protección de posiciones sin SL. Por eso existe la fase 1.
 
 | Fase | Periodo | Qué se ejecuta | Para qué |
 |---|---|---|---|
-| **0. Reproducción** | 2025.09.01 – 2026.09.25 | **v3** + `00_referencia_v3.set`, depósito 1 000, 1:100 | Debe dar 506 operaciones y +236.02. Si no, se investiga antes de seguir |
-| **1. Compatibilidad** | igual | **v4** + `00_referencia_v3.set` | Tolerancia: operaciones ±1 %, beneficio ±5 %. Si se sale, se busca la causa en el Diario |
+| ~~0. Reproducción~~ | 2025.09.01 – 2026.09.25 | **v3** + `00_referencia_v3.set`, depósito 1 000, 1:100 | **No ejecutada**: el usuario sobrescribió la v3 con la v4 en su terminal. Innecesaria: la fase 1 dio el informe original exacto, así que los datos no han cambiado |
+| **1. Compatibilidad** ✔ | igual | **v4** + `00_referencia_v3.set` | Tolerancia: operaciones ±1 %, beneficio ±5 %. **Resultado: 0 % de diferencia** |
 | **2. Desarrollo** | **2022.01.01 – 2024.12.31** | v4, 13 variantes (4.3) | Única fase en la que se compara y se elige |
 | **3. Validación** | **2025.01.01 – 2025.08.31** | Solo 1-2 finalistas, **una vez**, sin tocar nada | Contraste fuera de muestra |
 | 4. Periodo ya visto | 2025.09.01 – 2026.09.25 | Las mismas finalistas | Solo informativo: está **contaminado** porque se usó para elegir la estrategia B |
@@ -200,7 +214,8 @@ la prueba final es prospectiva (en demo). Las EMAs 200 de M15 y de H1 necesitan 
   - margen ≤ 50 % del libre;
   - spread ≤ 8 pips;
   - horario 08–20 y cierre 22:00;
-  - drawdown máximo **desactivado** (0) para no truncar las curvas.
+  - drawdown máximo **desactivado** (0) para no truncar las curvas;
+  - reiniciar el bloqueo por drawdown = true, para que un bloqueo de una prueba anterior no afecte a la siguiente. No cambia ningún resultado.
 
 ¿Por qué 10 000 y no 1 000? Con 1 000 USD y un SL de unos 15 USD por 0.01 lotes, el 1 % (10 USD)
 no llega al lote mínimo: muchas operaciones se omitirían, y más en las variantes con el SL más
@@ -294,9 +309,20 @@ Copiar los datos del informe (pestaña Backtest) y de las líneas `[RESULTADO]` 
 
 | Variante | Periodo | Oper. | Acierto | PF | Esperanza | t | Esperanza estrés | DD equidad % | Recuperación | Años + | Mayor ganancia % | ¿Cumple? |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 00 (v3) | Reproducción | | | | | | | | | | | |
-| 00 (v4) | Compatibilidad | | | | | | | | | | | |
+| 00 (v3) | Informe original | 506 | 55.3 % | 1.09 | 0.47 | – | – | 25.66 | 0.61 | – | 44 | referencia |
+| 00 (v4) | Compatibilidad | 506 | 55.3 % | 1.09 | 0.47 | 0.74 | 0.27 | 25.66 | 0.61 | 1 de 2 | 43.9 | ✔ idéntico |
 | F0 … T1 | Desarrollo | | | | | | | | | | | |
+
+Otros datos de la fase 1: beneficio neto +236.02, balance final 1 236.02, drawdown de balance
+364.13 (24.59 %). Las operaciones y los precios del Diario coinciden con los de la v3. Por ejemplo, la venta
+#1012: entrada 4275.89, SL 4291.57, TP 4213.15, riesgo al SL 15.68 USD, salida por RSI a 4263.57.
+
+**Prueba adicional (no planificada):** la misma configuración con el drawdown máximo al 20 %,
+que es el valor por defecto de la v4:
+- Hasta julio de 2026 las operaciones son idénticas: 2025 da −0.53 en 161 operaciones, como en la fase 1.
+- En julio de 2026 la equidad cayó un 20.01 % desde su máximo (≈ 1 497) y el EA se bloqueó, como estaba previsto.
+- Total: 409 operaciones, +197.69, drawdown de equidad 299.57 (20.01 %). Las 97 operaciones restantes no se abrieron.
+- Sin la protección, esa caída llegó al 25.66 %.
 
 ## 6. Datos pendientes del usuario
 
