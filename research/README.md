@@ -321,6 +321,34 @@ Buenas prácticas que el motor facilita pero no impone: fijar la hipótesis, los
 mirar los datos de validación; registrar **todas** las ejecuciones (también las malas) y pasar el número de
 pruebas a `--n-trials`/`deflated_sharpe_ratio`; confirmar cualquier ventana del barrido en datos no usados.
 
+### 7.1 El protocolo v5 completo en un comando (`kq.protocol`)
+
+Aplica `MQL5/docs/PROTOCOLO_V5.md` (enmiendas 1 y 2) sin decisiones manuales: walk-forward de H3a, H2, H1 y H4, barrido H3b, controles, estudios adicionales, criterios a–k, selección y congelado.
+
+```bash
+# DEV + VAL (la reserva final no se carga)
+python -m kq.protocol devval --scenario A --data KQ_XAUUSD_M1.csv --spec KQ_XAUUSD_spec.json --out runs/protoA
+# Reserva final: una sola ejecución por candidata congelada
+python -m kq.protocol holdout --scenario A --data KQ_XAUUSD_M1.csv --spec KQ_XAUUSD_spec.json \
+    --frozen runs/protoA/frozen_candidates.json --out runs/protoA_hold
+```
+
+**Salida de `devval`**
+- `REPORTE.md` (informe en español) y `report.json`;
+- `frozen_candidates.json`;
+- `oos_trades_<familia>.csv`;
+- una línea por familia en el registro.
+
+**Opciones:** `--commission`, `--slippage-points` (3), `--extra-spread-points` (para datos de Dukascopy), `--n-monkey` y `--n-anchor` (1 000), `--workers`.
+
+**Etapa `holdout`:** anota cada ejecución en `registry/holdout_lock.jsonl` antes de calcularla, y rechaza una segunda ejecución de la misma candidata.
+
+**Tiempos:** con datos sintéticos del escenario A, unos 40 s con 20 simulaciones de control y unos 5–10 min con 1 000, en 4 núcleos.
+
+**Validación con datos sintéticos:**
+- con un paseo aleatorio no aprueba nada;
+- con una deriva plantada detecta ventajas desde ≈ +0.09 R por operación (enmienda 2, punto 16).
+
 ## 8. Registro de experimentos
 
 `research/registry/experiments.jsonl`: una línea JSON por ejecución con hora UTC, commit de git (y si el árbol

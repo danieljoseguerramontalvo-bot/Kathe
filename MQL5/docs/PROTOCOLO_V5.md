@@ -231,6 +231,7 @@ Se presentará la tabla de compensaciones:
 
 - 2026-09-29: versión inicial.
 - 2026-09-29, **enmienda 1, antes de ver ningún dato**: cambios motivados por la revisión bibliográfica (`LITERATURA.md`). Ver el apartado 10.
+- 2026-09-29, **enmienda 2, antes de ver ningún dato**: detalles operativos que el texto dejaba abiertos, fijados al escribir el ejecutor `research/kq/protocol.py`. Ver el apartado 11.
 
 ## 10. Enmienda 1 (antes de ver ningún dato)
 
@@ -252,3 +253,64 @@ Se presentará la tabla de compensaciones:
    - Escenario A: H3a > H2 > H1 (infrapotenciada) > H4.
    - Escenario B: H1 > H3a > H2 > H4.
 6. **Presupuesto:** H3 pasa de 1 a 2 configuraciones (H3a + H3b). El total de candidatas es **14**. Las demás cifras del apartado 6 no cambian.
+
+## 11. Enmienda 2 (antes de ver ningún dato): detalles operativos
+
+El protocolo se ejecuta con un solo comando, `python -m kq.protocol devval …` (ver `research/README.md`).
+El código se sube al repositorio antes de disponer de datos reales: el historial de git lo demuestra.
+Lo que sigue concreta lo que el texto anterior no fijaba. No cambia hipótesis, rejillas ni umbrales.
+
+1. **Ventanas del walk-forward.** Empiezan el 2022-01-01 (A) o el 2008-01-01 (B), para que la última ventana de prueba termine justo al final de VAL.
+   - A: 4 ventanas de prueba de 6 meses, de 2023-07-01 a 2025-07-01.
+   - B: 10 ventanas de 1 año, de 2012 a 2021.
+   - En la etapa DEV + VAL los datos se cortan al final de VAL: la reserva final ni se carga.
+2. **Selección en cada ventana:** mayor esperanza en R con ≥ 30 operaciones de entrenamiento. Los empates los gana la configuración que va antes en la rejilla, ordenada de más simple a más compleja:
+   - H2: primero sin filtro;
+   - H4: primero sin régimen;
+   - H1: primero H4 y N = 20.
+3. **Congelado:** la mejor configuración, con la misma regla, en los últimos 18 meses (A) o 4 años (B) antes del final de VAL.
+4. **Deflated Sharpe (criterio c):** N = 8 configuraciones de la fase v4 + 13 de las rejillas + 1 (H3b) + 2 por cada familia con estudio de régimen + 1 si se prueba la combinación.
+   - Varianza de los Sharpe bajo la hipótesis nula: la muestral del estimador.
+   - H3b además usa su propio N = número de ventanas probadas en DEV.
+5. **Criterio f:** drawdown de la equidad M1 encadenada de las ventanas de prueba, más el percentil 95 de 5 000 permutaciones de las R al 1 %.
+6. **Criterios g y h:** en R, para que el interés compuesto no dé más peso a los años finales.
+   - Solo cuentan los semestres con al menos una operación.
+   - Si el beneficio total en R es ≤ 0, no se cumplen.
+7. **Criterio i (vecindario):** cada configuración de la rejilla se ejecuta fija sobre todo el periodo fuera de muestra.
+   - En H3a, que no tiene rejilla: una variación cada vez de la entrada (23 o 1 UTC), de la salida (7 o 9 UTC) y del SL (2 o 4 ATR).
+   - Las vecinas con menos de 10 operaciones se muestran, pero no cuentan.
+8. **Criterio j:**
+   - H1 y H3a: Sharpe fuera de muestra mayor que el de «siempre comprado» escalado por volatilidad (enmienda 1), en el mismo periodo y con los mismos costes.
+   - H2 y H4: ventas con resultado ≥ 0, o esa misma condición de Sharpe.
+9. **Criterio k y controles:** se usa la configuración más elegida en las ventanas; si hay empate, la de la última ventana.
+   - Se calibra la frecuencia de entrada y se hacen 1 000 simulaciones de entradas aleatorias con las mismas salidas.
+   - Se exige esperanza fuera de muestra mayor que su percentil 95.
+   - H2 además exige dos cosas:
+     - superar el percentil 95 de 1 000 anclas aleatorias;
+     - que el filtro de compresión mejore la esperanza en más que el coste de 10 puntos expresado en R.
+10. **«Supera el walk-forward»** (condición para los estudios adicionales) = cumple el criterio b.
+    - Régimen:
+      - H1, H2 y H3a: filtro de tendencia (ER ≥ 0.3) y terciles de volatilidad medio y alto.
+      - H4: terciles bajo y medio, y rango con terciles bajo y medio.
+    - Como mucho 4 configuraciones, las de las 2 familias de más prioridad.
+    - Combinación: media de los rendimientos diarios de las supervivientes, si su correlación absoluta máxima es < 0.5.
+    - Aprendizaje automático: no se ejecuta. En B necesitaría otra enmienda antes de ver sus resultados.
+11. **H1 en el escenario A** se informa, pero no puede ser candidata (infrapotenciada, enmienda 1).
+12. **Holm-Bonferroni** es informativo: el umbral de significación que decide es el Deflated Sharpe.
+13. **Costes con datos de Dukascopy:** el spread adicional frente a HF Markets (E puntos, del script de auditoría) se suma como deslizamiento de E/2 puntos en cada ejecución.
+14. **Reserva final:** cada ejecución se anota en `research/registry/holdout_lock.jsonl` **antes** de calcular el resultado.
+    - Una segunda ejecución de la misma candidata (misma estrategia y mismos parámetros) se rechaza.
+    - Solo se permite con `--contaminated-rerun`, y entonces queda marcada como contaminada y no puede aprobar.
+15. **Contraste con MT5 (B1 y B2):**
+    - periodo 2022-01-01 → 2025-01-01;
+    - sin deslizamiento adicional, sin la regla de rollover, spread máximo de 80 puntos y sin plazo de entrada, como la v4.
+16. **Validación del propio ejecutor con datos sintéticos** (misma rejilla y mismos criterios, escenario A):
+
+    | Datos | Resultado |
+    |---|---|
+    | Paseo aleatorio sin ventaja | Ninguna familia es defendible |
+    | Deriva plantada de +0.30 USD/h de 00 a 08 UTC | H3a cumple a–k (+0.20 R por operación). H3b encuentra la ventana 00–07. Ninguna otra familia da falso positivo |
+    | Deriva de +0.15 USD/h | H3a cumple a–k (+0.09 R) |
+    | Deriva de +0.08 USD/h | H3a **no** es defendible (+0.04 R): falla c, g y h |
+
+    **Potencia del escenario A:** detecta ventajas de ≈ +0.09 R por operación con unas 500 operaciones fuera de muestra. Una ventaja real más pequeña pasaría por «no defendible».
