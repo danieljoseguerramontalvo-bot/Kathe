@@ -313,7 +313,19 @@ Copiar los datos del informe (pestaña Backtest) y de las líneas `[RESULTADO]` 
 | 00 (v4) | Compatibilidad | 506 | 55.3 % | 1.09 | 0.47 | 0.74 | 0.27 | 25.66 | 0.61 | 1 de 2 | 43.9 | ✔ idéntico |
 | F7 con lote fijo 0.01 (*) | Desarrollo | 1 483 | 49.0 % | 0.79 | −0.33 | **−3.62** | −0.53 | 5.48 | −0.88 | **0 de 3** | – | ✘ falla b, c, d, f y g |
 | **F7** (`.set`, riesgo 1 %) | Desarrollo | 1 482 | 48.9 % | 0.76 | −5.37 | **−4.15** | −8.80 | **82.02** | −0.96 | **0 de 3** | – | ✘ falla b, c, d, e, f y g |
-| F0 … F6, S1 … S3, T0, T1 | Desarrollo | | | | | | | | | | | |
+| **F0** (†) | Desarrollo | 1 905 | 49.1 % | 0.72 | −4.84 | **−5.13** | −7.32 | **92.62** | −0.97 | **0 de 3** | – | ✘ falla b, c, d, e, f y g |
+| F1 … F6, S1 … S3, T0, T1 | Desarrollo | | | | | | | | | | | |
+
+(†) El usuario no indicó el archivo. Se identifica como F0 porque es el primero de la lista, no
+tiene líneas de trailing y hace más operaciones que F7 (sin filtros). La relación SL/TP es la
+del modo ATR 1.5/6. Por año: 2022 −5 149.69 (605 op.), 2023 −3 201.08 (686 op.), 2024 −876.53
+(614 op.). Balance final 772.70.
+
+**Lectura de F0 frente a F7:** la entrada RSI(2) sola pierde (t = −5.13). Los tres componentes
+juntos apenas la mejoran: PF 0.72 → 0.76. F1-F6 son combinaciones intermedias entre esos dos
+extremos, así que es muy improbable que alguna llegue a PF ≥ 1.15 y t ≥ +2.5. Se da
+prioridad a T0 y T1 (estrategia A, independiente). F1-F6 quedan como opcionales para completar
+el análisis factorial.
 
 **F7 con su archivo** (riesgo 1 % sobre 10 000):
 - Por año: 2022 −2 887.67 (459 op.), 2023 −3 938.81 (535 op.), 2024 −1 137.68 (488 op.).
