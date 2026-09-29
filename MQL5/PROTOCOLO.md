@@ -433,7 +433,7 @@ Presupuesto: 3 pruebas de desarrollo y ≤ 2 de validación.
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | R2_H4_F0_rsi | | | | | | | | | | | |
 | R2_H4_T0_tendencia | 100 | 40.0 % | 1.21 | 13.70 | 0.89 | 12.15 | 13.32 | 0.81 | 1 de 3 | 16.5 | ✘ falla b, c, f y g |
-| R2_H4_T1_tendencia_trailing | | | | | | | | | | | |
+| R2_H4_T1_tendencia_trailing | 107 | 36.4 % | 0.81 | −8.47 | −1.09 | −11.02 | 17.57 | −0.48 | 1 de 3 | – | ✘ falla b, c, d, f y g |
 
 **R2_H4_T0_tendencia:**
 - Resultado: beneficio neto +1 370.05 (balance final 11 370.05). Drawdown de balance 1 654.16 (13.13 %).
@@ -441,6 +441,14 @@ Presupuesto: 3 pruebas de desarrollo y ≤ 2 de validación.
 - Por año: 2022 **+1 964.32** (30 op.), 2023 −181.02 (35 op.), 2024 **−413.25** (35 op.). Todo el beneficio viene de 2022.
 - En 2024 pierde aunque el oro subió con fuerza ese año.
 - Pasar a H4 elimina la sangría de costes: de −77 % en M15 a +13.7 %. Aun así, t = 0.89 **no se distingue de cero**.
+
+**R2_H4_T1_tendencia_trailing:**
+- Resultado: beneficio neto −906.82 (balance final 9 093.18).
+- Compras: 60 (43.3 % de acierto). Ventas: 47 (27.7 %).
+- Por año: 2022 +228.77 (31 op.), 2023 −476.27 (39 op.), 2024 −782.24 (36 op.).
+- `[RESULTADO] Por operación` cuenta 106 operaciones: la última la cerró el probador al terminar la prueba.
+- Con trailing y TP lejano sale peor que T0 en H4: PF 0.81 frente a 1.21.
+- Las dos variantes de tendencia solo ganan en 2022 y pierden en 2023 y 2024, cuando el oro subió con más fuerza. Las ventas aciertan poco (28–31 %).
 
 **Defecto de ejecución encontrado.**
 - En la primera vela H4 del día, el primer tick llega a la 01:00:00, antes de que abra la sesión de trading.
