@@ -107,3 +107,18 @@ def test_cli_benchmark_and_random_entry(tmp_path, small_csv, capsys):
     m = _strict_json(tmp_path / "rnd" / "metrics.json")
     assert 0 < m["run"]["strategy"]["params"]["p_entry"] < 1
     assert len(read_registry(reg)) == 2
+
+
+def test_cli_takes_commission_from_spec_audit_field(tmp_path, small_csv):
+    csv, _ = small_csv
+    spec = tmp_path / "spec.json"
+    d = default_spec_dict()
+    d["commission_per_lot_side_observed"] = -3.5          # MT5 DEAL_COMMISSION sign
+    spec.write_text(json.dumps(d))
+    out = tmp_path / "c"
+    assert cli.main(["--data", str(csv), "--spec", str(spec), "--strategy", "REF_T0", "--start", "2023-02-01",
+                     "--end", "2023-06-30", "--out", str(out), "--no-registry", "--no-benchmarks",
+                     "--n-boot", "50", "--n-mc", "50"]) == 0
+    m = _strict_json(out / "metrics.json")
+    assert m["run"]["config"]["costs"]["commission_per_lot_rt"] == 7.0
+    assert m["run"]["config"]["max_spread_points"] == 60.0 and m["run"]["config"]["entry_deadline_min"] == 90.0

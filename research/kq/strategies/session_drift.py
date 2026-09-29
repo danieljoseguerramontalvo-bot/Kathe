@@ -107,14 +107,15 @@ class SessionDrift(Strategy):
 def scan_session_windows(md: MarketData, start, end, costs: CostModel | None = None,
                          account_units_per_usd: float = 1.0, hours=range(24), durations=range(1, 13),
                          sides=(1, -1), rollover_from_min: int = 1425, rollover_to_min: int = 75,
-                         max_exec_delay_min: int = 59, min_obs: int = 30) -> dict:
+                         max_spread_points: float = 60.0, max_exec_delay_min: int = 59, min_obs: int = 30) -> dict:
     """EXPLORATORY scan of (h_in, h_out = h_in + d, side) windows on [start, end) ONLY.
 
-    Each instance enters at the first M1 open at/after hh:00 UTC (ask for longs, bid for
-    shorts, + slippage) and exits at the first M1 open at/after (hh + d):00 UTC; commission is
-    deducted. Instances whose entry or exit bar is more than ``max_exec_delay_min`` late, whose
-    entry falls in the rollover window, or that span a weekend are dropped. The protective stop
-    of SESSION_DRIFT is NOT simulated here.
+    Each instance enters, like the engine, at the first M1 open inside the hour hh:00-hh:59 UTC
+    that is outside the rollover window and has spread <= ``max_spread_points`` (0 disables;
+    entry deadline = end of that H1 bar), at ask for longs / bid for shorts + slippage, and exits
+    at the first M1 open at/after (hh + d):00 UTC (within ``max_exec_delay_min``); commission is
+    deducted. Instances without a valid entry bar, with a late exit, or spanning a weekend are
+    dropped. The protective stop of SESSION_DRIFT is NOT simulated here.
 
     Returns {"table": DataFrame (one row per window; mean/sd/t/p in points after costs,
     Holm-adjusted p), "best": row with the highest t-stat, "n_tried": windows with >= min_obs
@@ -142,8 +143,17 @@ def scan_session_windows(md: MarketData, start, end, costs: CostModel | None = N
     idx = np.searchsorted(tu, grid, "left")
     ok = idx < len(tu)
     idx_c = np.minimum(idx, len(tu) - 1)
-    ok &= (tu[idx_c] - grid) <= max_exec_delay_min * NS_PER_MIN
-    entry_ok = ok & ~in_minute_window(t[idx_c], rollover_from_min, rollover_to_min)
+    ok &= (tu[idx_c] - grid) <= max_exec_delay_min * NS_PER_MIN          # exit bars
+    # entry bars: first bar in [hh:00, hh+1:00) outside the rollover window with spread <= cap
+    valid = ~in_minute_window(t, rollover_from_min, rollover_to_min)
+    if max_spread_points and max_spread_points > 0:
+        valid &= costs.effective_spread_points(md.spread[j0:j1]) <= max_spread_points
+    nxt = np.where(valid, np.arange(len(t)), len(t))
+    nxt = np.minimum.accumulate(nxt[::-1])[::-1]                         # next valid index >= j
+    ent = np.where(idx < len(tu), nxt[idx_c], len(t))
+    end_h = np.searchsorted(tu, grid + NS_PER_HOUR, "left")
+    entry_ok = ent < end_h
+    ent_c = np.minimum(ent, len(t) - 1)
     hod = (grid % NS_PER_DAY) // NS_PER_HOUR
     rows = []
     for side in sides:
@@ -153,8 +163,8 @@ def scan_session_windows(md: MarketData, start, end, costs: CostModel | None = N
                 ke = ks + d
                 keep = ke < len(grid)
                 a, b = ks[keep], ke[keep]
-                keep2 = ok[b] & ((tu[idx_c[b]] - tu[idx_c[a]]) <= (d + 1) * NS_PER_HOUR)
-                a, b = idx_c[a[keep2]], idx_c[b[keep2]]
+                keep2 = ok[b] & ((tu[idx_c[b]] - tu[ent_c[a]]) <= (d + 1) * NS_PER_HOUR)
+                a, b = ent_c[a[keep2]], idx_c[b[keep2]]
                 if side > 0:
                     ent, ex = ao[a] + slip, o[b] - slip
                 else:

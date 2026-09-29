@@ -20,7 +20,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .costs import CostModel
+from .costs import CostModel, commission_rt_from_spec
 from .data import MarketData
 from .engine import BacktestConfig, run_backtest
 from .metrics import compute_metrics
@@ -45,7 +45,9 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--units-per-usd", type=float, default=None,
                     help="1 (USD account) or 100 (USC cent account); default from spec account_currency")
     ap.add_argument("--slippage-points", type=float, default=0.0)
-    ap.add_argument("--commission", type=float, default=0.0, help="per lot round turn, account currency")
+    ap.add_argument("--commission", type=float, default=None,
+                    help="per lot round turn, account currency (default: 2 x |commission_per_lot_side_observed| "
+                         "from the spec if present, else 0)")
     ap.add_argument("--swap", action="store_true", help="apply swaps (values from the spec unless overridden)")
     ap.add_argument("--swap-long", type=float, default=None)
     ap.add_argument("--swap-short", type=float, default=None)
@@ -53,6 +55,10 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--spread-floor", type=float, default=0.0, help="minimum spread in points")
     ap.add_argument("--rollover-from", type=int, default=1425, help="no-entry window start, server minute")
     ap.add_argument("--rollover-to", type=int, default=75, help="no-entry window end, server minute")
+    ap.add_argument("--max-spread-points", type=float, default=60.0, help="entry spread cap (0 disables)")
+    ap.add_argument("--entry-deadline-min", type=float, default=90.0,
+                    help="pending entries expire this many minutes after the open of the bar in which they "
+                         "become executable (and at the end of that bar)")
     ap.add_argument("--hypothesis-id", default=None)
     ap.add_argument("--experiment-id", default=None)
     ap.add_argument("--split", default=None, help="split name, e.g. dev / validation / holdout")
@@ -68,7 +74,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _config(a, md) -> BacktestConfig:
     units = a.units_per_usd if a.units_per_usd is not None else md.spec.default_units_per_usd()
-    costs = CostModel(slippage_points=a.slippage_points, commission_per_lot_rt=a.commission, apply_swap=a.swap,
+    commission = a.commission
+    if commission is None:
+        commission = commission_rt_from_spec(md.spec) or 0.0
+    costs = CostModel(slippage_points=a.slippage_points, commission_per_lot_rt=commission, apply_swap=a.swap,
                       swap_long=a.swap_long, swap_short=a.swap_short, spread_multiplier=a.spread_mult,
                       spread_floor_points=a.spread_floor)
     start = pd.Timestamp(a.start) if a.start else None
@@ -76,7 +85,8 @@ def _config(a, md) -> BacktestConfig:
     risk = None if a.fixed_lots is not None else a.risk_pct
     return BacktestConfig(start=start, end=end, initial_equity=a.initial_equity, risk_pct=risk,
                           fixed_lots=a.fixed_lots, account_units_per_usd=units, costs=costs,
-                          rollover_from_min=a.rollover_from, rollover_to_min=a.rollover_to)
+                          rollover_from_min=a.rollover_from, rollover_to_min=a.rollover_to,
+                          max_spread_points=a.max_spread_points, entry_deadline_min=a.entry_deadline_min)
 
 
 def _run_benchmark(a, md, cfg, out: Path) -> dict:
@@ -87,7 +97,7 @@ def _run_benchmark(a, md, cfg, out: Path) -> dict:
     if a.strategy.upper() == "BUY_HOLD_VOLSCALED":
         res = buy_hold_volscaled(md, cfg.start, cfg.end, cfg.costs, cfg.initial_equity, cfg.account_units_per_usd,
                                  rollover_from_min=cfg.rollover_from_min, rollover_to_min=cfg.rollover_to_min,
-                                 **params)
+                                 max_spread_points=cfg.max_spread_points, **params)
         res["fills"].to_csv(out / "trades.csv", index=False)
         eq = res["daily_equity"].rename_axis("date").to_frame()
         eq["ret"] = res["daily_returns"].to_numpy()

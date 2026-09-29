@@ -58,8 +58,11 @@ def test_future_perturbation_does_not_change_past(synth_md, name, params):
 @pytest.mark.parametrize("tf", ["H4", "D1"])
 def test_entries_execute_at_first_m1_open_after_signal_bar_close(synth_md, tf):
     s = make_strategy("TREND_DONCHIAN", {"timeframe": tf, "n": 20})
-    res = run_backtest(synth_md, s, BacktestConfig(start="2023-02-01", rollover_from_min=0, rollover_to_min=0))
+    # rollover window and spread cap disabled: every entry must fill on the first eligible bar
+    res = run_backtest(synth_md, s, BacktestConfig(start="2023-02-01", rollover_from_min=0, rollover_to_min=0,
+                                                   max_spread_points=0))
     assert len(res.trades) > 5
+    assert (res.trades.entry_delay_min == 0).all()
     bars = synth_md.bars(tf)
     opens = set(bars.index)
     L = pd.Timedelta(tf_ns(tf), "ns")
@@ -86,3 +89,22 @@ def test_ref_t0_uses_only_closed_bars(synth_md):
         np.testing.assert_array_equal(part.sig[: i + 1], full.sig[: i + 1])
         np.testing.assert_allclose(part.adx[: i + 1], full.adx[: i + 1])
         np.testing.assert_allclose(part.atr[: i + 1], full.atr[: i + 1], equal_nan=True)
+
+
+def test_delayed_entries_stay_inside_the_deadline(synth_md):
+    """With the default rules (rollover window, spread cap 60, 90-min deadline) entries may be
+    delayed, but never before the signal is known nor after the deadline."""
+    for name, p in [("REF_T0", {}), ("TREND_DONCHIAN", {"timeframe": "D1"}), ("SESSION_BREAKOUT", {})]:
+        s = make_strategy(name, p)
+        res = run_backtest(synth_md, s, BacktestConfig(start="2023-02-01"))
+        L = tf_ns(s.timeframe)
+        t = synth_md.t
+        for tr in res.trades.itertuples():
+            j = int(np.searchsorted(t, tr.decision_time.value, "left"))
+            first = t[j]
+            bar_open = (first // L) * L
+            deadline = min(bar_open + L, bar_open + 90 * 60 * 10**9)
+            assert first <= tr.entry_time.value < deadline
+            assert tr.entry_spread_pts <= 60
+            m = tr.entry_time.hour * 60 + tr.entry_time.minute
+            assert not (m >= 1425 or m < 75)

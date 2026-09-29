@@ -44,7 +44,7 @@ class SessionBreakout(Strategy):
         "c_max": 0.4,               # None disables the compression filter
         "tp_mult": 2.0,             # 1, 2 or None
         "atr_period": 14,           # ATR on D1 server bars
-        "min_range_m1_bars": 60,
+        "min_range_coverage": 0.5,  # need >= 50 % of the expected M1 bars of the window (EA: n >= expected/2)
         "direction": "both",
         "close_on_opposite": False,
         "max_spread_points": None,
@@ -96,7 +96,7 @@ class SessionBreakout(Strategy):
                 ws = we - L
             self.day_ws[k] = ws
             a, b = np.searchsorted(tu, ws, "left"), np.searchsorted(tu, we, "left")
-            if b - a < int(p["min_range_m1_bars"]):
+            if b - a < float(p["min_range_coverage"]) * (L // NS_PER_MIN):
                 continue
             rh, rl = float(h[a:b].max()), float(l[a:b].min())
             self.day_rh[k], self.day_rl[k] = rh, rl

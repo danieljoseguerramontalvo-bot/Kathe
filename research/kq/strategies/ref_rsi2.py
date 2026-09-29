@@ -39,7 +39,7 @@ class RefRsi2(Strategy):
         "trail_atr": 0.0,                 # e.g. 2.0; 0 disables
         "close_on_opposite": True,
         "direction": "both",
-        "max_spread_points": 80.0,
+        "max_spread_points": None,        # None -> engine cap (60 points)
         "session_start_hour": None,       # server hour, entries only in [start, end)
         "session_end_hour": None,
         "close_hour": None,               # server hour: flat at the first decision >= this hour

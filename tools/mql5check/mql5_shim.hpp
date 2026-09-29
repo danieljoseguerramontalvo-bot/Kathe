@@ -1159,6 +1159,57 @@ bool   TesterWithdrawal(double money);
 bool   TesterDeposit(double money);
 void   TesterHideIndicators(bool hide);
 
+//====================================================================
+// Indicadores personalizados (OnCalculate)
+//====================================================================
+enum ENUM_INDEXBUFFER_TYPE { INDICATOR_DATA, INDICATOR_COLOR_INDEX, INDICATOR_CALCULATIONS };
+enum ENUM_PLOT_PROPERTY_INTEGER { PLOT_ARROW, PLOT_ARROW_SHIFT, PLOT_DRAW_BEGIN, PLOT_DRAW_TYPE, PLOT_SHOW_DATA,
+  PLOT_SHIFT, PLOT_LINE_STYLE, PLOT_LINE_WIDTH, PLOT_COLOR_INDEXES, PLOT_LINE_COLOR };
+enum ENUM_PLOT_PROPERTY_DOUBLE { PLOT_EMPTY_VALUE };
+enum ENUM_PLOT_PROPERTY_STRING { PLOT_LABEL };
+enum ENUM_CUSTOMIND_PROPERTY_INTEGER { INDICATOR_DIGITS, INDICATOR_HEIGHT, INDICATOR_LEVELS, INDICATOR_LEVELCOLOR,
+  INDICATOR_LEVELSTYLE, INDICATOR_LEVELWIDTH, INDICATOR_FIXED_MINIMUM, INDICATOR_FIXED_MAXIMUM };
+enum ENUM_CUSTOMIND_PROPERTY_DOUBLE { INDICATOR_MINIMUM, INDICATOR_MAXIMUM, INDICATOR_LEVELVALUE };
+enum ENUM_CUSTOMIND_PROPERTY_STRING { INDICATOR_SHORTNAME, INDICATOR_LEVELTEXT };
+enum ENUM_DRAW_TYPE { DRAW_NONE, DRAW_LINE, DRAW_SECTION, DRAW_HISTOGRAM, DRAW_HISTOGRAM2, DRAW_ARROW, DRAW_ZIGZAG,
+  DRAW_FILLING, DRAW_BARS, DRAW_CANDLES, DRAW_COLOR_LINE, DRAW_COLOR_SECTION, DRAW_COLOR_HISTOGRAM,
+  DRAW_COLOR_HISTOGRAM2, DRAW_COLOR_ARROW, DRAW_COLOR_ZIGZAG, DRAW_COLOR_BARS, DRAW_COLOR_CANDLES };
+bool SetIndexBuffer(int index, mql_array<double> &buffer, mql_enum_param<ENUM_INDEXBUFFER_TYPE> data_type = INDICATOR_DATA);
+bool IndicatorSetDouble(mql_enum_param<ENUM_CUSTOMIND_PROPERTY_DOUBLE> prop_id, double prop_value);
+bool IndicatorSetDouble(mql_enum_param<ENUM_CUSTOMIND_PROPERTY_DOUBLE> prop_id, int prop_modifier, double prop_value);
+bool IndicatorSetInteger(mql_enum_param<ENUM_CUSTOMIND_PROPERTY_INTEGER> prop_id, int prop_value);
+bool IndicatorSetInteger(mql_enum_param<ENUM_CUSTOMIND_PROPERTY_INTEGER> prop_id, int prop_modifier, int prop_value);
+bool IndicatorSetString(mql_enum_param<ENUM_CUSTOMIND_PROPERTY_STRING> prop_id, const string &prop_value);
+bool IndicatorSetString(mql_enum_param<ENUM_CUSTOMIND_PROPERTY_STRING> prop_id, int prop_modifier, const string &prop_value);
+bool PlotIndexSetDouble(int plot_index, mql_enum_param<ENUM_PLOT_PROPERTY_DOUBLE> prop_id, double prop_value);
+bool PlotIndexSetInteger(int plot_index, mql_enum_param<ENUM_PLOT_PROPERTY_INTEGER> prop_id, int prop_value);
+bool PlotIndexSetInteger(int plot_index, mql_enum_param<ENUM_PLOT_PROPERTY_INTEGER> prop_id, int prop_modifier, int prop_value);
+bool PlotIndexSetString(int plot_index, mql_enum_param<ENUM_PLOT_PROPERTY_STRING> prop_id, const string &prop_value);
+int  PlotIndexGetInteger(int plot_index, mql_enum_param<ENUM_PLOT_PROPERTY_INTEGER> prop_id, int prop_modifier = 0);
+
+//====================================================================
+// Otros
+//====================================================================
+constexpr int MB_OK = 0, MB_OKCANCEL = 1, MB_ABORTRETRYIGNORE = 2, MB_YESNOCANCEL = 3, MB_YESNO = 4,
+              MB_RETRYCANCEL = 5, MB_CANCELTRYCONTINUE = 6, MB_ICONSTOP = 0x10, MB_ICONERROR = 0x10,
+              MB_ICONHAND = 0x10, MB_ICONQUESTION = 0x20, MB_ICONEXCLAMATION = 0x30, MB_ICONWARNING = 0x30,
+              MB_ICONINFORMATION = 0x40, MB_ICONASTERISK = 0x40, MB_DEFBUTTON1 = 0, MB_DEFBUTTON2 = 0x100,
+              MB_DEFBUTTON3 = 0x200, MB_DEFBUTTON4 = 0x300;
+constexpr int IDOK = 1, IDCANCEL = 2, IDABORT = 3, IDRETRY = 4, IDIGNORE = 5, IDYES = 6, IDNO = 7,
+              IDTRYAGAIN = 10, IDCONTINUE = 11;
+int    MessageBox(const string &text, const string &caption = NULL, int flags = 0);
+uint   ColorToARGB(color clr, uchar alpha = 255);
+int    UninitializeReason();
+int    ChartIndicatorGet(long chart_id, int sub_window, const string &indicator_shortname);
+int    ChartIndicatorsTotal(long chart_id, int sub_window);
+string ChartIndicatorName(long chart_id, int sub_window, int index);
+enum ENUM_CRYPT_METHOD { CRYPT_BASE64, CRYPT_AES128, CRYPT_AES256, CRYPT_DES, CRYPT_HASH_SHA1, CRYPT_HASH_SHA256,
+  CRYPT_HASH_MD5, CRYPT_ARCH_ZIP };
+int    CryptEncode(mql_enum_param<ENUM_CRYPT_METHOD> method, const mql_array<uchar> &data, const mql_array<uchar> &key,
+                   mql_array<uchar> &result);
+int    CryptDecode(mql_enum_param<ENUM_CRYPT_METHOD> method, const mql_array<uchar> &data, const mql_array<uchar> &key,
+                   mql_array<uchar> &result);
+
 #endif // MQL5CHECK_SHIM_CORE
 
 //====================================================================

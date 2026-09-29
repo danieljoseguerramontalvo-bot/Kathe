@@ -96,3 +96,15 @@ def floor_to_step(lots: float, step: float) -> float:
     k = np.floor(lots / step + 1e-9)
     decimals = max(0, int(round(-np.log10(step))) + 2)
     return round(float(k * step), decimals)
+
+
+def commission_rt_from_spec(spec: SymbolSpec) -> float | None:
+    """Round-turn commission per lot from the MT5 audit field ``commission_per_lot_side_observed``
+    (written NEGATIVE, as MT5 DEAL_COMMISSION): 2 * |value|. None if the field is absent."""
+    v = spec.extra.get("commission_per_lot_side_observed")
+    if v is None:
+        return None
+    try:
+        return 2.0 * abs(float(v))
+    except (TypeError, ValueError):
+        return None

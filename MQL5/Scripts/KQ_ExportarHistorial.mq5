@@ -62,6 +62,8 @@ int CopyChunk(const string symbol, const datetime from, const datetime to, MqlRa
       n = CopyRates(symbol, InpTimeframe, from, to, rates);
       if(n >= 0)
          return n;
+      if(GetLastError() == 4401) // ERR_HISTORY_NOT_FOUND: no hay datos en ese tramo; no insistir
+         return 0;
       Sleep(500);
    }
    return n;
@@ -75,13 +77,27 @@ void ExportSymbol(const string symbol)
       return;
    }
 
-   datetime serverFirst = (datetime)SeriesInfoInteger(symbol, InpTimeframe, SERIES_SERVER_FIRSTDATE);
-   datetime start       = InpFrom;
+   // La primera fecha puede tardar en conocerse mientras el terminal sincroniza con el servidor
+   datetime serverFirst = 0;
+   for(int attempt = 0; attempt < 20 && serverFirst <= 0; attempt++)
+   {
+      serverFirst = (datetime)SeriesInfoInteger(symbol, InpTimeframe, SERIES_SERVER_FIRSTDATE);
+      if(serverFirst <= 0)
+         serverFirst = (datetime)SeriesInfoInteger(symbol, InpTimeframe, SERIES_TERMINAL_FIRSTDATE);
+      if(serverFirst <= 0)
+         Sleep(500);
+   }
+   datetime start = InpFrom;
    if(serverFirst > start)
       start = serverFirst;
+   // Hasta el final de la ultima vela cerrada (la vela en curso no se exporta)
    datetime stop = InpTo;
    if(stop <= 0)
-      stop = TimeCurrent();
+      stop = iTime(symbol, InpTimeframe, 0) - 1;
+   long neededBars = (long)((stop - start) / PeriodSeconds(InpTimeframe));
+   if(TerminalInfoInteger(TERMINAL_MAXBARS) < neededBars)
+      Print("[EXPORT] Aviso: 'Max. barras en ventana' (", TerminalInfoInteger(TERMINAL_MAXBARS),
+            ") puede ser menor que las velas del periodo. Si la exportacion sale corta, ponlo en 'Unlimited' y reinicia MT5.");
 
    string fileName = "KQ_" + symbol + "_" + TfName(InpTimeframe) + ".csv";
    int    file     = FileOpen(fileName, FILE_WRITE | FILE_TXT | FILE_ANSI);

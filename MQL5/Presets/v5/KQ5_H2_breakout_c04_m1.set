@@ -1,4 +1,4 @@
-; KatheQuant v5 - H2 ruptura rango 00-07 UTC, compresion c04, objetivo 1.0 x ancho, cierre 20 UTC. Riesgo 1%, DD sin limite (prueba)
+; KatheQuant v5 - H2 ruptura rango 00-07 UTC, compresion c04, objetivo 1.0 x ancho, cierre 20 UTC. Riesgo 1%. Investigacion
 InpStrategy=2
 InpAllowDemoTrading=false
 InpNotifySignals=false
@@ -6,13 +6,13 @@ InpMagic=5020050
 InpComment=KQ5
 InpRiskPercent=1.0
 InpCommissionPerLot=0.0
-InpMaxPositions=1
 InpMaxMarginPercent=30.0
-InpMaxDailyLossPct=3.0
+InpMaxDailyLossPct=0.0
 InpCloseOnDailyLoss=true
 InpMaxDrawdownPct=0.0
 InpResetLocks=true
 InpMaxSpreadPoints=60
+InpMaxEntryDelayMin=90
 InpSlippagePoints=30
 InpDirection=0
 InpTradeMonday=true

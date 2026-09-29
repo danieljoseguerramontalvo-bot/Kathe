@@ -5,7 +5,7 @@
   side), M1 close-to-close returns summed per server day; isolates the gold drift earned
   by merely being in the market.
 * ``buy_hold_volscaled`` (BUY_HOLD_VOLSCALED): always long, rebalanced once per server day at
-  the first M1 bar outside the rollover window, sized so that one ATR14(D1) move (last
+  the first M1 bar outside the rollover window with spread <= the cap, sized so that one ATR14(D1) move (last
   completed D1 bar) = ``target_pct`` % of equity. Rebalances pay the same cost model as the
   strategies: buys at ask + slippage, sells at bid - slippage, commission = half the
   round-turn commission per lot traded per side, long swap at every rollover (x3 on the
@@ -65,7 +65,8 @@ def exposure_matched_long(md: MarketData, result) -> pd.Series:
 def buy_hold_volscaled(md: MarketData, start=None, end=None, costs: CostModel | None = None,
                        initial_equity: float = 10_000.0, account_units_per_usd: float = 1.0,
                        target_pct: float = 1.0, atr_period: int = 14, rebalance_band: float = 0.0,
-                       rollover_from_min: int = 1425, rollover_to_min: int = 75) -> dict:
+                       rollover_from_min: int = 1425, rollover_to_min: int = 75,
+                       max_spread_points: float = 60.0) -> dict:
     """Simulate BUY_HOLD_VOLSCALED. Returns {'daily_equity', 'daily_returns', 'fills', 'metrics'}."""
     from .engine import in_minute_window
 
@@ -93,8 +94,11 @@ def buy_hold_volscaled(md: MarketData, start=None, end=None, costs: CostModel | 
     fills, days_out, eq_out = [], [], []
     total_cost = total_swap = 0.0
     for a, b in zip(starts.tolist(), ends.tolist()):
-        # rebalance bar: first bar of the day outside the rollover window
-        ok = np.flatnonzero(~in_minute_window(t[a:b], rollover_from_min, rollover_to_min))
+        # rebalance bar: first bar of the day outside the rollover window with spread <= cap
+        okm = ~in_minute_window(t[a:b], rollover_from_min, rollover_to_min)
+        if max_spread_points and max_spread_points > 0:
+            okm &= costs.effective_spread_points(md.spread[a:b]) <= max_spread_points
+        ok = np.flatnonzero(okm)
         if len(ok):
             j = a + int(ok[0])
             if mark is not None:
@@ -190,7 +194,8 @@ def benchmark_report(md: MarketData, result) -> dict:
                                     "exposure_pct": float(100 * result.in_pos.mean()) if len(result.in_pos) else 0.0}
     vs = buy_hold_volscaled(md, start, end, CostModel.from_dict(cfg["costs"]), cfg["initial_equity"],
                             cfg["account_units_per_usd"], rollover_from_min=cfg.get("rollover_from_min", 1425),
-                            rollover_to_min=cfg.get("rollover_to_min", 75))
+                            rollover_to_min=cfg.get("rollover_to_min", 75),
+                            max_spread_points=cfg.get("max_spread_points", 60.0))
     out["buy_hold_volscaled"] = {k: vs["metrics"][k] for k in ("total_return_pct", "cagr", "sharpe_ann", "ann_vol",
                                                                  "max_dd_pct_daily", "total_costs", "total_swap",
                                                                  "n_rebalances") if k in vs["metrics"]}

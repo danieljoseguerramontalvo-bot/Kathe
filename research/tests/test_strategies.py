@@ -215,3 +215,23 @@ def test_unknown_parameter_rejected():
         make_strategy("REF_T0", {"adx_minimum": 20})
     with pytest.raises(ValueError):
         make_strategy("NOPE", {})
+
+
+def test_session_breakout_requires_half_of_the_range_bars(synth_md):
+    from kq.data import MarketData
+    s = make_strategy("SESSION_BREAKOUT", {})
+    s.prepare(synth_md)
+    k = 40                                       # a normal day: full 00-07 UTC window
+    assert np.isfinite(s.day_rh[k])
+    d0 = int(s.days[k]) * NS_PER_DAY
+    tu = synth_md.t_utc
+    in_win = (tu >= d0) & (tu < d0 + 7 * 60 * NS_PER_MIN)
+    n_win = int(in_win.sum())
+    assert n_win >= 400
+    for keep, expect_ok in ((0.45, False), (0.55, True)):
+        drop = np.flatnonzero(in_win)[int(keep * 420):]           # keep ~45 % / ~55 % of 420 minutes
+        m1 = synth_md.m1.drop(synth_md.m1.index[drop])
+        s2 = make_strategy("SESSION_BREAKOUT", {})
+        s2.prepare(MarketData(m1, synth_md.spec))
+        k2 = int(np.searchsorted(s2.days, s.days[k]))
+        assert bool(np.isfinite(s2.day_rh[k2])) is expect_ok

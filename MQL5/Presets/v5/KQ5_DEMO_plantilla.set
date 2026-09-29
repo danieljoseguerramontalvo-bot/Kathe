@@ -1,5 +1,6 @@
-; KatheQuant v5 - plantilla para DEMO prospectiva: elige la estrategia congelada y activa InpAllowDemoTrading.
-; Protecciones activas: DD 15%, perdida diaria 3%, rollover, panel y diario.
+; KatheQuant v5 - PLANTILLA DEMO: protecciones activas (DD 15%, perdida diaria 3%, rollover, panel, diario, avisos).
+; Cargala primero y despues cambia SOLO la estrategia y sus parametros a los del candidato congelado.
+; InpAllowDemoTrading=true solo tiene efecto en cuentas DEMO; en cuentas reales el EA solo emite senales.
 InpStrategy=0
 InpAllowDemoTrading=true
 InpNotifySignals=true
@@ -7,13 +8,13 @@ InpMagic=5020050
 InpComment=KQ5
 InpRiskPercent=1.0
 InpCommissionPerLot=0.0
-InpMaxPositions=1
 InpMaxMarginPercent=30.0
 InpMaxDailyLossPct=3.0
 InpCloseOnDailyLoss=true
 InpMaxDrawdownPct=15.0
 InpResetLocks=false
 InpMaxSpreadPoints=60
+InpMaxEntryDelayMin=90
 InpSlippagePoints=30
 InpDirection=0
 InpTradeMonday=true

@@ -78,7 +78,6 @@ input string           InpComment          = "KQ5";         // Comentario de las
 input group "=== Riesgo ==="
 input double InpRiskPercent      = 1.0;   // Riesgo por operacion (% del balance, maximo 2)
 input double InpCommissionPerLot = 0.0;   // Comision ida y vuelta por lote (divisa de la cuenta)
-input int    InpMaxPositions     = 1;     // Posiciones abiertas maximas de este EA (1-3)
 input double InpMaxMarginPercent = 30.0;  // Margen maximo por operacion (% del margen libre)
 input double InpMaxDailyLossPct  = 3.0;   // Perdida diaria maxima del EA (% del balance inicial del dia, 0 = sin limite)
 input bool   InpCloseOnDailyLoss = true;  // Cerrar las posiciones al alcanzar la perdida diaria
@@ -87,6 +86,7 @@ input bool   InpResetLocks       = false; // Reiniciar los bloqueos de riesgo al
 
 input group "=== Ejecucion y dias ==="
 input int               InpMaxSpreadPoints = 60;          // Spread maximo para entrar (puntos, 0 = sin limite)
+input int               InpMaxEntryDelayMin = 90;         // Retraso maximo de la entrada desde la apertura de la vela (min)
 input int               InpSlippagePoints  = 30;          // Desviacion maxima al ejecutar (puntos)
 input ENUM_KQ_DIRECTION InpDirection       = KQ_DIR_BOTH; // Direcciones permitidas
 input bool              InpTradeMonday     = true;        // Operar el lunes
@@ -179,7 +179,8 @@ int             g_digits       = 0;
 bool            g_auto         = false; // ejecucion automatica permitida
 string          g_modeText     = "";
 bool            g_isNetting    = false;
-string          g_gv           = "";    // prefijo de variables globales (cuenta + simbolo + magico)
+string          g_gv           = "";    // prefijo de variables globales (cuenta + simbolo + magico): bloqueos
+string          g_gvs          = "";    // prefijo del estado de la estrategia (anade estrategia + temporalidad)
 ENUM_TIMEFRAMES g_signalTf     = PERIOD_H1;
 double          g_token        = 0.0;   // identificador de esta instancia
 bool            g_lockOwned    = false;
@@ -221,6 +222,14 @@ string   g_lastDecision = "-";
 string   g_lastBlock    = "-";
 datetime g_lastPanel    = 0;
 datetime g_lastDayCalc  = 0;
+datetime g_lastFlush    = 0;
+datetime g_lastRiskRefresh = 0;
+bool     g_journalOn    = true;
+int      g_closeDir     = 0;   // cierre pendiente: 1 compras, -1 ventas, 2 todas, 0 ninguno
+string   g_closeWhy     = "";
+datetime g_closeRetry   = 0;
+datetime g_exitRetryAfter = 0; // espera entre reintentos de salidas fallidas
+double   g_lastRequested  = 0.0; // precio pedido en el ultimo envio de entrada
 bool     g_notifyWarned = false;
 bool     g_connWarned   = false;
 
@@ -384,9 +393,18 @@ double GvGet(const string key, const double fallback)
    return fallback;
 }
 
+//--- MT5 solo guarda las variables globales al cerrar el terminal: se fuerza el guardado del estado critico
+void FlushState()
+{
+   if(!MQLInfoInteger(MQL_TESTER))
+      GlobalVariablesFlush();
+}
+
 void GvSet(const string key, const double value)
 {
    GlobalVariableSet(GvName(key), value);
+   if(key != "peak")
+      FlushState();
 }
 
 void GvDel(const string key)
@@ -394,6 +412,21 @@ void GvDel(const string key)
    string name = GvName(key);
    if(GlobalVariableCheck(name))
       GlobalVariableDel(name);
+}
+
+//--- Estado de la estrategia (ultima vela, dias usados, posicion virtual): separado por estrategia y temporalidad
+double SsGet(const string key, const double fallback)
+{
+   string name = g_gvs + key;
+   if(GlobalVariableCheck(name))
+      return GlobalVariableGet(name);
+   return fallback;
+}
+
+void SsSet(const string key, const double value)
+{
+   GlobalVariableSet(g_gvs + key, value);
+   FlushState();
 }
 
 //--- Riesgo inicial por posicion (para el multiplo R de cada salida)
@@ -416,7 +449,7 @@ string JournalFile(const string kind)
 
 void JournalAppend(const string kind, const string header, const string line)
 {
-   if(!InpJournal)
+   if(!InpJournal || !g_journalOn)
       return;
    string name   = JournalFile(kind);
    bool   exists = FileIsExist(name, FILE_COMMON);
@@ -458,19 +491,21 @@ void JournalSignal(const KQSignal &sig, const string decision, const string deta
 
 void JournalTrade(const string eventName, const long ticket, const long positionId, const int dir, const double lots,
                   const double requested, const double executed, const double sl, const double tp,
-                  const double profit, const double rMultiple, const string reason, const uint retcode)
+                  const double profit, const double rMultiple, const string reason, const uint retcode,
+                  const double commission = 0.0, const double swap = 0.0)
 {
    datetime now      = TimeCurrent();
    double   slipPts  = 0.0;
    if(requested > 0.0 && executed > 0.0 && g_point > 0.0)
       slipPts = (executed - requested) / g_point * dir; // positivo = en contra al comprar
-   string header = "time_server;time_utc;mode;event;ticket;position_id;dir;lots;requested_price;executed_price;slippage_points;spread_points;sl;tp;net_profit;r_multiple;reason;retcode";
+   string header = "time_server;time_utc;mode;event;ticket;position_id;dir;lots;requested_price;executed_price;slippage_points;spread_points;sl;tp;net_profit;commission;swap;r_multiple;reason;retcode";
    string line   = TimeToString(now, TIME_DATE | TIME_SECONDS) + ";" +
                    TimeToString(ServerToUtc(now), TIME_DATE | TIME_SECONDS) + ";" +
                    ModeTag() + ";" + eventName + ";" + IntegerToString(ticket) + ";" + IntegerToString(positionId) + ";" +
                    IntegerToString(dir) + ";" + DoubleToString(lots, 2) + ";" + Pr(requested) + ";" + Pr(executed) + ";" +
                    DoubleToString(slipPts, 1) + ";" + IntegerToString((int)SymbolInfoInteger(g_sym, SYMBOL_SPREAD)) + ";" +
-                   Pr(sl) + ";" + Pr(tp) + ";" + DoubleToString(profit, 2) + ";" + DoubleToString(rMultiple, 3) + ";" +
+                   Pr(sl) + ";" + Pr(tp) + ";" + DoubleToString(profit, 2) + ";" + DoubleToString(commission, 2) + ";" +
+                   DoubleToString(swap, 2) + ";" + DoubleToString(rMultiple, 3) + ";" +
                    reason + ";" + IntegerToString((long)retcode);
    JournalAppend("operaciones", header, line);
 }
@@ -590,8 +625,6 @@ bool IndicatorReady(const int handle, const int minBars)
 
 bool SeriesReady(const ENUM_TIMEFRAMES tf, const int minBars)
 {
-   if(SeriesInfoInteger(g_sym, tf, SERIES_SYNCHRONIZED) == 0)
-      return false;
    return (Bars(g_sym, tf) >= minBars);
 }
 
@@ -717,7 +750,7 @@ int EvalSessionBreakout(KQSignal &sig)
       return 1;
 
    datetime utcDay = DayStart(closeUtc);
-   if(GvGet("sb_day", 0.0) == (double)utcDay || GvGet("sb_skip", 0.0) == (double)utcDay)
+   if(SsGet("sb_day", 0.0) == (double)utcDay || SsGet("sb_skip", 0.0) == (double)utcDay)
       return 1;
 
    datetime fromServer = UtcToServer((datetime)(utcDay + InpSbRangeStartUtc * 3600));
@@ -729,7 +762,9 @@ int EvalSessionBreakout(KQSignal &sig)
       return 0;
    if(n < expected / 2)
    {
-      GvSet("sb_skip", (double)utcDay);
+      if(SeriesInfoInteger(g_sym, PERIOD_M1, SERIES_SYNCHRONIZED) == 0)
+         return 0;
+      SsSet("sb_skip", (double)utcDay);
       if(InpLogDiscards)
          Print("[DESCARTE] Ruptura: datos insuficientes del rango (", n, " de ", expected, " velas M1)");
       return 1;
@@ -749,7 +784,7 @@ int EvalSessionBreakout(KQSignal &sig)
       return 0;
    if(InpSbMaxRangeAtr > 0.0 && width / atrD1 > InpSbMaxRangeAtr)
    {
-      GvSet("sb_skip", (double)utcDay);
+      SsSet("sb_skip", (double)utcDay);
       if(InpLogDiscards)
          Print("[DESCARTE] Ruptura: rango sin compresion (ancho/ATR = ", DoubleToString(width / atrD1, 2),
                " > ", DoubleToString(InpSbMaxRangeAtr, 2), ")");
@@ -789,7 +824,7 @@ int EvalSessionDrift(KQSignal &sig)
    if(u.hour != InpSdEntryUtc || u.day_of_week == 0 || u.day_of_week == 6)
       return 1;
    datetime utcDay = DayStart(utc);
-   if(GvGet("sd_day", 0.0) == (double)utcDay)
+   if(SsGet("sd_day", 0.0) == (double)utcDay)
       return 1;
    double atr = 0.0;
    if(!IndicatorReady(g_hAtrH1, InpAtrPeriod + 2) || !ReadBuffer(g_hAtrH1, 0, 1, atr) || atr <= 0.0)
@@ -1030,7 +1065,12 @@ int RegimeCheck(string &reason)
 //--- Filtros de entrada: 1 = entrar, 0 = esperar dentro de la vela, -1 = descartar
 int EntryGate(const int dir, const datetime now, string &reason)
 {
-   if(GvGet("last_entry_bar", 0.0) == (double)g_pendingBar)
+   if(!g_lockOwned)
+   {
+      reason = "sin bloqueo de instancia";
+      return -1;
+   }
+   if(SsGet("last_entry_bar", 0.0) == (double)g_pendingBar)
    {
       reason = "ya se abrio una operacion en esta vela";
       return -1;
@@ -1069,12 +1109,19 @@ int EntryGate(const int dir, const datetime now, string &reason)
       }
       if(!IsTradingPermitted(dir, reason))
          return -1;
-      int maxPositions = InpMaxPositions;
-      if(g_isNetting)
-         maxPositions = 1;
-      if(CountOwnPositions(0) >= maxPositions)
+      if(g_closeDir != 0)
       {
-         reason = "ya hay " + IntegerToString(CountOwnPositions(0)) + " posicion(es) abierta(s)";
+         reason = "cerrando la posicion anterior";
+         return 0;
+      }
+      if(CountOwnPositions(0) > 0)
+      {
+         reason = "ya hay una posicion abierta";
+         return -1;
+      }
+      if(g_isNetting && PositionSelect(g_sym) && (ulong)PositionGetInteger(POSITION_MAGIC) != InpMagic)
+      {
+         reason = "netting: hay una posicion ajena en " + g_sym;
          return -1;
       }
    }
@@ -1206,6 +1253,16 @@ void ConfigureFilling()
       g_trade.SetTypeFilling(ORDER_FILLING_RETURN);
 }
 
+//--- Segunda comprobacion independiente de g_auto: nunca se envian ordenes en cuentas reales
+bool OrdersAllowedNow()
+{
+   if(!g_auto)
+      return false;
+   if(MQLInfoInteger(MQL_TESTER))
+      return true;
+   return (AccountInfoInteger(ACCOUNT_TRADE_MODE) == ACCOUNT_TRADE_MODE_DEMO && InpAllowDemoTrading);
+}
+
 //--- 1 = exito, 2 = reintentar ya (precio cambiado), 0 = reintentar mas tarde, -1 = descartar
 int ClassifyRetcode(const uint rc)
 {
@@ -1225,6 +1282,11 @@ int ClassifyRetcode(const uint rc)
 int SendMarket(const int dir, const double lots, const double sl, const double tp, double &requested, double &executed,
                ulong &order, uint &retcode, string &reason)
 {
+   if(!OrdersAllowedNow())
+   {
+      reason = "[SEGURIDAD] orden bloqueada: cuenta sin ejecucion automatica";
+      return -1;
+   }
    for(int k = 0; k < KQ_SEND_ATTEMPTS; k++)
    {
       MqlTick tick;
@@ -1237,6 +1299,7 @@ int SendMarket(const int dir, const double lots, const double sl, const double t
       if(dir > 0)
          requested = tick.ask;
       bool sent = false;
+      g_lastRequested = requested;
       if(dir > 0)
          sent = g_trade.Buy(lots, g_sym, requested, sl, tp, InpComment);
       else
@@ -1245,10 +1308,8 @@ int SendMarket(const int dir, const double lots, const double sl, const double t
       int kind = ClassifyRetcode(retcode);
       if(sent && kind == 1)
       {
-         executed = g_trade.ResultPrice();
-         if(executed <= 0.0)
-            executed = requested;
-         order = g_trade.ResultOrder();
+         executed = g_trade.ResultPrice(); // 0 si el servidor no lo devuelve: el precio real se registra con el deal
+         order    = g_trade.ResultOrder();
          return 1;
       }
       reason = "codigo " + IntegerToString((long)retcode) + ": " + g_trade.ResultRetcodeDescription();
@@ -1261,6 +1322,11 @@ int SendMarket(const int dir, const double lots, const double sl, const double t
 
 bool ClosePositionTicket(const ulong ticket, const string why)
 {
+   if(!OrdersAllowedNow())
+   {
+      Print("[SEGURIDAD] Cierre bloqueado: cuenta sin ejecucion automatica");
+      return false;
+   }
    for(int k = 0; k < KQ_SEND_ATTEMPTS; k++)
    {
       if(g_trade.PositionClose(ticket) && ClassifyRetcode(g_trade.ResultRetcode()) == 1)
@@ -1295,8 +1361,46 @@ void CloseAllOwn(const string why)
       CloseOwn(0, why);
 }
 
+//--- dir: 1 compras, -1 ventas, 2 todas
+int OwnCountForClose(const int dir)
+{
+   if(dir == 2)
+      return CountOwnPositions(0);
+   return CountOwnPositions(dir);
+}
+
+void RequestClose(const int dir, const string why, const datetime now)
+{
+   if(!g_auto || OwnCountForClose(dir) == 0)
+      return;
+   g_closeDir   = dir;
+   g_closeWhy   = why;
+   g_closeRetry = now;
+}
+
+void ProcessCloseRequest(const datetime now)
+{
+   if(g_closeDir == 0 || now < g_closeRetry)
+      return;
+   int filter = g_closeDir;
+   if(filter == 2)
+      filter = 0;
+   CloseOwn(filter, g_closeWhy);
+   if(OwnCountForClose(g_closeDir) == 0)
+   {
+      g_closeDir = 0;
+      g_closeWhy = "";
+      return;
+   }
+   g_closeRetry = (datetime)(now + 10);
+   JournalTrade("ERROR", 0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, "cierre pendiente reintentado: " + g_closeWhy,
+                g_trade.ResultRetcode());
+}
+
 bool ModifyStops(const ulong ticket, const int dir, const double newSl, const double tp, const string why)
 {
+   if(!OrdersAllowedNow())
+      return false;
    MqlTick tick;
    if(!SymbolInfoTick(g_sym, tick))
       return false;
@@ -1345,7 +1449,9 @@ void RiskUpdate(const datetime now)
    datetime day = DayStart(now);
    if(day != g_dayKey)
    {
-      g_dayKey = day;
+      g_dayKey      = day;
+      g_dayResult   = 0.0;
+      g_lastDayCalc = 0;
       if(GvGet("day_key", 0.0) == (double)day)
          g_dayStartBalance = GvGet("day_bal", AccountInfoDouble(ACCOUNT_BALANCE));
       else
@@ -1415,24 +1521,24 @@ void ClearVirtualLines()
 
 void SaveVirtual()
 {
-   GvSet("v_dir", (double)g_vDir);
-   GvSet("v_entry", g_vEntry);
-   GvSet("v_sl", g_vSl);
-   GvSet("v_tp", g_vTp);
-   GvSet("v_lots", g_vLots);
-   GvSet("v_risk", g_vRiskDist);
-   GvSet("v_time", (double)g_vTime);
+   SsSet("v_dir", (double)g_vDir);
+   SsSet("v_entry", g_vEntry);
+   SsSet("v_sl", g_vSl);
+   SsSet("v_tp", g_vTp);
+   SsSet("v_lots", g_vLots);
+   SsSet("v_risk", g_vRiskDist);
+   SsSet("v_time", (double)g_vTime);
 }
 
 void LoadVirtual()
 {
-   g_vDir      = (int)GvGet("v_dir", 0.0);
-   g_vEntry    = GvGet("v_entry", 0.0);
-   g_vSl       = GvGet("v_sl", 0.0);
-   g_vTp       = GvGet("v_tp", 0.0);
-   g_vLots     = GvGet("v_lots", 0.0);
-   g_vRiskDist = GvGet("v_risk", 0.0);
-   g_vTime     = (datetime)GvGet("v_time", 0.0);
+   g_vDir      = (int)SsGet("v_dir", 0.0);
+   g_vEntry    = SsGet("v_entry", 0.0);
+   g_vSl       = SsGet("v_sl", 0.0);
+   g_vTp       = SsGet("v_tp", 0.0);
+   g_vLots     = SsGet("v_lots", 0.0);
+   g_vRiskDist = SsGet("v_risk", 0.0);
+   g_vTime     = (datetime)SsGet("v_time", 0.0);
    if(g_vDir != 0)
    {
       DrawLine("KQ5_V_ENTRY", g_vEntry, clrDodgerBlue);
@@ -1489,6 +1595,8 @@ void ManageVirtual(const datetime now)
 //--- Toda posicion del EA debe tener SL: si falta se pone (ATR x 2 de la temporalidad de senal) o se cierra
 void EnsureStops()
 {
+   if(TimeCurrent() < g_exitRetryAfter)
+      return;
    MqlTick tick;
    if(!SymbolInfoTick(g_sym, tick))
       return;
@@ -1515,7 +1623,8 @@ void EnsureStops()
       if(!fixed)
       {
          Print("[RIESGO] La posicion #", ticket, " no tiene SL y no se pudo proteger: se cierra");
-         ClosePositionTicket(ticket, "sin SL");
+         if(!ClosePositionTicket(ticket, "sin SL"))
+            g_exitRetryAfter = (datetime)(TimeCurrent() + 10);
       }
    }
 }
@@ -1566,7 +1675,7 @@ void UpdateChandelier()
       if((g_vDir > 0 && candidate > g_vSl) || (g_vDir < 0 && candidate < g_vSl))
       {
          g_vSl = candidate;
-         GvSet("v_sl", g_vSl);
+         SsSet("v_sl", g_vSl);
          ObjectMove(0, "KQ5_V_SL", 0, 0, g_vSl);
          Notify("KQ5 " + g_sym + ": MOVER el SL de la " + DirName(g_vDir) + " a " + Pr(g_vSl) + " (trailing)");
       }
@@ -1611,22 +1720,35 @@ void RsiExit()
          CloseVirtual("salida por " + text, tick.ask);
       return;
    }
+   datetime now = TimeCurrent();
    if(rsi > InpMrExitBuy && CountOwnPositions(1) > 0)
-      CloseOwn(1, "salida por " + text);
-   if(rsi < InpMrExitSell && CountOwnPositions(-1) > 0)
-      CloseOwn(-1, "salida por " + text);
+      RequestClose(1, "salida por " + text, now);
+   else if(rsi < InpMrExitSell && CountOwnPositions(-1) > 0)
+      RequestClose(-1, "salida por " + text, now);
+   ProcessCloseRequest(now);
 }
 
-//--- H3: salida al abrir la vela H1 de la hora UTC de salida (o si la posicion supera 24 h)
-void DriftExit(const datetime now)
+//--- H3: hora UTC de salida correspondiente a una entrada (la primera posterior a la entrada)
+datetime DriftExitUtc(const datetime entryServer)
 {
-   datetime barOpen = iTime(g_sym, PERIOD_H1, 0);
-   bool     exitNow = (barOpen != 0 && UtcHourOf(barOpen) == InpSdExitUtc);
+   datetime entryUtc = ServerToUtc(entryServer);
+   datetime exitUtc  = (datetime)(DayStart(entryUtc) + InpSdExitUtc * 3600);
+   if(exitUtc <= entryUtc)
+      exitUtc = (datetime)(exitUtc + 86400);
+   return exitUtc;
+}
+
+//--- H3: salida por reloj en cada tick (y de seguridad si la posicion supera 24 h)
+void DriftExitTick(const datetime now)
+{
+   if(now < g_exitRetryAfter)
+      return;
+   datetime utcNow = ServerToUtc(now);
    if(!g_auto)
    {
       if(g_vDir == 0)
          return;
-      if(exitNow || now - g_vTime > 86400)
+      if(utcNow >= DriftExitUtc(g_vTime) || now - g_vTime > 86400)
       {
          MqlTick tick;
          if(!SymbolInfoTick(g_sym, tick))
@@ -1642,14 +1764,19 @@ void DriftExit(const datetime now)
    {
       if(!g_pos.SelectByIndex(i) || !IsOwnPosition())
          continue;
-      if(exitNow || now - g_pos.Time() > 86400)
-         ClosePositionTicket(g_pos.Ticket(), "fin de la ventana horaria");
+      if(utcNow >= DriftExitUtc(g_pos.Time()) || now - g_pos.Time() > 86400)
+      {
+         if(!ClosePositionTicket(g_pos.Ticket(), "fin de la ventana horaria"))
+            g_exitRetryAfter = (datetime)(now + 10);
+      }
    }
 }
 
 //--- H2: cierre forzado a la hora UTC indicada o si la posicion es de un dia UTC anterior
 void BreakoutFlat(const datetime now)
 {
+   if(now < g_exitRetryAfter)
+      return;
    datetime utcNow = ServerToUtc(now);
    MqlDateTime u;
    TimeToStruct(utcNow, u);
@@ -1675,7 +1802,10 @@ void BreakoutFlat(const datetime now)
       if(!g_pos.SelectByIndex(i) || !IsOwnPosition())
          continue;
       if(lateHour || DayStart(ServerToUtc(g_pos.Time())) != DayStart(utcNow))
-         ClosePositionTicket(g_pos.Ticket(), "cierre forzado de la sesion");
+      {
+         if(!ClosePositionTicket(g_pos.Ticket(), "cierre forzado de la sesion"))
+            g_exitRetryAfter = (datetime)(now + 10);
+      }
    }
 }
 
@@ -1686,8 +1816,7 @@ void ManageBarExits(const datetime now)
       UpdateChandelier();
    else if(InpStrategy == KQ_STRAT_MEANREV_RSI2)
       RsiExit();
-   else if(InpStrategy == KQ_STRAT_SESSION_DRIFT)
-      DriftExit(now);
+   // H3 (estacionalidad) sale por reloj en cada tick: DriftExitTick
 }
 
 //+------------------------------------------------------------------+
@@ -1783,11 +1912,11 @@ void ExecutePendingAuto(const datetime now)
    int    result    = SendMarket(dir, lots, sl, tp, requested, executed, order, retcode, reason);
    if(result == 1)
    {
-      GvSet("last_entry_bar", (double)g_pendingBar);
+      SsSet("last_entry_bar", (double)g_pendingBar);
       if(InpStrategy == KQ_STRAT_SESSION_BREAKOUT)
-         GvSet("sb_day", (double)g_pending.dayKey);
+         SsSet("sb_day", (double)g_pending.dayKey);
       if(InpStrategy == KQ_STRAT_SESSION_DRIFT)
-         GvSet("sd_day", (double)g_pending.dayKey);
+         SsSet("sd_day", (double)g_pending.dayKey);
       StoreRisk((long)order, riskMoney);
       g_lastDecision = "ejecutada: " + DirName(dir) + " " + DoubleToString(lots, 2) + " a " + Pr(executed);
       Print("[ENTRADA] ", DirName(dir), " ", DoubleToString(lots, 2), " lotes a ", Pr(executed), " (pedido ", Pr(requested),
@@ -1818,6 +1947,7 @@ void ExecutePendingAuto(const datetime now)
    g_attempts++;
    g_retryAfter = (datetime)(now + 5);
    Print("[ERROR] Intento ", g_attempts, " de ", KQ_MAX_RETRIES, " fallido: ", reason);
+   JournalTrade("ERROR", 0, 0, dir, lots, requested, 0.0, sl, tp, 0.0, 0.0, reason, retcode);
    if(g_attempts >= KQ_MAX_RETRIES)
       DiscardPending("tras " + IntegerToString(KQ_MAX_RETRIES) + " intentos: " + reason);
 }
@@ -1854,11 +1984,11 @@ void ExecutePendingSignalOnly()
    g_vRiskDist = MathAbs(entry - sl);
    g_vTime     = TimeCurrent();
    SaveVirtual();
-   GvSet("last_entry_bar", (double)g_pendingBar);
+   SsSet("last_entry_bar", (double)g_pendingBar);
    if(InpStrategy == KQ_STRAT_SESSION_BREAKOUT)
-      GvSet("sb_day", (double)g_pending.dayKey);
+      SsSet("sb_day", (double)g_pending.dayKey);
    if(InpStrategy == KQ_STRAT_SESSION_DRIFT)
-      GvSet("sd_day", (double)g_pending.dayKey);
+      SsSet("sd_day", (double)g_pending.dayKey);
    DrawLine("KQ5_V_ENTRY", entry, clrDodgerBlue);
    DrawLine("KQ5_V_SL", sl, clrRed);
    if(tp > 0.0)
@@ -1884,8 +2014,27 @@ void TryExecutePending(const datetime now)
       DiscardPending("caducada: no se pudo ejecutar dentro de su vela");
       return;
    }
+   if(now > g_pendingBar + (long)InpMaxEntryDelayMin * 60)
+   {
+      DiscardPending("demasiado tarde: mas de " + IntegerToString(InpMaxEntryDelayMin) + " min desde la apertura de la vela");
+      return;
+   }
    if(now < g_retryAfter)
       return;
+   // Tras un error temporal el primer envio pudo ejecutarse igualmente: no se duplica
+   if(g_auto && g_attempts > 0)
+   {
+      for(int i = PositionsTotal() - 1; i >= 0; i--)
+      {
+         if(g_pos.SelectByIndex(i) && IsOwnPosition() && g_pos.Time() >= g_pendingBar)
+         {
+            SsSet("last_entry_bar", (double)g_pendingBar);
+            g_lastDecision = "ejecutada en un intento anterior (confirmada por la posicion abierta)";
+            ClearPending();
+            return;
+         }
+      }
+   }
    string reason = "";
    int    gate   = EntryGate(g_pending.dir, now, reason);
    if(gate < 0)
@@ -1912,12 +2061,15 @@ void TryExecutePending(const datetime now)
 //--- Nueva vela de la temporalidad de senal: salidas de vela, senal, cierre de la contraria y cola
 void OnNewSignalBar(const datetime barTime, const datetime now)
 {
+   // Una senal pendiente de una vela anterior caduca (y queda registrada) antes de evaluar la nueva
+   if(g_hasPending && g_pendingBar != barTime)
+      DiscardPending("caducada: no se pudo ejecutar dentro de su vela");
    KQSignal sig;
    int ready = EvaluateStrategy(sig);
    if(ready == 0)
       return; // faltan datos: se reintenta en el siguiente tick
    g_lastBarSeen = barTime;
-   GvSet("last_bar", (double)barTime);
+   SsSet("last_bar", (double)barTime);
 
    ManageBarExits(now);
    if(sig.dir == 0)
@@ -1931,7 +2083,10 @@ void OnNewSignalBar(const datetime barTime, const datetime now)
    if(exposure == -sig.dir)
    {
       if(g_auto)
-         CloseOwn(-sig.dir, "senal contraria");
+      {
+         RequestClose(-sig.dir, "senal contraria", now);
+         ProcessCloseRequest(now);
+      }
       else
       {
          MqlTick tick;
@@ -1952,6 +2107,9 @@ void OnNewSignalBar(const datetime barTime, const datetime now)
    g_waitWarned = false;
    g_retryAfter = 0;
    JournalSignal(sig, "SIGNAL", "", 0.0, 0.0, 0.0, 0.0, 0.0);
+   // H2: un solo intento por dia UTC, contado cuando se emite la senal (igual que el motor Python)
+   if(InpStrategy == KQ_STRAT_SESSION_BREAKOUT && sig.entryOk && IsDirectionAllowed(sig.dir))
+      SsSet("sb_day", (double)sig.dayKey);
    if(!sig.entryOk)
       DiscardPending(sig.blockReason);
 }
@@ -1968,14 +2126,15 @@ bool AcquireInstanceLock()
    }
    string owner = GvName("inst");
    string beat  = GvName("inst_beat");
-   if(GlobalVariableCheck(owner) && GlobalVariableCheck(beat))
-   {
-      double other    = GlobalVariableGet(owner);
-      double lastBeat = GlobalVariableGet(beat);
-      if(other != g_token && (double)TimeLocal() - lastBeat < 60.0)
-         return false;
-   }
-   GlobalVariableSet(owner, g_token);
+   if(!GlobalVariableCheck(owner))
+      GlobalVariableTemp(owner); // valor 0; desaparece al cerrar el terminal
+   double current = GlobalVariableGet(owner);
+   bool   alive   = (current != 0.0 && current != g_token && GlobalVariableCheck(beat) &&
+                     (double)TimeLocal() - GlobalVariableGet(beat) < 60.0);
+   if(alive)
+      return false;
+   if(!GlobalVariableSetOnCondition(owner, g_token, current)) // comparacion y escritura atomicas
+      return false;
    GlobalVariableSet(beat, (double)TimeLocal());
    g_lockOwned = true;
    return true;
@@ -1985,7 +2144,13 @@ void HeartbeatInstanceLock()
 {
    if(!g_lockOwned || MQLInfoInteger(MQL_TESTER))
       return;
-   GlobalVariableSet(GvName("inst"), g_token);
+   if(!GlobalVariableSetOnCondition(GvName("inst"), g_token, g_token))
+   {
+      g_lockOwned = false;
+      Print("[ERROR] Se perdio el bloqueo de instancia (hay otra copia con el mismo magico). El EA se detiene");
+      ExpertRemove();
+      return;
+   }
    GlobalVariableSet(GvName("inst_beat"), (double)TimeLocal());
 }
 
@@ -2080,9 +2245,11 @@ string DealReasonName(const long reason)
    return "manual/otro";
 }
 
-double PositionNet(const long positionId)
+double PositionNet(const long positionId, double &commission, double &swap)
 {
-   double net = 0.0;
+   double profit = 0.0;
+   commission = 0.0;
+   swap       = 0.0;
    if(!HistorySelectByPosition(positionId))
       return 0.0;
    int total = HistoryDealsTotal();
@@ -2091,10 +2258,11 @@ double PositionNet(const long positionId)
       ulong deal = HistoryDealGetTicket(i);
       if(deal == 0)
          continue;
-      net += HistoryDealGetDouble(deal, DEAL_PROFIT) + HistoryDealGetDouble(deal, DEAL_SWAP) +
-             HistoryDealGetDouble(deal, DEAL_COMMISSION);
+      profit     += HistoryDealGetDouble(deal, DEAL_PROFIT);
+      swap       += HistoryDealGetDouble(deal, DEAL_SWAP);
+      commission += HistoryDealGetDouble(deal, DEAL_COMMISSION);
    }
-   return net;
+   return profit + swap + commission;
 }
 
 void OnTradeTransaction(const MqlTradeTransaction &trans, const MqlTradeRequest &request, const MqlTradeResult &result)
@@ -2107,23 +2275,45 @@ void OnTradeTransaction(const MqlTradeTransaction &trans, const MqlTradeRequest 
    if(HistoryDealGetString(deal, DEAL_SYMBOL) != g_sym || (ulong)HistoryDealGetInteger(deal, DEAL_MAGIC) != InpMagic)
       return;
    long entry = HistoryDealGetInteger(deal, DEAL_ENTRY);
+   if(entry == DEAL_ENTRY_IN)
+   {
+      int inDir = 1;
+      if(HistoryDealGetInteger(deal, DEAL_TYPE) == DEAL_TYPE_SELL)
+         inDir = -1;
+      JournalTrade("FILL", (long)deal, HistoryDealGetInteger(deal, DEAL_POSITION_ID), inDir, HistoryDealGetDouble(deal, DEAL_VOLUME),
+                   g_lastRequested, HistoryDealGetDouble(deal, DEAL_PRICE), HistoryDealGetDouble(deal, DEAL_SL),
+                   HistoryDealGetDouble(deal, DEAL_TP), 0.0, 0.0, "ejecucion de la entrada", 0,
+                   HistoryDealGetDouble(deal, DEAL_COMMISSION), 0.0);
+      return;
+   }
    if(entry != DEAL_ENTRY_OUT && entry != DEAL_ENTRY_OUT_BY && entry != DEAL_ENTRY_INOUT)
       return;
    long   positionId = HistoryDealGetInteger(deal, DEAL_POSITION_ID);
    long   reason     = HistoryDealGetInteger(deal, DEAL_REASON);
    double price      = HistoryDealGetDouble(deal, DEAL_PRICE);
    double volume     = HistoryDealGetDouble(deal, DEAL_VOLUME);
+   double dealSl     = HistoryDealGetDouble(deal, DEAL_SL);
+   double dealTp     = HistoryDealGetDouble(deal, DEAL_TP);
+   double expected   = 0.0; // precio esperado de la salida: el nivel de SL o TP que la disparo
+   if(reason == DEAL_REASON_SL)
+      expected = dealSl;
+   else if(reason == DEAL_REASON_TP)
+      expected = dealTp;
    int    dir        = 1;
    if(HistoryDealGetInteger(deal, DEAL_TYPE) == DEAL_TYPE_BUY)
       dir = -1; // una compra cierra una venta
-   double net  = PositionNet(positionId);
+   double commission = 0.0;
+   double swap       = 0.0;
+   double net  = PositionNet(positionId, commission, swap);
    double risk = LookupRisk(positionId);
    double r    = 0.0;
    if(risk > 0.0)
       r = net / risk;
    Print("[SALIDA] Posicion #", positionId, " ", DealReasonName(reason), " a ", Pr(price), " | neto ", DoubleToString(net, 2),
          " | ", DoubleToString(r, 2), " R");
-   JournalTrade("EXIT", (long)deal, positionId, dir, volume, 0.0, price, 0.0, 0.0, net, r, DealReasonName(reason), 0);
+   // Deslizamiento de la salida: a favor de la posicion cerrada es positivo si se ejecuta peor que el nivel
+   JournalTrade("EXIT", (long)deal, positionId, -dir, volume, expected, price, dealSl, dealTp, net, r, DealReasonName(reason), 0,
+                commission, swap);
    if(!MQLInfoInteger(MQL_TESTER) && !PositionSelectByTicket((ulong)positionId))
    {
       string name = RiskGvName(positionId);
@@ -2198,7 +2388,7 @@ double OnTester()
       moneyPerPricePerLot = tickValue / tickSize;
 
    int    n = 0, nR = 0, wins = 0, streak = 0, maxStreak = 0, nLong = 0, nShort = 0;
-   double grossWin = 0.0, grossLoss = 0.0, sum = 0.0, sumR = 0.0, sumR2 = 0.0, best5 = 0.0, stress = 0.0;
+   double grossWin = 0.0, grossLoss = 0.0, sum = 0.0, sumR = 0.0, sumR2 = 0.0, best5 = 0.0, totalVol = 0.0;
    double sumLong = 0.0, sumShort = 0.0;
    double sorted[];
    int    years[];
@@ -2216,7 +2406,7 @@ double OnTester()
          grossWin += nets[j];
          streak = 0;
       }
-      else
+      else if(nets[j] < 0.0)
       {
          grossLoss -= nets[j];
          streak++;
@@ -2233,7 +2423,7 @@ double OnTester()
          nShort++;
          sumShort += nets[j];
       }
-      stress += 20.0 * g_point * moneyPerPricePerLot * vols[j];
+      totalVol += vols[j];
       double risk = LookupRisk(ids[j]);
       if(risk > 0.0)
       {
@@ -2300,8 +2490,14 @@ double OnTester()
          " | DD equidad ", DoubleToString(TesterStatistics(STAT_EQUITY_DDREL_PERCENT), 2), "%");
    Print("[RESULTADO] En R: n = ", nR, " | media ", DoubleToString(meanR, 3), " R | desviacion ", DoubleToString(sdR, 3),
          " | t = ", DoubleToString(tR, 2), " | racha perdedora maxima ", maxStreak);
+   double costUnit  = moneyPerPricePerLot * totalVol; // dinero por 1.00 de precio de coste extra en todas las operaciones
+   double breakEven = 0.0;
+   if(costUnit > 0.0)
+      breakEven = sum / costUnit;
    Print("[RESULTADO] Compras ", nLong, " (", DoubleToString(sumLong, 2), ") | ventas ", nShort, " (", DoubleToString(sumShort, 2),
-         ") | neto con +20 puntos por operacion ", DoubleToString(sum - stress, 2));
+         ") | neto con coste extra de 0.10 / 0.20 / 0.40 por onza: ", DoubleToString(sum - 0.10 * costUnit, 2), " / ",
+         DoubleToString(sum - 0.20 * costUnit, 2), " / ", DoubleToString(sum - 0.40 * costUnit, 2),
+         " | coste de equilibrio ", DoubleToString(breakEven, 3), " por onza y operacion");
    string yearsText = "[RESULTADO] Por ano:";
    for(int y = 0; y < ArraySize(years); y++)
       yearsText += " " + IntegerToString(years[y]) + ": " + DoubleToString(yearSum[y], 2) + " (" + IntegerToString(yearCount[y]) + " op.)";
@@ -2341,8 +2537,8 @@ int OnInit()
       return InitError("elige una estrategia en 'Estrategia activa' (o carga un archivo .set)");
    if(InpRiskPercent <= 0.0 || InpRiskPercent > 2.0)
       return InitError("el riesgo por operacion debe estar entre 0 y 2 %");
-   if(InpMaxPositions < 1 || InpMaxPositions > 3)
-      return InitError("las posiciones maximas deben estar entre 1 y 3");
+   if(InpMaxEntryDelayMin < 5)
+      return InitError("el retraso maximo de entrada debe ser de al menos 5 minutos");
    if(InpMaxMarginPercent <= 0.0 || InpMaxMarginPercent > 100.0 || InpMaxDailyLossPct < 0.0 ||
       InpMaxDrawdownPct < 0.0 || InpMaxDrawdownPct > 100.0 || InpCommissionPerLot < 0.0)
       return InitError("limites de margen, perdida diaria, drawdown o comision fuera de rango");
@@ -2405,10 +2601,29 @@ int OnInit()
          g_modeText = "SOLO SENALES (cuenta REAL: el EA no envia ordenes; ejecucion manual)";
    }
 
+   //--- En DEMO automatica los limites de riesgo son obligatorios
+   if(g_auto && !MQLInfoInteger(MQL_TESTER) && (InpMaxDrawdownPct <= 0.0 || InpMaxDailyLossPct <= 0.0))
+      return InitError("en DEMO automatica el drawdown maximo y la perdida diaria son obligatorios (usa KQ5_DEMO_plantilla.set)");
+
    g_isNetting = (AccountInfoInteger(ACCOUNT_MARGIN_MODE) != ACCOUNT_MARGIN_MODE_RETAIL_HEDGING);
    g_gv        = "KQ5_" + IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN)) + "_" + g_sym + "_" + IntegerToString((long)InpMagic) + "_";
-   MathSrand((int)GetTickCount());
-   g_token = (double)((long)GetTickCount() * 1000 + MathRand() % 1000);
+   g_gvs       = g_gv + IntegerToString((int)InpStrategy) + "_" + TfName(g_signalTf) + "_";
+   g_token     = (double)(ChartID() % 1000000000) + 1.0; // unico por grafico dentro del terminal
+
+   //--- Probador: cada prueba empieza sin estado heredado; el diario se reescribe (y se desactiva al optimizar)
+   g_journalOn = InpJournal;
+   if(MQLInfoInteger(MQL_TESTER))
+   {
+      GlobalVariablesDeleteAll(g_gv);
+      GlobalVariablesDeleteAll("KQ5R_" + IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN)) + "_");
+      if(MQLInfoInteger(MQL_OPTIMIZATION))
+         g_journalOn = false;
+      else
+      {
+         FileDelete(JournalFile("senales"), FILE_COMMON);
+         FileDelete(JournalFile("operaciones"), FILE_COMMON);
+      }
+   }
 
    if(!AcquireInstanceLock())
       return InitError("ya hay otra instancia con el mismo numero magico en " + g_sym + ". Quitala o cambia el magico");
@@ -2450,16 +2665,22 @@ int OnInit()
    ConfigureFilling();
 
    //--- Estado persistente: bloqueos, ultima vela procesada y posicion virtual
-   if(InpResetLocks)
+   //--- El reinicio de bloqueos se aplica una sola vez por activacion (no en cada recarga del EA)
+   bool doReset = InpResetLocks && (MQLInfoInteger(MQL_TESTER) || GvGet("reset_used", 0.0) == 0.0);
+   if(doReset)
    {
       GvDel("dd_lock");
       GvDel("day_lock");
       GvSet("peak", AccountInfoDouble(ACCOUNT_EQUITY));
+      if(!MQLInfoInteger(MQL_TESTER))
+         GvSet("reset_used", 1.0);
       Print("[RIESGO] Bloqueos reiniciados. Nuevo maximo de equidad: ", DoubleToString(AccountInfoDouble(ACCOUNT_EQUITY), 2),
             ". Vuelve a poner 'Reiniciar los bloqueos' = false");
    }
+   if(!InpResetLocks)
+      GvDel("reset_used");
    g_ddLocked    = (GvGet("dd_lock", 0.0) > 0.0);
-   g_lastBarSeen = (datetime)GvGet("last_bar", 0.0);
+   g_lastBarSeen = (datetime)SsGet("last_bar", 0.0);
    ClearPending();
    if(!g_auto)
       LoadVirtual();
@@ -2507,6 +2728,27 @@ void OnTimer()
    HeartbeatInstanceLock();
    datetime now = TimeCurrent();
    RiskUpdate(now);
+   if(g_auto)
+      ProcessCloseRequest(now);
+   datetime local = TimeLocal();
+   if(local - g_lastFlush >= 60)
+   {
+      FlushState();
+      g_lastFlush = local;
+   }
+   //--- Las variables globales caducan a las 4 semanas sin acceso: se renuevan las del riesgo de las posiciones abiertas
+   if(local - g_lastRiskRefresh >= 3600)
+   {
+      g_lastRiskRefresh = local;
+      for(int i = PositionsTotal() - 1; i >= 0; i--)
+      {
+         if(!g_pos.SelectByIndex(i) || !IsOwnPosition())
+            continue;
+         string name = RiskGvName(g_pos.Identifier());
+         if(GlobalVariableCheck(name))
+            GlobalVariableSet(name, GlobalVariableGet(name));
+      }
+   }
    UpdatePanel(now);
 }
 
@@ -2519,15 +2761,14 @@ void OnTick()
    if(g_auto)
    {
       EnsureStops();
-      if(InpStrategy == KQ_STRAT_SESSION_BREAKOUT)
-         BreakoutFlat(now);
+      ProcessCloseRequest(now);
    }
    else
-   {
       ManageVirtual(now);
-      if(InpStrategy == KQ_STRAT_SESSION_BREAKOUT)
-         BreakoutFlat(now);
-   }
+   if(InpStrategy == KQ_STRAT_SESSION_BREAKOUT)
+      BreakoutFlat(now);
+   if(InpStrategy == KQ_STRAT_SESSION_DRIFT)
+      DriftExitTick(now);
 
    //--- 2) Vela nueva de la temporalidad de senal
    datetime barTime = iTime(g_sym, g_signalTf, 0);

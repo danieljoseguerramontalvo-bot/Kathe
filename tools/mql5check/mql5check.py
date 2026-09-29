@@ -162,9 +162,9 @@ def tokenize(text, file, diags):
             line += nls
             line_start = pos + s.rfind('\n') + 1
         pos += len(s)
-        if kind == 'nl' or (nls and kind in ('dir',)):
+        if kind == 'nl':
             at_line_start = True
-        elif kind not in ('ws',) and not (kind == 'bcomment' and at_line_start and False):
+        elif kind != 'ws':
             at_line_start = False
     return toks
 
@@ -350,7 +350,8 @@ class Translator(object):
         for i, t in enumerate(S):
             if t.kind != 'id':
                 continue
-            if t.text in ('struct', 'class', 'enum', 'union', 'interface') and i + 1 < len(S) and S[i + 1].kind == 'id':
+            if t.text in ('struct', 'class', 'enum', 'union', 'interface') and i + 1 < len(S) and S[i + 1].kind == 'id' \
+                    and not (i > 0 and S[i - 1].text in ('<', ',')):   # template<class T>: no es una clase
                 name = S[i + 1].text
                 self.user_types.add(name)
                 if t.text == 'enum':
@@ -479,13 +480,10 @@ class Translator(object):
                     out.append(s.text)
                 k += 1
             t.text = head + ''.join(out)
-        elif word == 'ifdef' or word == 'ifndef' or word == 'else' or word == 'endif' or word == 'undef' \
-                or word == 'if' or word == 'elif' or word == 'define':
+        elif word in ('ifdef', 'ifndef', 'else', 'endif', 'undef', 'if', 'elif'):
             return
-        elif word in ('include',):
+        elif word == 'include':
             t.text = ''
-        elif word in ('pragma', 'error', 'warning', 'line'):
-            return
         else:
             self.diag('warning', t, "directiva '#%s' desconocida: se ignora" % word)
             t.text = ''
@@ -822,6 +820,7 @@ class Translator(object):
 
         # Nombres declarados por cada elemento de nivel superior
         decl_index = {}
+        class_def = {}  # clase -> índice del item que la define (para usos como CFoo::TIPO)
         classes = []   # (índice de item, texto de declaración adelantada)
 
         def declare(name, k):
@@ -848,6 +847,8 @@ class Translator(object):
                 name = texts[j + 1]
                 is_def = '{' in texts[j + 2:]
                 declare(name, k if (texts[j] == 'enum' or not is_def) else -1)
+                if is_def and name not in class_def:
+                    class_def[name] = k
                 if texts[j] == 'enum':
                     if '{' in texts:
                         b = texts.index('{')
@@ -950,6 +951,10 @@ class Translator(object):
             pos = -1
             for d in deps:
                 dk = decl_index.get(d)
+                if dk is not None and dk < k:
+                    pos = max(pos, dk)
+            for d in re.findall(r'([^\W\d]\w*)\s*::', proto):   # tipo anidado: la clase debe estar completa
+                dk = class_def.get(d)
                 if dk is not None and dk < k:
                     pos = max(pos, dk)
             # quitar los valores por defecto de la definición (quedan en el prototipo)
@@ -1124,6 +1129,7 @@ def pretty(msg):
                         ('mql_objprop_d', 'ENUM_OBJECT_PROPERTY_DOUBLE'), ('mql_objprop_s', 'ENUM_OBJECT_PROPERTY_STRING')):
         s = re.sub(r'\b%s\b' % alias, real, s)
     s = s.replace(' [-fpermissive]', '')
+    s = re.sub(r' \[-W[\w=+-]+\]', '', s)
     s = s.replace('mql_null_t', 'NULL').replace('mql_null', 'NULL')
     s = s.replace('mql_wrong_value_t', 'WRONG_VALUE').replace('mql_wrong_value', 'WRONG_VALUE')
     s = re.sub(r'mql_(?:arith|numlike|notstr)_r<T, (\w+)>', r'\1', s)
@@ -1132,6 +1138,7 @@ def pretty(msg):
     s = s.replace('unsigned char', 'uchar').replace('unsigned int', 'uint')
     s = s.replace('long int', 'long').replace('short int', 'short')
     s = re.sub(r"string\((\"(?:\\.|[^\"\\])*\")\)", r'\1', s)
+    s = re.sub(r"'([^']*)' \{aka '\1'\}", r"'\1'", s)
     s = re.sub(r' \[with [^\]]*\]', '', s)
     s = re.sub(r'typename std::enable_if<[^>]*>::type', '', s)
     return s
@@ -1303,8 +1310,15 @@ def check_file(path, args, out):
         if cl is None:
             continue
         sev, msg = cl
-        if sev == 'warning' and args.no_warnings:
-            continue
+        # Error dentro de una macro: informar en el punto de uso (la expansión más externa)
+        uses = [(l, re.search(r"in expansion of macro '(\w+)'", m).group(1)) for f, l, c, m in dg.notes
+                if 'in expansion of macro' in m and os.path.abspath(f) == os.path.abspath(cpp_path)]
+        if uses and loc is not None:
+            use_line, macro = uses[-1]
+            o = tr.line_origin[use_line] if use_line < len(tr.line_origin) else None
+            if o is not None and o != loc:
+                msg += ' (en la expansión de la macro %s, definida en %s:%d)' % (macro, display(loc[0], path), loc[1])
+                loc = o
         hint = None
         if sev == 'error':
             for pat, h in HINTS:
@@ -1337,6 +1351,8 @@ def check_file(path, args, out):
             continue
         seen.add(key)
         uniq.append(r)
+    if args.no_warnings:
+        uniq = [r for r in uniq if r[0] == 'error']
     uniq.sort(key=lambda r: (r[1] != os.path.abspath(path), r[1], r[2], r[0] != 'error'))
     n_err = sum(1 for r in uniq if r[0] == 'error')
     n_warn = sum(1 for r in uniq if r[0] == 'warning')

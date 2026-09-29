@@ -194,33 +194,76 @@ def test_fill_time_is_first_m1_open_at_or_after_signal_bar_close():
         assert ctx.exec_index == 0 or md.t[ctx.exec_index - 1] < ctx.decision_time
 
 
-def test_rollover_window_skips_entries_without_delay():
-    # bars from 00:50 to 01:40 server; window 23:45 -> 01:15
-    rows = flat_rows("2024-01-09 00:50", 50, price=2000.0, spread=20)
+def test_rollover_window_delays_entry_until_deadline():
+    # bars from 00:50 to 02:30 server; window 23:45 -> 01:15
+    rows = flat_rows("2024-01-09 00:50", 100, price=2000.0, spread=20)
     md = make_md(rows)
+    roll = dict(rollover_from_min=1425, rollover_to_min=75)
+    # H1 signal known at 01:00: executable in the 01:00 H1 bar -> waits until 01:15 (not skipped)
+    s = scripted({"2024-01-09 01:00": [Enter(1, sl_dist=1.0)]}, tf="H1")
+    tr = run_backtest(md, s, cfg(**roll)).trades.iloc[0]
+    assert tr.entry_time == pd.Timestamp("2024-01-09 01:15") and tr.entry_delay_min == 15
+    # M1 signal: the deadline is the end of its 1-minute bar -> no bar outside the window -> skipped
     s = scripted({"2024-01-09 01:00": [Enter(1, sl_dist=1.0)], "2024-01-09 01:15": [Enter(1, sl_dist=1.0)]})
-    res = run_backtest(md, s, cfg(rollover_from_min=1425, rollover_to_min=75))
-    assert len(res.trades) == 1
-    assert res.trades.iloc[0].entry_time == pd.Timestamp("2024-01-09 01:15")
-    sk = res.skipped
-    assert list(sk.reason) == ["rollover"] and sk.iloc[0].time == pd.Timestamp("2024-01-09 01:00")
+    res = run_backtest(md, s, cfg(**roll))
+    assert len(res.trades) == 1 and res.trades.iloc[0].entry_time == pd.Timestamp("2024-01-09 01:15")
+    assert list(res.skipped.reason) == ["rollover"]
+    assert res.skipped.iloc[0].time == pd.Timestamp("2024-01-09 01:00")
     # from == to disables the window
     s2 = scripted({"2024-01-09 01:00": [Enter(1, sl_dist=1.0)]})
-    assert len(run_backtest(md, s2, cfg(rollover_from_min=60, rollover_to_min=60)).trades) == 1
+    assert run_backtest(md, s2, cfg(rollover_from_min=60, rollover_to_min=60)).trades.iloc[0].entry_time == \
+        pd.Timestamp("2024-01-09 01:00")
 
 
-def test_max_spread_waits_inside_next_bar():
+def test_spread_cap_waits_then_skips():
     rows = flat_rows(T0, 40, price=2000.0, spread=20)
     for m in range(5, 8):
         set_bar(rows, m, spread=120)
     md = make_md(rows)
-    s = scripted({"2024-01-09 10:05": [Enter(1, sl_dist=1.0, max_spread_points=80)]}, tf="M5")
-    tr = run_backtest(md, s, cfg()).trades.iloc[0]
+    # engine default cap (60 points) applies to every strategy
+    s = scripted({"2024-01-09 10:05": [Enter(1, sl_dist=1.0)]}, tf="M5")
+    tr = run_backtest(md, s, cfg(max_spread_points=60)).trades.iloc[0]
     assert tr.entry_time == ts(8)
+    # a per-entry cap overrides it; 0 disables the cap
+    s = scripted({"2024-01-09 10:05": [Enter(1, sl_dist=5.0, max_spread_points=0)]}, tf="M5")
+    assert run_backtest(md, s, cfg(max_spread_points=60)).trades.iloc[0].entry_time == ts(5)
     rows2 = flat_rows(T0, 40, price=2000.0, spread=120)
-    s2 = scripted({"2024-01-09 10:05": [Enter(1, sl_dist=1.0, max_spread_points=80)]}, tf="M5")
-    res = run_backtest(make_md(rows2), s2, cfg())
-    assert len(res.trades) == 0 and res.skipped.iloc[0].reason == "spread_above_max"
+    s2 = scripted({"2024-01-09 10:05": [Enter(1, sl_dist=1.0)]}, tf="M5")
+    res = run_backtest(make_md(rows2), s2, cfg(max_spread_points=60))
+    assert len(res.trades) == 0 and res.skipped.iloc[0].reason == "spread"
+
+
+def test_entry_deadline_is_min_of_bar_end_and_open_plus_90min():
+    # H4 bar 08:00-12:00: signal known at 08:00; spread too wide until 09:35 -> deadline 09:30 -> skip
+    rows = flat_rows("2024-01-09 07:00", 300, price=2000.0, spread=20)
+    for r in rows:
+        if pd.Timestamp("2024-01-09 08:00") <= r[0] < pd.Timestamp("2024-01-09 09:35"):
+            r[5] = 100
+    md = make_md(rows)
+    s = scripted({"2024-01-09 08:00": [Enter(1, sl_dist=1.0)]}, tf="H4")
+    res = run_backtest(md, s, cfg(max_spread_points=60))
+    assert len(res.trades) == 0 and res.skipped.iloc[0].reason == "spread"
+    # same with the spread back to normal at 09:29 -> fills at 09:29 (inside the 90-minute limit)
+    for r in rows:
+        if r[0] >= pd.Timestamp("2024-01-09 09:29"):
+            r[5] = 20
+    s = scripted({"2024-01-09 08:00": [Enter(1, sl_dist=1.0)]}, tf="H4")
+    tr = run_backtest(make_md(rows), s, cfg(max_spread_points=60)).trades.iloc[0]
+    assert tr.entry_time == pd.Timestamp("2024-01-09 09:29")
+    # no M1 data until 09:40: the first executable bar is already past the deadline
+    rows3 = [r for r in flat_rows("2024-01-09 07:00", 300, spread=20)
+             if not (pd.Timestamp("2024-01-09 08:00") <= r[0] < pd.Timestamp("2024-01-09 09:40"))]
+    s = scripted({"2024-01-09 08:00": [Enter(1, sl_dist=1.0)]}, tf="H4")
+    res = run_backtest(make_md(rows3), s, cfg())
+    assert len(res.trades) == 0 and res.skipped.iloc[0].reason == "entry_deadline"
+    # M15 strategy: the deadline is the end of its 15-minute bar
+    rows4 = flat_rows("2024-01-09 07:00", 120, spread=20)
+    for r in rows4:
+        if pd.Timestamp("2024-01-09 08:00") <= r[0] < pd.Timestamp("2024-01-09 08:15"):
+            r[5] = 100
+    s = scripted({"2024-01-09 08:00": [Enter(1, sl_dist=1.0)]}, tf="M15")
+    res = run_backtest(make_md(rows4), s, cfg(max_spread_points=60))
+    assert len(res.trades) == 0 and res.skipped.iloc[0].reason == "spread"
 
 
 def test_equity_marked_to_market_each_m1_close():
@@ -237,12 +280,12 @@ def test_equity_marked_to_market_each_m1_close():
     assert eq[-1] == pytest.approx(10_000 + res.trades.net_pnl.sum())
 
 
-def test_d1_entries_fall_in_default_rollover_window_and_are_flagged(synth_md):
+def test_d1_entries_wait_for_the_end_of_the_rollover_window(synth_md):
     from kq.engine import BacktestConfig
     s = make_strategy("TREND_DONCHIAN", {"timeframe": "D1", "n": 20})
-    res = run_backtest(synth_md, s, BacktestConfig(start="2023-03-01"))       # default window 23:45-01:15
-    assert len(res.trades) == 0 and (res.skipped.reason == "rollover").sum() > 0
-    assert res.stats["warnings"] and "rollover" in res.stats["warnings"][0]
-    s = make_strategy("TREND_DONCHIAN", {"timeframe": "D1", "n": 20})
-    ok = run_backtest(synth_md, s, BacktestConfig(start="2023-03-01", rollover_from_min=0, rollover_to_min=0))
-    assert len(ok.trades) > 0 and not ok.stats["warnings"]
+    res = run_backtest(synth_md, s, BacktestConfig(start="2023-03-01"))       # default 23:45-01:15, cap 60
+    tr = res.trades
+    assert len(tr) > 0 and not res.stats["warnings"]
+    mins = tr.entry_time.dt.hour * 60 + tr.entry_time.dt.minute
+    assert (mins >= 75).all() and (mins < 90).all()                            # 01:15 <= entry < 01:30
+    assert (tr.entry_spread_pts <= 60).all()

@@ -7,7 +7,8 @@ Long on closed bar i if
 Short symmetric. Entry only if ADX[i] >= adx_min. SL = 1.5 ATR[i], TP = 3 ATR[i] from the
 quoted entry price. An opposite signal closes the open position (even if ADX is low) and
 may open the new one. One position at a time; 1 % risk (set in BacktestConfig).
-The EA waits inside the next bar while spread > 8 pips (80 points): ``max_spread_points``.
+Entry timing rules (rollover window, spread cap, 90-min deadline) are the engine's, shared by
+every strategy.
 """
 from __future__ import annotations
 
@@ -31,7 +32,7 @@ class RefT0(Strategy):
         "tp_atr": 3.0,                    # 0 -> no take profit
         "close_on_opposite": True,
         "direction": "both",
-        "max_spread_points": 80.0,        # EA InpMaxSpreadPips = 8 (pip = 0.1)
+        "max_spread_points": None,        # None -> engine cap (BacktestConfig.max_spread_points = 60)
         "warmup_bars": None,              # None -> 3 * slow (EA: signals ignored while Bars() < 3 * slow)
     }
 

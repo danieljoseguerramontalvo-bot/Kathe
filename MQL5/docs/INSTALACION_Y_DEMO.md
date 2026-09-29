@@ -66,13 +66,29 @@ Hazlo en **cada cuenta**, la estándar y la Cent:
 2. Gráfico del símbolo. La temporalidad del gráfico da igual: la estrategia usa la suya.
 3. Arrastra `KatheQuant_v5`:
    - pestaña **Común**: «Permitir Algo Trading»;
-   - pestaña **Parámetros**: carga el `.set` congelado y activa «Permitir ejecución automática en una cuenta DEMO».
+   - pestaña **Parámetros**:
+     - carga primero **`KQ5_DEMO_plantilla.set`**, que trae todas las protecciones activas;
+     - después cambia **solo** la estrategia y sus parámetros a los del candidato congelado.
+   - **No uses** los `.set` de investigación: tienen el drawdown máximo y la pérdida diaria desactivados. En demo automática el EA **se niega a arrancar** sin esos límites.
 4. En Expertos, la línea `[INICIO]` tiene que decir `AUTOMATICO en cuenta DEMO` y mostrar la estrategia correcta.
 5. Deja el PC encendido o usa un VPS.
 
 **Registro automático.** Los diarios CSV van a la carpeta común (`%APPDATA%\MetaQuotes\Terminal\Common\Files`):
 - `KQ5_<cuenta>_<símbolo>_<mágico>_senales.csv`: cada señal con su decisión (ejecutada, descartada y por qué), el precio esperado, el SL, el TP, los lotes, el riesgo y el spread;
-- `KQ5_<cuenta>_<símbolo>_<mágico>_operaciones.csv`: entradas, modificaciones y salidas con el precio pedido y el ejecutado, el deslizamiento en puntos, el spread, el resultado neto y el múltiplo R.
+- `KQ5_<cuenta>_<símbolo>_<mágico>_operaciones.csv`, con estos eventos:
+
+  | Evento | Qué registra |
+  |---|---|
+  | `ENTRY` | El envío de la orden |
+  | `FILL` | La ejecución real: precio pedido frente al ejecutado |
+  | `MODIFY` | Cambios de SL o TP |
+  | `EXIT` | El cierre: nivel de SL o TP frente al precio ejecutado |
+  | `ERROR` | Errores temporales y reintentos |
+  | `VIRTUAL_*` | Solo en modo señales |
+
+  - Columnas: el deslizamiento en puntos (positivo = en contra), el spread, el resultado neto, la comisión, el swap y el múltiplo R.
+  - En las filas `EXIT`, `dir` es la dirección del deal de cierre, que es la contraria a la posición.
+  - En el probador, los diarios se llaman `KQ5T_…` y se reescriben en cada prueba. Al optimizar no se escriben.
 
 **Revisión cada 2 semanas:** envía los dos CSV. Se comparan con el backtest del mismo periodo (mismas señales, deslizamiento y costes).
 

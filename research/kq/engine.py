@@ -21,6 +21,10 @@ Fills
   the M1 open already beyond the target -> fill at the target level (never better);
 * ``slippage_points`` is added adversely to every fill; commission per lot round turn is
   booked at entry; swap is accrued at each server-midnight rollover the position is open over.
+* NEW entries (not exits) fill on the first M1 bar from ``e`` that is outside the rollover
+  window and whose spread <= the cap, but no later than the entry deadline
+  min(end of the strategy-TF bar containing ``e``, its open + 90 min); otherwise they are
+  skipped with reason 'rollover', 'spread' or 'entry_deadline'.
 
 Sizing
 ------
@@ -60,11 +64,18 @@ class BacktestConfig:
     fixed_lots: float | None = None
     account_units_per_usd: float = 1.0
     costs: CostModel = field(default_factory=CostModel)
-    # No NEW entries whose execution M1 bar falls in [from, to) minutes of the server day
-    # (the window may cross midnight; from == to disables it). Default 23:45 -> 01:15 server,
-    # as in the live EA. The entry is skipped (reason 'rollover'), never delayed.
+    # Entry rules shared by every strategy (EA parity, see README "Paridad con el EA"):
+    # * no NEW entry fills on an M1 bar whose server minute-of-day is in [from, to) (may cross
+    #   midnight; from == to disables it); default 23:45 -> 01:15 server;
+    # * no NEW entry fills on an M1 bar whose spread > max_spread_points (0 disables);
+    # * a pending entry waits for the first M1 bar that satisfies both, but only until the entry
+    #   deadline = min(end of the strategy-TF bar in which the signal becomes executable,
+    #   open of that bar + entry_deadline_min); otherwise it is skipped ('rollover' / 'spread' /
+    #   'entry_deadline').
     rollover_from_min: int = 1425
     rollover_to_min: int = 75
+    max_spread_points: float = 60.0
+    entry_deadline_min: float | None = 90.0
 
     @property
     def sizing(self) -> str:
@@ -80,7 +91,7 @@ class BacktestConfig:
 
 class _Pos:
     __slots__ = ("id", "side", "lots", "entry_idx", "entry_time", "entry_price", "entry_ref",
-                 "entry_spread", "stop", "tp", "initial_stop", "initial_tp", "r_price", "commission",
+                 "entry_spread", "entry_delay_min", "stop", "tp", "initial_stop", "initial_tp", "r_price", "commission",
                  "risk_money", "decision_index", "decision_time", "tag", "stop_updates",
                  "balance_before")
 
@@ -173,7 +184,7 @@ class BacktestResult:
 
 TRADE_COLUMNS = [
     "trade_id", "strategy", "side", "tag", "decision_index", "decision_time", "entry_time",
-    "entry_time_utc", "entry_price", "entry_ref_price", "entry_spread_pts", "lots", "risk_money",
+    "entry_time_utc", "entry_price", "entry_ref_price", "entry_spread_pts", "entry_delay_min", "lots", "risk_money",
     "initial_stop", "initial_tp", "final_stop", "stop_updates", "exit_time", "exit_time_utc",
     "exit_price", "exit_ref_price", "exit_reason", "hold_minutes", "gross_pnl", "commission", "swap",
     "net_pnl", "r_price", "r_gross", "r_net", "mae_r", "mfe_r", "balance_before", "balance_after",
@@ -208,6 +219,18 @@ class Engine:
     # ------------------------------------------------------------------ helpers
     def _rp(self, x: float) -> float:
         return round(float(x), self.digits)
+
+    def _deadline_index(self, e: int) -> int:
+        """Exclusive M1 index bound of the entry deadline for an entry executable at bar e:
+        min(end of the strategy-TF bar containing bar e, that bar's open + entry_deadline_min)."""
+        from .data import tf_ns
+        L = tf_ns(self.strategy.timeframe)
+        t_e = int(self.t[e])
+        bar_open = (t_e // L) * L
+        limit = bar_open + L
+        if self.cfg.entry_deadline_min is not None:
+            limit = min(limit, bar_open + int(float(self.cfg.entry_deadline_min) * 60_000_000_000))
+        return int(np.searchsorted(self.t, limit, "left"))
 
     def _in_rollover(self, j) -> np.ndarray | bool:
         """True where the server minute-of-day of M1 bar(s) ``j`` is inside the rollover window."""
@@ -279,9 +302,8 @@ class Engine:
         if n_roll and n_roll >= 0.5 * max(n_attempts, 1):
             warnings_.append(
                 f"{n_roll} of {n_attempts} entry attempts were skipped by the rollover no-entry window "
-                f"[{cfg.rollover_from_min}, {cfg.rollover_to_min}) min server. Decisions at 00:00 server (e.g. every "
-                f"D1 bar close) execute at the daily open inside that window; disable it (from == to) or use "
-                f"another timeframe if that is not intended.")
+                f"[{cfg.rollover_from_min}, {cfg.rollover_to_min}) min server before their entry deadline; "
+                f"check the window, the deadline (entry_deadline_min) and the strategy timeframe.")
         stats = {
             "engine_version": ENGINE_VERSION,
             "warnings": warnings_,
@@ -403,20 +425,27 @@ class Engine:
             self._skip(ctx, side, "position", "max_positions")
             return
         e = ctx.exec_index
-        j = e
-        if self._in_rollover(e):
-            self._skip(ctx, side, "execution", "rollover",
-                       f"exec {pd.Timestamp(int(self.t[e]), unit='ns')} inside "
-                       f"[{self.cfg.rollover_from_min}, {self.cfg.rollover_to_min}) min server")
+        dl = min(self._deadline_index(e), deadline)
+        if dl <= e:
+            self._skip(ctx, side, "execution", "entry_deadline",
+                       f"first bar {pd.Timestamp(int(self.t[e]), unit='ns')} after the entry deadline")
             return
-        if a.max_spread_points is not None:
-            window = self.spr_pts[e:deadline]
-            ok = np.flatnonzero((window <= a.max_spread_points) & ~self._in_rollover(np.arange(e, deadline)))
-            if len(ok) == 0:
-                self._skip(ctx, side, "execution", "spread_above_max",
-                           f"max={a.max_spread_points} min_seen={window.min():.0f}")
-                return
-            j = e + int(ok[0])
+        cap = cfg.max_spread_points if a.max_spread_points is None else a.max_spread_points
+        roll = self._in_rollover(np.arange(e, dl))
+        ok = ~roll
+        if cap is not None and cap > 0:
+            ok = ok & (self.spr_pts[e:dl] <= cap)
+        hits = np.flatnonzero(ok)
+        if len(hits) == 0:
+            if roll.all():
+                self._skip(ctx, side, "execution", "rollover",
+                           f"no bar outside [{cfg.rollover_from_min}, {cfg.rollover_to_min}) min server "
+                           f"before {pd.Timestamp(int(self.t[dl - 1]), unit='ns')}")
+            else:
+                self._skip(ctx, side, "execution", "spread",
+                           f"cap={cap} min_seen={self.spr_pts[e:dl][~roll].min():.0f}")
+            return
+        j = e + int(hits[0])
         bid, ask = self.o[j], self.ao[j]
         ref = ask if side > 0 else bid
         fill = ref + side * self.slip
@@ -475,6 +504,7 @@ class Engine:
         p.entry_idx, p.entry_time = j, int(self.t[j])
         p.entry_ref, p.entry_price = float(ref), float(fill)
         p.entry_spread = float(self.spr_pts[j])
+        p.entry_delay_min = (int(self.t[j]) - int(self.t[e])) / 60_000_000_000
         p.stop = p.initial_stop = sl
         p.tp = p.initial_tp = tp
         p.r_price = abs(fill - sl) if sl is not None else float("nan")
@@ -515,6 +545,7 @@ class Engine:
             "decision_index": p.decision_index, "decision_time": p.decision_time,
             "entry_idx": p.entry_idx, "exit_idx": j, "entry_time": p.entry_time,
             "entry_price": p.entry_price, "entry_ref_price": p.entry_ref, "entry_spread_pts": p.entry_spread,
+            "entry_delay_min": p.entry_delay_min,
             "lots": p.lots, "risk_money": p.risk_money, "initial_stop": p.initial_stop,
             "initial_tp": p.initial_tp, "final_stop": p.stop, "stop_updates": p.stop_updates,
             "exit_time": exit_time, "exit_price": fill, "exit_ref_price": float(ref), "exit_reason": reason,

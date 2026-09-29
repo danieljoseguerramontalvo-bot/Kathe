@@ -36,17 +36,17 @@ string BoolText(const bool value)
    return "false";
 }
 
-string D(const double value, const int digits)
+string Dbl(const double value, const int digits)
 {
    return DoubleToString(value, digits);
 }
 
-string I(const long value)
+string Int(const long value)
 {
    return IntegerToString(value);
 }
 
-string T(const datetime value)
+string Tm(const datetime value)
 {
    if(value <= 0)
       return "n/d";
@@ -111,25 +111,25 @@ long ReportAccount()
    offset = (long)(MathRound((double)offset / 1800.0) * 1800.0);
 
    Out("=== CUENTA ===");
-   Out("login: " + I(AccountInfoInteger(ACCOUNT_LOGIN)));
+   Out("login: " + Int(AccountInfoInteger(ACCOUNT_LOGIN)));
    Out("servidor: " + AccountInfoString(ACCOUNT_SERVER));
    Out("empresa: " + AccountInfoString(ACCOUNT_COMPANY));
    Out("tipo: " + TradeModeName(AccountInfoInteger(ACCOUNT_TRADE_MODE)));
    Out("modo de margen: " + MarginModeName(AccountInfoInteger(ACCOUNT_MARGIN_MODE)));
    Out("divisa: " + AccountInfoString(ACCOUNT_CURRENCY));
-   Out("apalancamiento: 1:" + I(AccountInfoInteger(ACCOUNT_LEVERAGE)));
-   Out("balance: " + D(AccountInfoDouble(ACCOUNT_BALANCE), 2) + " | equidad: " + D(AccountInfoDouble(ACCOUNT_EQUITY), 2));
-   Out("margin call: " + D(AccountInfoDouble(ACCOUNT_MARGIN_SO_CALL), 2) + " | stop out: " + D(AccountInfoDouble(ACCOUNT_MARGIN_SO_SO), 2) +
-       " (modo " + I(AccountInfoInteger(ACCOUNT_MARGIN_SO_MODE)) + ": 0 = %, 1 = dinero)");
+   Out("apalancamiento: 1:" + Int(AccountInfoInteger(ACCOUNT_LEVERAGE)));
+   Out("balance: " + Dbl(AccountInfoDouble(ACCOUNT_BALANCE), 2) + " | equidad: " + Dbl(AccountInfoDouble(ACCOUNT_EQUITY), 2));
+   Out("margin call: " + Dbl(AccountInfoDouble(ACCOUNT_MARGIN_SO_CALL), 2) + " | stop out: " + Dbl(AccountInfoDouble(ACCOUNT_MARGIN_SO_SO), 2) +
+       " (modo " + Int(AccountInfoInteger(ACCOUNT_MARGIN_SO_MODE)) + ": 0 = %, 1 = dinero)");
    Out("trading permitido: " + BoolText(AccountInfoInteger(ACCOUNT_TRADE_ALLOWED) != 0) +
        " | asesores permitidos: " + BoolText(AccountInfoInteger(ACCOUNT_TRADE_EXPERT) != 0));
    Out("");
    Out("=== TERMINAL Y HORA ===");
-   Out("build: " + I(TerminalInfoInteger(TERMINAL_BUILD)) + " | max. barras en grafico: " + I(TerminalInfoInteger(TERMINAL_MAXBARS)));
+   Out("build: " + Int(TerminalInfoInteger(TERMINAL_BUILD)) + " | max. barras en grafico: " + Int(TerminalInfoInteger(TERMINAL_MAXBARS)));
    Out("hora servidor: " + TimeToString(serverTime, TIME_DATE | TIME_SECONDS) +
        " | GMT: " + TimeToString(gmtTime, TIME_DATE | TIME_SECONDS) +
        " | local: " + TimeToString(TimeLocal(), TIME_DATE | TIME_SECONDS));
-   Out("desfase servidor - GMT: " + I(offset) + " s (" + D((double)offset / 3600.0, 1) + " h)");
+   Out("desfase servidor - GMT: " + Int(offset) + " s (" + Dbl((double)offset / 3600.0, 1) + " h)");
    Out("");
    return offset;
 }
@@ -172,7 +172,7 @@ void ReportHistoryDepth(const string symbol, datetime &firstM1Server, datetime &
       datetime serverFirst   = (datetime)SeriesInfoInteger(symbol, frames[k], SERIES_SERVER_FIRSTDATE);
       datetime terminalFirst = (datetime)SeriesInfoInteger(symbol, frames[k], SERIES_TERMINAL_FIRSTDATE);
       int      bars          = Bars(symbol, frames[k]);
-      Out("  " + names[k] + ": " + T(serverFirst) + " / " + T(terminalFirst) + " / " + IntegerToString(bars));
+      Out("  " + names[k] + ": " + Tm(serverFirst) + " / " + Tm(terminalFirst) + " / " + IntegerToString(bars));
       if(k == 0)
       {
          firstM1Server   = serverFirst;
@@ -232,7 +232,13 @@ void SpreadByHour(const string symbol, double &avgM1[], double &p50M1[], double 
    MqlTick ticks[];
    ulong   toMsc   = (ulong)TimeCurrent() * 1000;
    ulong   fromMsc = toMsc - (ulong)InpTickDays * 86400 * 1000;
-   int     nt      = CopyTicksRange(symbol, ticks, COPY_TICKS_INFO, fromMsc, toMsc);
+   int     nt      = -1;
+   for(int attempt = 0; attempt < 10 && nt <= 0; attempt++)
+   {
+      nt = CopyTicksRange(symbol, ticks, COPY_TICKS_INFO, fromMsc, toMsc);
+      if(nt <= 0)
+         Sleep(500);
+   }
    double  point   = SymbolInfoDouble(symbol, SYMBOL_POINT);
    if(nt <= 0 || point <= 0.0)
    {
@@ -300,9 +306,9 @@ void ReportCosts(const string symbol, double &commissionPerLotSide)
    if(volume > 0.0)
       commissionPerLotSide = commission / volume;
    Out("costes cobrados en " + IntegerToString(InpDealsDays) + " dias: deals " + IntegerToString(deals) +
-       " | volumen " + D(volume, 2) + " lotes | comision " + D(commission, 2) +
-       " | swap " + D(swap, 2) + " | tarifas " + D(fee, 2) +
-       " | comision por lote y lado " + D(commissionPerLotSide, 4));
+       " | volumen " + Dbl(volume, 2) + " lotes | comision " + Dbl(commission, 2) +
+       " | swap " + Dbl(swap, 2) + " | tarifas " + Dbl(fee, 2) +
+       " | comision por lote y lado " + Dbl(commissionPerLotSide, 4));
 }
 
 //+------------------------------------------------------------------+
@@ -361,15 +367,15 @@ void AuditSymbol(const string symbol, const long gmtOffset)
    Out("descripcion: " + SymbolInfoString(symbol, SYMBOL_DESCRIPTION) + " | ruta: " + SymbolInfoString(symbol, SYMBOL_PATH));
    Out("divisas base/beneficio/margen: " + SymbolInfoString(symbol, SYMBOL_CURRENCY_BASE) + " / " +
        SymbolInfoString(symbol, SYMBOL_CURRENCY_PROFIT) + " / " + SymbolInfoString(symbol, SYMBOL_CURRENCY_MARGIN));
-   Out("digitos: " + IntegerToString(digits) + " | point: " + D(point, 8) + " | tick size: " + D(tickSize, 8) +
-       " | tick value: " + D(tickValue, 8) + " | contrato: " + D(contractSize, 4));
-   Out("dinero por 1.00 de precio y 1 lote (OrderCalcProfit): " + D(moneyPerUnit, 4) + " " + AccountInfoString(ACCOUNT_CURRENCY));
-   Out("volumen min/max/paso: " + D(volMin, 4) + " / " + D(volMax, 2) + " / " + D(volStep, 4));
-   Out("margen para el lote minimo: " + D(marginMinLot, 2) + " | para 1 lote: " + D(marginOneLot, 2) + " (precio " + D(price, digits) + ")");
-   Out("stops level: " + I(stopsLevel) + " | freeze level: " + I(freezeLevel) + " puntos");
-   Out("spread actual: " + I(spreadNow) + " puntos | flotante: " + BoolText(spreadFloat));
-   Out("swap modo " + I(swapMode) + " | largo " + D(swapLong, 4) + " | corto " + D(swapShort, 4) + " | triple el dia " + I(swap3Days));
-   Out("modo de trading " + I(tradeMode) + " | ejecucion " + I(exeMode) + " | llenado " + I(fillMode));
+   Out("digitos: " + IntegerToString(digits) + " | point: " + Dbl(point, 8) + " | tick size: " + Dbl(tickSize, 8) +
+       " | tick value: " + Dbl(tickValue, 8) + " | contrato: " + Dbl(contractSize, 4));
+   Out("dinero por 1.00 de precio y 1 lote (OrderCalcProfit): " + Dbl(moneyPerUnit, 4) + " " + AccountInfoString(ACCOUNT_CURRENCY));
+   Out("volumen min/max/paso: " + Dbl(volMin, 4) + " / " + Dbl(volMax, 2) + " / " + Dbl(volStep, 4));
+   Out("margen para el lote minimo: " + Dbl(marginMinLot, 2) + " | para 1 lote: " + Dbl(marginOneLot, 2) + " (precio " + Dbl(price, digits) + ")");
+   Out("stops level: " + Int(stopsLevel) + " | freeze level: " + Int(freezeLevel) + " puntos");
+   Out("spread actual: " + Int(spreadNow) + " puntos | flotante: " + BoolText(spreadFloat));
+   Out("swap modo " + Int(swapMode) + " | largo " + Dbl(swapLong, 4) + " | corto " + Dbl(swapShort, 4) + " | triple el dia " + Int(swap3Days));
+   Out("modo de trading " + Int(tradeMode) + " | ejecucion " + Int(exeMode) + " | llenado " + Int(fillMode));
    ReportSessions(symbol);
 
    datetime firstM1Server   = 0;
@@ -393,8 +399,8 @@ void AuditSymbol(const string symbol, const long gmtOffset)
    {
       FileWriteString(csv, "hora_servidor,spread_m1_media,spread_m1_p50,spread_m1_p90,spread_ticks_media\r\n");
       for(int h = 0; h < 24; h++)
-         FileWriteString(csv, IntegerToString(h) + "," + D(avgM1[h], 2) + "," + D(p50M1[h], 2) + "," +
-                              D(p90M1[h], 2) + "," + D(avgTicks[h], 2) + "\r\n");
+         FileWriteString(csv, IntegerToString(h) + "," + Dbl(avgM1[h], 2) + "," + Dbl(p50M1[h], 2) + "," +
+                              Dbl(p90M1[h], 2) + "," + Dbl(avgTicks[h], 2) + "\r\n");
       FileClose(csv);
    }
 
@@ -411,7 +417,7 @@ void AuditSymbol(const string symbol, const long gmtOffset)
    {
       if(h > 0)
          spreads += ", ";
-      spreads += D(avgM1[h], 2);
+      spreads += Dbl(avgM1[h], 2);
    }
    FileWriteString(json, "{\r\n");
    FileWriteString(json, JsonText("symbol", symbol) + ",\r\n");
@@ -419,29 +425,29 @@ void AuditSymbol(const string symbol, const long gmtOffset)
    FileWriteString(json, JsonText("account_currency", AccountInfoString(ACCOUNT_CURRENCY)) + ",\r\n");
    FileWriteString(json, JsonText("account_trade_mode", TradeModeName(AccountInfoInteger(ACCOUNT_TRADE_MODE))) + ",\r\n");
    FileWriteString(json, JsonText("account_margin_mode", MarginModeName(AccountInfoInteger(ACCOUNT_MARGIN_MODE))) + ",\r\n");
-   FileWriteString(json, JsonNumber("account_leverage", I(AccountInfoInteger(ACCOUNT_LEVERAGE))) + ",\r\n");
+   FileWriteString(json, JsonNumber("account_leverage", Int(AccountInfoInteger(ACCOUNT_LEVERAGE))) + ",\r\n");
    FileWriteString(json, JsonText("currency_profit", SymbolInfoString(symbol, SYMBOL_CURRENCY_PROFIT)) + ",\r\n");
    FileWriteString(json, JsonNumber("digits", IntegerToString(digits)) + ",\r\n");
-   FileWriteString(json, JsonNumber("point", D(point, 8)) + ",\r\n");
-   FileWriteString(json, JsonNumber("tick_size", D(tickSize, 8)) + ",\r\n");
-   FileWriteString(json, JsonNumber("tick_value", D(tickValue, 8)) + ",\r\n");
-   FileWriteString(json, JsonNumber("contract_size", D(contractSize, 4)) + ",\r\n");
-   FileWriteString(json, JsonNumber("money_per_price_unit_per_lot", D(moneyPerUnit, 6)) + ",\r\n");
-   FileWriteString(json, JsonNumber("volume_min", D(volMin, 4)) + ",\r\n");
-   FileWriteString(json, JsonNumber("volume_max", D(volMax, 4)) + ",\r\n");
-   FileWriteString(json, JsonNumber("volume_step", D(volStep, 4)) + ",\r\n");
-   FileWriteString(json, JsonNumber("margin_min_lot", D(marginMinLot, 4)) + ",\r\n");
-   FileWriteString(json, JsonNumber("stops_level", I(stopsLevel)) + ",\r\n");
-   FileWriteString(json, JsonNumber("freeze_level", I(freezeLevel)) + ",\r\n");
-   FileWriteString(json, JsonNumber("swap_mode", I(swapMode)) + ",\r\n");
-   FileWriteString(json, JsonNumber("swap_long", D(swapLong, 6)) + ",\r\n");
-   FileWriteString(json, JsonNumber("swap_short", D(swapShort, 6)) + ",\r\n");
-   FileWriteString(json, JsonNumber("swap_3days", I(swap3Days)) + ",\r\n");
-   FileWriteString(json, JsonNumber("commission_per_lot_side_observed", D(commissionPerLotSide, 6)) + ",\r\n");
-   FileWriteString(json, JsonNumber("gmt_offset_seconds", I(gmtOffset)) + ",\r\n");
-   FileWriteString(json, JsonText("first_date_m1_server", T(firstM1Server)) + ",\r\n");
-   FileWriteString(json, JsonText("first_date_m1_terminal", T(firstM1Terminal)) + ",\r\n");
-   FileWriteString(json, JsonText("export_time_server", T(TimeTradeServer())) + ",\r\n");
+   FileWriteString(json, JsonNumber("point", Dbl(point, 8)) + ",\r\n");
+   FileWriteString(json, JsonNumber("tick_size", Dbl(tickSize, 8)) + ",\r\n");
+   FileWriteString(json, JsonNumber("tick_value", Dbl(tickValue, 8)) + ",\r\n");
+   FileWriteString(json, JsonNumber("contract_size", Dbl(contractSize, 4)) + ",\r\n");
+   FileWriteString(json, JsonNumber("money_per_price_unit_per_lot", Dbl(moneyPerUnit, 6)) + ",\r\n");
+   FileWriteString(json, JsonNumber("volume_min", Dbl(volMin, 4)) + ",\r\n");
+   FileWriteString(json, JsonNumber("volume_max", Dbl(volMax, 4)) + ",\r\n");
+   FileWriteString(json, JsonNumber("volume_step", Dbl(volStep, 4)) + ",\r\n");
+   FileWriteString(json, JsonNumber("margin_min_lot", Dbl(marginMinLot, 4)) + ",\r\n");
+   FileWriteString(json, JsonNumber("stops_level", Int(stopsLevel)) + ",\r\n");
+   FileWriteString(json, JsonNumber("freeze_level", Int(freezeLevel)) + ",\r\n");
+   FileWriteString(json, JsonNumber("swap_mode", Int(swapMode)) + ",\r\n");
+   FileWriteString(json, JsonNumber("swap_long", Dbl(swapLong, 6)) + ",\r\n");
+   FileWriteString(json, JsonNumber("swap_short", Dbl(swapShort, 6)) + ",\r\n");
+   FileWriteString(json, JsonNumber("swap_3days", Int(swap3Days)) + ",\r\n");
+   FileWriteString(json, JsonNumber("commission_per_lot_side_observed", Dbl(commissionPerLotSide, 6)) + ",\r\n"); // negativa = coste
+   FileWriteString(json, JsonNumber("gmt_offset_seconds", Int(gmtOffset)) + ",\r\n");
+   FileWriteString(json, JsonText("first_date_m1_server", Tm(firstM1Server)) + ",\r\n");
+   FileWriteString(json, JsonText("first_date_m1_terminal", Tm(firstM1Terminal)) + ",\r\n");
+   FileWriteString(json, JsonText("export_time_server", Tm(TimeTradeServer())) + ",\r\n");
    FileWriteString(json, "  \"avg_spread_points_m1_by_server_hour\": [" + spreads + "]\r\n");
    FileWriteString(json, "}\r\n");
    FileClose(json);

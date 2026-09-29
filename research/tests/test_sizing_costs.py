@@ -135,3 +135,10 @@ def test_risk_sizing_is_size_invariant_in_r():
     b = one_trade(md, cfg(risk_pct=2.0, fixed_lots=None, initial_equity=50_000)).trades.iloc[0]
     assert b.lots > a.lots
     assert a.r_net == pytest.approx(b.r_net)
+
+
+def test_commission_from_mt5_audit_field_uses_absolute_value():
+    from kq.costs import commission_rt_from_spec
+    spec = SymbolSpec.from_dict({"symbol": "XAUUSD", "commission_per_lot_side_observed": -3.5})
+    assert commission_rt_from_spec(spec) == pytest.approx(7.0)
+    assert commission_rt_from_spec(SymbolSpec()) is None
