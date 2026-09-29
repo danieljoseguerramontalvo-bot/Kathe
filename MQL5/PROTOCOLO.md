@@ -521,6 +521,21 @@ vez en **XAUUSDc** (cuenta Cent, depósito 10 000 USC):
 - Confirma lo visto en XAUUSD: **la configuración que está operando en real perdió en 2023 y en 2024 con los dos símbolos**. Su único año bueno fue 2022.
 - La prueba en H1 sigue pendiente. Hay que cambiar el primer parámetro, «Marco temporal de las señales», no el «Periodo» del probador.
 
+**T0 en H1** (`R3_H1_T0_tendencia.set`, XAUUSDc, 10 000 USC). Solo se recibió la pestaña Backtest,
+sin las líneas `[RESULTADO]`, así que no hay t ni desglose por año:
+
+| Oper. | Acierto | PF | Esperanza | DD equidad % | Recuperación | Resultado |
+|---|---|---|---|---|---|---|
+| 254 | 31.1 % | 0.86 | −8.47 | **27.92** | −0.76 | **−2 151.59 USC (−21.5 %)** |
+
+- Ganancia media 161.69 frente a pérdida media 85.29.
+- Hasta 12 pérdidas seguidas (−1 064.52).
+- Compras 131 (32.1 % de acierto), ventas 123 (30.1 %).
+
+**Decisión: H1 descartado.** Falla b, e y f, y pierde más del doble que H4 en el mismo símbolo
+y periodo (−21.5 % frente a −9.3 %). Se repite el mismo patrón: **cuantas más operaciones, más
+pierde** (M15 −77 %, H1 −21.5 %, H4 −9.3 % en 2023–2024).
+
 ## 8. Datos pendientes del usuario
 
 1. Apalancamiento, retrasos y divisa del depósito usados en la prueba de +236 USD (se deduce 1:100).
