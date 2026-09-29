@@ -353,7 +353,7 @@ python -m kq.protocol holdout --scenario A --data KQ_XAUUSD_M1.csv --spec KQ_XAU
 - la hora del servidor es NY+7 según la auditoría;
 - el registro no ha sido alterado.
 
-**Etapa `holdout`:** anota cada ejecución en el registro encadenado (`record_type = holdout_lock`) antes de calcularla, y rechaza una segunda ejecución de la misma candidata. Hay que hacer *commit* del registro después de cada ejecución con datos reales, porque git es el ancla externa que impide borrar anotaciones.
+**Etapa `holdout`:** anota cada ejecución en el registro encadenado (`record_type = holdout_lock`) antes de calcularla, y rechaza una segunda ejecución de la misma candidata. Hay que hacer *commit* del registro **y de su cabecera** (`registry/experiments.jsonl` y `registry/experiments.jsonl.head`) después de cada ejecución con datos reales, porque git es el ancla externa que impide borrar anotaciones. La etapa `holdout` se niega a arrancar si hay cambios sin commit o si `--registry` no es el registro canónico del repositorio.
 
 **Tiempos:** con datos sintéticos del escenario A, unos 40 s con 20 simulaciones de control y unos 5–10 min con 1 000, en 4 núcleos.
 

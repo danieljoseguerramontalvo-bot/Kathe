@@ -80,6 +80,17 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _config(a, md) -> BacktestConfig:
     units = a.units_per_usd if a.units_per_usd is not None else md.spec.default_units_per_usd()
+    chk = md.spec.money_per_lot_check(units)
+    if not chk["ok"]:
+        raise SystemExit(f"money per lot mismatch: the engine assumes {chk['expected']} per 1.0 price move and lot, "
+                         f"the broker reports {chk['observed']} ({chk['source']}); check --units-per-usd / the spec")
+    off = md.spec.server_offset_check()
+    if not off["ok"]:
+        raise SystemExit(f"server time is not NY+7 according to the audit: {off}")
+    if abs(float(md.spec.point) - 0.01) > 1e-12:
+        print(f"WARNING: point = {md.spec.point}; --slippage-points, --max-spread-points and the stress test "
+              "(10/20/40) are in POINTS of this symbol. The protocol costs are in USD: use kq.protocol, "
+              "or scale these options.", file=sys.stderr)
     commission = a.commission
     if commission is None:
         commission = commission_rt_from_spec(md.spec) or 0.0

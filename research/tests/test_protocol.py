@@ -155,3 +155,30 @@ def test_money_per_lot_mismatch_is_rejected():
     a.units_per_usd = None                           # default from the spec currency: 100
     cfg, info = pr.build_config(md, a)
     assert cfg.account_units_per_usd == 100.0 and info["money_per_lot"]["ok"]
+
+
+def test_daily_break_check_detects_eu_based_server():
+    from kq.data import daily_break_check
+    from kq.timeutil import server_to_utc
+    df = generate_m1("2023-01-02", "2024-01-01", seed=2)
+    t = df.index.as_unit("ns").asi8
+    ok = daily_break_check(t)
+    assert ok["checked"] and ok["ok"]
+    utc = pd.DatetimeIndex(server_to_utc(df.index))
+    eet = utc.tz_localize("UTC").tz_convert("Europe/Athens").tz_localize(None)   # EET/EEST server
+    bad = daily_break_check(eet.as_unit("ns").asi8)
+    assert bad["checked"] and not bad["ok"]
+
+
+def test_usd_to_points_is_exact_and_spread_audit_uses_same_days(tmp_path):
+    spec = SymbolSpec()
+    assert pr.usd_to_points(0.29, spec) == 29.0
+    csv = tmp_path / "a.csv"
+    csv.write_text("hora_servidor,spread_m1_media,spread_m1_p50,spread_m1_p90,spread_ticks_media,"
+                   "spread_m1_media_mismos_dias\n0,20,20,30,35,25\n1,20,20,30,18,20\n2,20,20,30,0,20\n")
+    # hour 0: 35 - 25 = 10 points; hour 1: negative -> 0; hour 2: no ticks -> ignored; mean 5 points = 0.05 USD
+    assert pr.spread_audit_extra_usd(csv, spec) == pytest.approx(0.05)
+    old = tmp_path / "old.csv"
+    old.write_text("hora_servidor,spread_m1_media,spread_m1_p50,spread_m1_p90,spread_ticks_media\n0,20,20,30,35\n")
+    with pytest.raises(ValueError):
+        pr.spread_audit_extra_usd(old, spec)

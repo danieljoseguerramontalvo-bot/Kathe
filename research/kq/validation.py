@@ -351,15 +351,24 @@ def monkey_test(md, target: str, target_params: dict | None, cfg: BacktestConfig
     """Compare the target with ``n_runs`` RANDOM_ENTRY runs (same exits, same frequency)."""
     cal = calibrate_random_entry(md, target, target_params, cfg)
     real = compute_metrics(cal["target_result"], benchmarks=False)
-    vals = []
+    vals, stops = [], []
     for k in range(n_runs):
         s = make_strategy("RANDOM_ENTRY", {"target": target, "target_params": dict(target_params or {}),
                                            "p_entry": cal["p_entry"], "seed": seed + k,
                                            "use_target_exits": use_target_exits})
-        m = compute_metrics(run_backtest(md, s, cfg), benchmarks=False)
+        res = run_backtest(md, s, cfg)
+        m = compute_metrics(res, benchmarks=False)
         vals.append(m.get(metric, np.nan))
+        if len(res.trades):
+            stops.append(float(np.median(res.trades["r_price"].to_numpy(float))))
+    tr = cal["target_result"].trades
+    real_stop = float(np.median(tr["r_price"].to_numpy(float))) if len(tr) else float("nan")
+    rand_stop = float(np.median(stops)) if stops else float("nan")
+    ratio = rand_stop / real_stop if np.isfinite(real_stop) and real_stop > 0 else float("nan")
     return _control_summary(real.get(metric, np.nan), np.asarray(vals, float), metric,
-                            {"p_entry": cal["p_entry"], "real_n_trades": real.get("n_trades", 0)})
+                            {"p_entry": cal["p_entry"], "real_n_trades": real.get("n_trades", 0),
+                             "real_median_stop": real_stop, "random_median_stop": rand_stop, "stop_ratio": ratio,
+                             "stop_ratio_ok": bool(np.isfinite(ratio) and 0.8 <= ratio <= 1.25)})
 
 
 def breakout_anchor_control(md, params: dict | None, cfg: BacktestConfig, n_seeds: int = 100, seed: int = 0,
@@ -389,6 +398,8 @@ def breakout_anchor_control(md, params: dict | None, cfg: BacktestConfig, n_seed
 
 def _control_summary(real_value: float, dist: np.ndarray, metric: str, extra: dict) -> dict:
     d = dist[np.isfinite(dist)]
+    if len(d) == 0:
+        raise RuntimeError(f"control on {metric}: no random run produced trades; the control is not valid")
     out = {"metric": metric, "real": float(real_value), "n_random": int(len(d)), "random_values": d.tolist()}
     if len(d):
         out.update({"random_mean": float(d.mean()), "random_p05": float(np.quantile(d, 0.05)),

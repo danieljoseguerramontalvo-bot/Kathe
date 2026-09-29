@@ -36,12 +36,12 @@ import pandas as pd
 
 from .benchmark import buy_and_hold_returns, buy_hold_volscaled
 from .costs import CostModel, commission_rt_from_spec
-from .data import MarketData, file_sha256
+from .data import MarketData, daily_break_check, file_sha256
 from .engine import BacktestConfig, run_backtest
 from .metrics import cost_stress, daily_return_stats, t_stat, trade_metrics
 from .registry import DEFAULT_REGISTRY as REGISTRY_PATH
-from .registry import (append_experiment, config_key, distinct_config_keys, git_info, read_registry, sanitize,
-                       verify_registry)
+from .registry import (append_experiment, config_key, distinct_config_keys, git_info, git_uncommitted, head_path,
+                       read_registry, sanitize, verify_registry)
 from .strategies import make_strategy, scan_session_windows
 from .validation import (calibrate_random_entry, deflated_sharpe_ratio, holm_bonferroni, monte_carlo_trades,
                          walk_forward, walk_forward_windows)
@@ -118,7 +118,7 @@ def _params_key(strategy: str, params: dict) -> str:
 
 
 def usd_to_points(usd: float, spec) -> float:
-    return float(usd) / float(spec.point)
+    return round(float(usd) / float(spec.point), 9)   # 0.29 / 0.01 = 28.999999999999996 -> 29.0
 
 
 def _describe(params: dict) -> str:
@@ -626,13 +626,16 @@ class Runner:
                 ev["note"] = "Infrapotenciada en el escenario A (enmienda 1): se informa, no se puede aceptar."
                 ev["defensible"] = False
             evals[lab] = ev
+            self.log(f"  {lab}: criterios {''.join(k for k, c in ev['criteria'].items() if c['pass']) or '-'} "
+                     f"-> {'DEFENDIBLE' if ev['defensible'] else 'no defendible'}")
+        # se registra cuando TODO se ha evaluado: un control que falle a mitad no deja registros a medias
+        for lab, ev in evals.items():
+            fr = fams.get(lab) or extras[lab]
             self._register({"hypothesis_id": lab, "split": "dev+val walk-forward", "strategy": fr["strategy"],
                             "grid": fr["grid"], "base": fr["base"], "windows": fr["windows"],
                             "config_keys": sorted(fr["config_keys"]),
                             "metrics": ev["metrics"], "criteria": ev["criteria"], "defensible": ev["defensible"],
                             "n_trials": n_trials})
-            self.log(f"  {lab}: criterios {''.join(k for k, c in ev['criteria'].items() if c['pass']) or '-'} "
-                     f"-> {'DEFENDIBLE' if ev['defensible'] else 'no defendible'}")
         self._register({"hypothesis_id": "H3b", "split": "dev scan + val", "strategy": "SESSION_DRIFT",
                         "metrics": {"n_tried": h3b["n_tried"], "dsr_dev": h3b.get("dsr_dev"),
                                     "val": h3b.get("val_metrics")}, "pass": h3b.get("pass")})
@@ -861,10 +864,13 @@ def spread_audit_extra_usd(path, spec) -> float:
     """Spread que las velas M1 no recogen: media por hora de max(0, spread de ticks - spread M1)
     del archivo ``KQ_<SÍMBOLO>_spread_por_hora.csv`` del script de auditoría, en USD."""
     df = pd.read_csv(path)
-    need = {"spread_m1_media", "spread_ticks_media"}
-    if not need <= set(df.columns):
-        raise ValueError(f"{path}: faltan las columnas {sorted(need)}")
-    d = (df["spread_ticks_media"] - df["spread_m1_media"]).clip(lower=0.0)
+    m1_col = "spread_m1_media_mismos_dias"
+    if m1_col not in df.columns:
+        raise ValueError(f"{path}: falta la columna {m1_col}. Repite la auditoría con la versión actual de "
+                         "KQ_AuditoriaEntorno, que compara ticks y velas M1 de los mismos días")
+    if "spread_ticks_media" not in df.columns:
+        raise ValueError(f"{path}: falta la columna spread_ticks_media")
+    d = (df["spread_ticks_media"] - df[m1_col]).clip(lower=0.0)
     d = d[np.isfinite(d) & (df["spread_ticks_media"] > 0)]
     return float(d.mean() * spec.point) if len(d) else 0.0
 
@@ -881,6 +887,10 @@ def build_config(md: MarketData, a) -> BacktestConfig:
     if not off["ok"]:
         raise ValueError(f"la hora del servidor no es NY+7: offset esperado {off['expected_seconds']} s, "
                          f"auditado {off['observed_seconds']} s")
+    brk = daily_break_check(md.t)
+    if not brk["ok"]:
+        raise ValueError(f"la pausa diaria del oro cambia de hora en las semanas en que los horarios de verano de "
+                         f"EE. UU. y Europa no coinciden ({brk}): el servidor no parece NY+7")
     comm = a.commission
     if comm is None:
         comm = commission_rt_from_spec(spec) or 0.0
@@ -893,6 +903,7 @@ def build_config(md: MarketData, a) -> BacktestConfig:
                          costs=costs, rollover_from_min=1425, rollover_to_min=75,
                          max_spread_points=usd_to_points(a.max_spread_usd, spec), entry_deadline_min=90.0)
     cfg_inputs = {"point": spec.point, "units_per_usd": units, "money_per_lot": chk, "server_offset": off,
+                  "daily_break": brk,
                   "slippage_usd": a.slippage_usd, "extra_spread_usd": a.extra_spread_usd,
                   "spread_audit_extra_usd": audit_extra, "slippage_points_per_fill": slip_pts,
                   "max_spread_usd": a.max_spread_usd, "commission_per_lot_rt": comm}
@@ -938,6 +949,15 @@ def main(argv=None) -> int:
         print(msg, flush=True)
         logf.write(msg + "\n")
         logf.flush()
+
+    if registry is not None:
+        dirty = [f.name for f in (registry, head_path(registry)) if git_uncommitted(f)]
+        if dirty and a.stage == "holdout":
+            p.error(f"el registro tiene cambios sin commit ({dirty}): haz commit antes de consultar la reserva final")
+        if dirty:
+            log(f"AVISO: el registro tiene cambios sin commit ({dirty}). Haz commit tras cada ejecución con datos reales.")
+    if a.stage == "holdout" and (registry is None or registry.resolve() != REGISTRY_PATH.resolve()):
+        p.error("la reserva final solo se ejecuta con el registro canónico del repositorio (research/registry)")
 
     if a.stage == "devval":
         md = MarketData.from_csv(a.data, a.spec, end=scen["val"][1])   # la reserva final no se carga

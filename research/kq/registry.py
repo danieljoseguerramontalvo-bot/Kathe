@@ -169,6 +169,19 @@ def read_registry(path=None) -> list[dict]:
         return [json.loads(x) for x in f if x.strip()]
 
 
+def git_uncommitted(path) -> bool | None:
+    """True if ``path`` differs from the committed version (or is untracked), None without git."""
+    path = Path(path)
+    try:
+        r = subprocess.run(["git", "status", "--porcelain", "--", path.name], cwd=str(path.parent),
+                           capture_output=True, text=True, timeout=5)
+        if r.returncode != 0:
+            return None
+        return r.stdout.strip() != ""
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
 def verify_registry(path=None, check_git: bool = True) -> dict:
     """Check the hash chain, the head file and (if tracked) that the committed version is a
     prefix of the current file. Returns {'ok', 'n', 'first_bad_line', 'problems'}."""

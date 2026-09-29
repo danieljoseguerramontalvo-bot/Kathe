@@ -14,7 +14,7 @@
 
 input string InpSymbols     = "XAUUSD,XAUUSDc,XAUUSD247,XAUUSD247c"; // Simbolos (separados por comas)
 input int    InpSpreadDays  = 60;   // Dias de velas M1 para el spread por hora
-input int    InpTickDays    = 2;    // Dias de ticks para comparar el spread real
+input int    InpTickDays    = 20;   // Dias de ticks para comparar el spread real (mismos dias que la columna M1 comparable)
 input int    InpDealsDays   = 365;  // Dias de historial de operaciones para las comisiones
 
 int g_report = INVALID_HANDLE;
@@ -184,8 +184,11 @@ void ReportHistoryDepth(const string symbol, datetime &firstM1Server, datetime &
 //+------------------------------------------------------------------+
 //| Spread por hora desde velas M1 y desde ticks                     |
 //+------------------------------------------------------------------+
-void SpreadByHour(const string symbol, double &avgM1[], double &p50M1[], double &p90M1[], double &avgTicks[])
+void SpreadByHour(const string symbol, double &avgM1[], double &p50M1[], double &p90M1[], double &avgTicks[],
+                  double &avgM1Same[])
 {
+   ArrayResize(avgM1Same, 24);
+   ArrayInitialize(avgM1Same, 0.0);
    ArrayResize(avgM1, 24);
    ArrayResize(p50M1, 24);
    ArrayResize(p90M1, 24);
@@ -228,44 +231,97 @@ void SpreadByHour(const string symbol, double &avgM1[], double &p50M1[], double 
       p90M1[h] = values[(int)MathMin(count - 1, (int)MathFloor(count * 0.9))];
    }
 
-   // Spread real de los ticks recientes (para ver que significa el campo spread de las velas)
-   MqlTick ticks[];
-   ulong   toMsc   = (ulong)TimeCurrent() * 1000;
-   ulong   fromMsc = toMsc - (ulong)InpTickDays * 86400 * 1000;
-   int     nt      = -1;
-   for(int attempt = 0; attempt < 10 && nt <= 0; attempt++)
-   {
-      nt = CopyTicksRange(symbol, ticks, COPY_TICKS_INFO, fromMsc, toMsc);
-      if(nt <= 0)
-         Sleep(500);
-   }
+   // Spread real de los ticks de los ultimos InpTickDays dias, promediado por MINUTO (cada minuto con ticks
+   // pesa igual, como una vela M1), y el spread de las velas M1 de esos MISMOS dias, para compararlos
    double  point   = SymbolInfoDouble(symbol, SYMBOL_POINT);
-   if(nt <= 0 || point <= 0.0)
+   datetime tickTo   = TimeCurrent();
+   datetime tickFrom = (datetime)(tickTo - (long)InpTickDays * 86400);
+   double sumSame[];
+   int    cntSame[];
+   ArrayResize(sumSame, 24);
+   ArrayResize(cntSame, 24);
+   ArrayInitialize(sumSame, 0.0);
+   ArrayInitialize(cntSame, 0);
+   for(int i = 0; i < n; i++)
    {
-      Out("  (sin ticks recientes; error " + IntegerToString(GetLastError()) + ")");
-      return;
+      if(rates[i].time < tickFrom)
+         continue;
+      MqlDateTime dt;
+      TimeToStruct(rates[i].time, dt);
+      sumSame[dt.hour] += (double)rates[i].spread;
+      cntSame[dt.hour]++;
    }
+   for(int h = 0; h < 24; h++)
+   {
+      if(cntSame[h] > 0)
+         avgM1Same[h] = sumSame[h] / cntSame[h];
+   }
+   if(point <= 0.0)
+      return;
+
    double sums[];
    int    counts[];
    ArrayResize(sums, 24);
    ArrayResize(counts, 24);
    ArrayInitialize(sums, 0.0);
    ArrayInitialize(counts, 0);
-   for(int i = 0; i < nt; i++)
+   long   totalTicks = 0;
+   long   curMinute  = -1;
+   double minSum     = 0.0;
+   int    minCount   = 0;
+   int    minHour    = 0;
+   for(datetime day = tickFrom; day < tickTo; day += 86400)
    {
-      if(ticks[i].bid <= 0.0 || ticks[i].ask <= 0.0)
-         continue;
-      MqlDateTime dt;
-      TimeToStruct(ticks[i].time, dt);
-      sums[dt.hour] += (ticks[i].ask - ticks[i].bid) / point;
-      counts[dt.hour]++;
+      MqlTick ticks[];
+      ulong   fromMsc = (ulong)day * 1000;
+      ulong   toMsc   = (ulong)MathMin((double)(day + 86400), (double)tickTo) * 1000;
+      int     nt      = -1;
+      for(int attempt = 0; attempt < 10 && nt < 0; attempt++)
+      {
+         nt = CopyTicksRange(symbol, ticks, COPY_TICKS_INFO, fromMsc, toMsc);
+         if(nt < 0)
+            Sleep(500);
+      }
+      for(int i = 0; i < nt; i++)
+      {
+         if(ticks[i].bid <= 0.0 || ticks[i].ask <= 0.0)
+            continue;
+         long minute = (long)ticks[i].time / 60;
+         if(minute != curMinute)
+         {
+            if(minCount > 0)
+            {
+               sums[minHour] += minSum / minCount;
+               counts[minHour]++;
+            }
+            MqlDateTime dt;
+            TimeToStruct(ticks[i].time, dt);
+            curMinute = minute;
+            minHour   = dt.hour;
+            minSum    = 0.0;
+            minCount  = 0;
+         }
+         minSum += (ticks[i].ask - ticks[i].bid) / point;
+         minCount++;
+         totalTicks++;
+      }
+   }
+   if(minCount > 0)
+   {
+      sums[minHour] += minSum / minCount;
+      counts[minHour]++;
+   }
+   if(totalTicks == 0)
+   {
+      Out("  (sin ticks recientes; error " + IntegerToString(GetLastError()) + ")");
+      return;
    }
    for(int h = 0; h < 24; h++)
    {
       if(counts[h] > 0)
          avgTicks[h] = sums[h] / counts[h];
    }
-   Out("  ticks analizados: " + IntegerToString(nt));
+   Out("  ticks analizados: " + IntegerToString(totalTicks) + " en " + IntegerToString(InpTickDays) + " dias");
 }
 
 //+------------------------------------------------------------------+
@@ -386,7 +442,8 @@ void AuditSymbol(const string symbol, const long gmtOffset)
    double p50M1[];
    double p90M1[];
    double avgTicks[];
-   SpreadByHour(symbol, avgM1, p50M1, p90M1, avgTicks);
+   double avgM1Same[];
+   SpreadByHour(symbol, avgM1, p50M1, p90M1, avgTicks, avgM1Same);
 
    double commissionPerLotSide = 0.0;
    ReportCosts(symbol, commissionPerLotSide);
@@ -397,10 +454,10 @@ void AuditSymbol(const string symbol, const long gmtOffset)
    int    csv     = FileOpen(csvName, FILE_WRITE | FILE_TXT | FILE_ANSI);
    if(csv != INVALID_HANDLE)
    {
-      FileWriteString(csv, "hora_servidor,spread_m1_media,spread_m1_p50,spread_m1_p90,spread_ticks_media\r\n");
+      FileWriteString(csv, "hora_servidor,spread_m1_media,spread_m1_p50,spread_m1_p90,spread_ticks_media,spread_m1_media_mismos_dias\r\n");
       for(int h = 0; h < 24; h++)
          FileWriteString(csv, IntegerToString(h) + "," + Dbl(avgM1[h], 2) + "," + Dbl(p50M1[h], 2) + "," +
-                              Dbl(p90M1[h], 2) + "," + Dbl(avgTicks[h], 2) + "\r\n");
+                              Dbl(p90M1[h], 2) + "," + Dbl(avgTicks[h], 2) + "," + Dbl(avgM1Same[h], 2) + "\r\n");
       FileClose(csv);
    }
 

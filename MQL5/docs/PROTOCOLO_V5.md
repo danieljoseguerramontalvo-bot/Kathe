@@ -384,3 +384,16 @@ Un revisor independiente auditó `research/` contra este protocolo y contra el E
     - derivas de +0.30 y +0.15 USD/h: H3a aprobada;
     - deriva de +0.08 USD/h: rechazada.
     - La potencia no cambia respecto a la enmienda 2.
+17. **Segunda verificación del revisor** (a partir del commit `f1dd014`): confirma las 10 correcciones y que no hay datos futuros ni fuga de la reserva final. Tras sus observaciones se añade:
+    - **Hora del servidor comprobada con los datos:** la pausa diaria del oro debe caer a la misma hora del servidor en las semanas en que los horarios de verano de EE. UU. y Europa no coinciden. Si no, el ejecutor se detiene. Con datos sintéticos distingue NY+7 de un servidor europeo.
+    - **Spread de ticks en la auditoría:** ahora se mide en 20 días, promediado por minuto, y se compara con el de las velas M1 de esos **mismos** días (columna nueva `spread_m1_media_mismos_dias`). Antes eran 2 días de ticks frente a 60 de velas. `--spread-audit` exige la columna nueva.
+    - **Reserva final:**
+      - solo se ejecuta con el registro canónico del repositorio y sin cambios sin commit en él ni en su cabecera;
+      - las familias se registran cuando todos los controles han terminado.
+    - Un control sin ejecuciones aleatorias también detiene `validation.monkey_test`, que informa además de la relación de stops.
+    - El EA solo calcula el percentil del ATR cuando las 251 velas de la ventana tienen ATR calculado, como Python.
+    - La conversión de USD a puntos se redondea (0.29 / 0.01 = 29).
+    - `kq.run` comprueba el valor por lote y la hora del servidor, y avisa si el símbolo no tiene 2 decimales: sus opciones de coste están en puntos.
+18. **Riesgo vigilado en el criterio k.** Si en datos reales las entradas de una familia coinciden con ATR alto, la relación de stops aleatorios / reales puede salir de 0.8–1.25. Entonces k falla por invalidez del control, no por falta de ventaja.
+    - Es un error en contra de la estrategia (conservador).
+    - El informe lo muestra con el valor `stop_ratio` para no confundirlo con un fracaso de la estrategia.

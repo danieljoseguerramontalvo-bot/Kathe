@@ -656,7 +656,7 @@ bool AtrPercentileD1(double &pct)
 {
    int    lookback = 250;
    double a[];
-   if(!IndicatorReady(g_hAtrD1, lookback + 1 + InpAtrPeriod))
+   if(!IndicatorReady(g_hAtrD1, lookback + 2 + InpAtrPeriod))   // la ventana no incluye ATR sin calcular (Python: NaN)
       return false;
    if(CopyBuffer(g_hAtrD1, 0, 1, lookback + 1, a) != lookback + 1)
       return false;

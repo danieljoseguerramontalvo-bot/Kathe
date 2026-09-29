@@ -306,6 +306,50 @@ def bar_report(df: pd.DataFrame) -> dict:
     }
 
 
+def daily_break_check(t_ns: np.ndarray, min_gap_min: int = 30) -> dict:
+    """Data-based check of the NY+7 server-time assumption.
+
+    Gold's daily trading break follows New York time, so with a NY+7 server it sits at the
+    same SERVER time all year. With a Europe-based server (EET/EEST) it moves by one hour in
+    the weeks when US and EU daylight-saving dates differ (mid-March and late October).
+    For every Monday-Thursday server date, the end of the longest intraday gap of at least
+    ``min_gap_min`` minutes (the first bar after the break, as minute of day) is taken; the
+    modal value in the mismatch weeks must equal the modal value in the rest of the year.
+    """
+    t = np.asarray(t_ns, dtype="int64")
+    if len(t) < 1000:
+        return {"checked": False, "ok": True, "reason": "too few bars"}
+    gaps = np.diff(t)
+    big = np.flatnonzero(gaps >= min_gap_min * NS_PER_MIN)
+    if len(big) == 0:
+        return {"checked": False, "ok": True, "reason": "no intraday break in the data"}
+    end_t = t[big + 1]
+    start_t = t[big]
+    day = end_t // NS_PER_DAY
+    short_gap = (end_t - start_t) < 6 * 3600 * 10**9                  # a daily break, not a weekend/holiday
+    days = pd.to_datetime(day * NS_PER_DAY, unit="ns")
+    weekday_ok = np.asarray(days.dayofweek < 4)                        # Mon-Thu
+    keep = short_gap & weekday_ok
+    if not keep.any():
+        return {"checked": False, "ok": True, "reason": "no weekday breaks"}
+    end_min = ((end_t % NS_PER_DAY) // NS_PER_MIN)[keep]
+    d = pd.DatetimeIndex(days[keep])
+    noon = (d + pd.Timedelta(hours=12)).tz_localize("UTC")
+    us_dst = np.asarray(noon.tz_convert("America/New_York").map(lambda x: x.dst() != pd.Timedelta(0)))
+    eu_dst = np.asarray(noon.tz_convert("Europe/Berlin").map(lambda x: x.dst() != pd.Timedelta(0)))
+    mism = us_dst != eu_dst
+    df = pd.DataFrame({"end_min": end_min, "mismatch": mism})
+    if not mism.any() or mism.all():
+        return {"checked": False, "ok": True, "reason": "no data in (or only in) the US/EU DST mismatch weeks"}
+    mode_norm = int(df.loc[~df["mismatch"], "end_min"].mode().iloc[0])
+    mode_mism = int(df.loc[df["mismatch"], "end_min"].mode().iloc[0])
+    diff = abs(mode_norm - mode_mism)
+    diff = min(diff, 1440 - diff)
+    return {"checked": True, "ok": bool(diff < 30), "break_end_minute_normal_weeks": mode_norm,
+            "break_end_minute_mismatch_weeks": mode_mism, "n_mismatch_days": int(mism.sum()),
+            "n_normal_days": int((~mism).sum())}
+
+
 def file_sha256(path, chunk: int = 1 << 20) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as f:
