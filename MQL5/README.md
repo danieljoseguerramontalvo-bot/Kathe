@@ -64,6 +64,16 @@ El protocolo se ejecutó completo. **Ninguna configuración cumple los criterios
 | 2 (H4) | Las mismas reglas en velas de 4 horas | Entre −9 % y +14 %, sin ventaja distinguible del azar (t ≤ 0.89). Las tres ganan solo en 2022 y pierden en 2023 y 2024 |
 
 **Conclusión: no usar este EA con dinero real.** El código se deja como herramienta de prueba.
+
+El usuario decidió operarlo igualmente con la mejor variante (T0 en H4, +13.7 % en 2022–2024,
+pero t = 0.89 y pérdidas en 2023 y 2024). Para eso está `Presets/LIVE_H4_T0_tendencia.set`,
+con estas protecciones:
+- riesgo del 1 % por operación;
+- drawdown máximo del 15 % con bloqueo persistente (la peor caída en la prueba fue del 13.3 %);
+- pérdida diaria máxima del 5 %;
+- registro de descartes y panel activados.
+
+Se recomienda ejecutarlo primero en demo.
 Tiene gestión de riesgo, protecciones y el informe estadístico en `OnTester`, y sirve para
 evaluar otras ideas con el mismo método. El detalle está en `PROTOCOLO.md`, apartados 5 a 7.
 
