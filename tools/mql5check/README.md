@@ -128,9 +128,12 @@ sigan libres en el código MQL5 (por eso `string` es una clase propia en vez de 
   `mql5_shim.hpp`. Los `#include <...>` no modelados (`Indicators\*`, `ChartObjects\*`, `Math\*`,
   `Expert\*`, `Generic\*`...) se avisan y sus símbolos darán "no declarado".
 - **La semántica es la de C++ aproximada a MQL5**, no la de MQL5. Diferencias conocidas:
-  - Posibles *falsos positivos*: el operador ternario que mezcla `datetime` y un entero
-    (`c ? TimeCurrent() : 0`); usar una variable global antes de su declaración (se trata como error);
-    `->`, que se da por inválido en MQL5; `CObj copia = puntero;`; comportamientos no documentados de MQL5.
+  - Posibles *falsos positivos*: usar una variable global antes de su declaración (se trata como
+    error); `->`, que se da por inválido en MQL5; `CObj copia = puntero;`; una función cuya firma usa un
+    tipo anidado de una clase (`CFoo::ENUM_X F()`) llamada antes de la definición de esa clase;
+    comportamientos no documentados de MQL5.
+  - El operador ternario que mezcla `datetime` y un entero (`c ? TimeCurrent() : 0`) es válido en MQL5
+    pero ambiguo en C++: se informa como advertencia y esa expresión queda sin comprobar.
   - Posibles *falsos negativos* (C++ lo acepta, MQL5 quizá no): `case` o tamaño de array con un `input`,
     referencias locales (`int &r = x;`), funciones que devuelven referencias, inicializadores de miembros
     dentro de la clase, conversiones implícitas entre punteros de clases no relacionadas vía plantillas,

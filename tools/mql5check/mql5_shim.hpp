@@ -68,6 +68,8 @@ class datetime {
 public:
   constexpr datetime() : m_value(0) {}
   constexpr datetime(long value) : m_value(value) {}        // conversión implícita desde enteros
+  template<class F, std::enable_if_t<std::is_floating_point<F>::value, int> = 0>
+  explicit datetime(F value);                                // (datetime)x con x double: sin aviso, como en MQL5
   explicit datetime(const string &text);                     // (datetime)"2024.01.01 10:00"
   constexpr operator long() const { return m_value; }        // conversión implícita a entero
   datetime &operator+=(long seconds);
@@ -111,6 +113,8 @@ class color {
 public:
   constexpr color() : m_value(0) {}
   constexpr color(long value) : m_value((uint)value) {}
+  template<class F, std::enable_if_t<std::is_floating_point<F>::value, int> = 0>
+  explicit color(F value);
   explicit color(const string &text);
   constexpr operator uint() const { return m_value; }
   friend bool operator==(color, color);

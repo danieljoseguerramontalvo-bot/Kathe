@@ -1169,6 +1169,11 @@ def classify(dg, tr, cpp_lines):
     m = re.match(r"invalid conversion from '(?:const )?(\w+)\*' to '(?:const )?(\w+)\*' \[-fpermissive\]", msg)
     if m and is_derived(tr.class_graph, m.group(2), m.group(1)):
         return None   # conversión implícita base -> derivada: MQL5 la acepta (se verifica al ejecutar)
+    m = re.match(r"operands to '\?:' have different types '(\w[\w ]*)' and '(\w[\w ]*)'", msg)
+    if m and {m.group(1), m.group(2)} & {'datetime', 'color'} and \
+            all(re.match(NUM_TYPES + '$', x) for x in (m.group(1), m.group(2))):
+        return 'warning', ("operador ?: que mezcla %s y %s: MQL5 lo acepta, pero en C++ es ambiguo y "
+                           "mql5check no puede comprobar esta expresión" % (pretty(m.group(1)), pretty(m.group(2))))
     if re.search(r"cannot convert 'string' to '%s'" % NUM_TYPES, msg) or \
             re.search(r"conversion from 'string' to non-scalar type '(datetime|color)' requested", msg):
         return 'warning', "MQL5: implicit conversion from 'string' to 'number' (conversión implícita de cadena a número)"
