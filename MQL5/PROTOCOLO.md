@@ -311,7 +311,17 @@ Copiar los datos del informe (pestaña Backtest) y de las líneas `[RESULTADO]` 
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | 00 (v3) | Informe original | 506 | 55.3 % | 1.09 | 0.47 | – | – | 25.66 | 0.61 | – | 44 | referencia |
 | 00 (v4) | Compatibilidad | 506 | 55.3 % | 1.09 | 0.47 | 0.74 | 0.27 | 25.66 | 0.61 | 1 de 2 | 43.9 | ✔ idéntico |
+| F7 con lote fijo 0.01 (*) | Desarrollo | 1 483 | 49.0 % | 0.79 | −0.33 | **−3.62** | −0.53 | 5.48 | −0.88 | **0 de 3** | – | ✘ falla b, c, d, f y g |
 | F0 … T1 | Desarrollo | | | | | | | | | | | |
+
+(*) Se ejecutó sin cargar `F7_rsi_completo.set`: son los parámetros de la referencia (trailing,
+H1, ADX 20, RSI 10/90) con lote fijo 0.01 en vez del 1 % de riesgo. Las señales y las salidas
+son las mismas que en F7. Solo cambia el tamaño de las operaciones, y con él el límite de
+pérdida diaria. Por año: 2022 −92.87 (459 op.), 2023 −230.05 (536 op.), 2024 −160.43 (488 op.).
+Beneficio neto −483.35 sobre 10 000. Calidad del historial 0 %: todos los ticks son generados
+a partir de barras de 1 minuto. Con t = −3.62, la configuración de referencia **pierde de forma
+estadísticamente significativa** en datos no vistos: en cada operación pierde algo más que el spread. Hay que
+repetir F7 con su archivo para que las 13 variantes tengan condiciones idénticas.
 
 Otros datos de la fase 1: beneficio neto +236.02, balance final 1 236.02, drawdown de balance
 364.13 (24.59 %). Las operaciones y los precios del Diario coinciden con los de la v3. Por ejemplo, la venta
