@@ -495,6 +495,20 @@ hacer positivos 2023 y 2024 ni llevar la t de 0.89 a 2.0. Se corrige igualmente 
 - Si aun así el servidor responde 10018 (`TRADE_RETCODE_MARKET_CLOSED`), no cuenta como intento: se reintenta dentro de la misma vela al cabo de 60 segundos.
 - Ningún resultado de este documento usa la v4.01. Todos se obtuvieron con la v4.00.
 
+### 7.3 Prueba exploratoria fuera del protocolo: T0 en H1
+
+**Por qué.** El usuario quiere operaciones casi diarias. T0 en H4 hace unas 3–4 al mes; en H1
+serían unas 3–4 por semana.
+
+**Cómo.** Es `R2_H4_T0_tendencia.set` con «Marco temporal de las señales» = H1. Mismo periodo
+(2022–2024), 10 000 USD, riesgo 1 %.
+
+**Qué puede decidir.** Esta prueba usa unos datos ya vistos muchas veces. Por eso **solo puede descartar**:
+- si pierde o no cumple los criterios de la ronda 1 (a–h), H1 queda descartado y se sigue con H4;
+- si los cumple, tampoco demuestra nada por sí sola: habría que probarla hacia delante, en demo o en la cuenta Cent, antes de sustituir a H4.
+
+Criterios fijados antes de ejecutarla: los del apartado 4.4 (a–h).
+
 ## 8. Datos pendientes del usuario
 
 1. Apalancamiento, retrasos y divisa del depósito usados en la prueba de +236 USD (se deduce 1:100).
