@@ -314,7 +314,14 @@ Copiar los datos del informe (pestaña Backtest) y de las líneas `[RESULTADO]` 
 | F7 con lote fijo 0.01 (*) | Desarrollo | 1 483 | 49.0 % | 0.79 | −0.33 | **−3.62** | −0.53 | 5.48 | −0.88 | **0 de 3** | – | ✘ falla b, c, d, f y g |
 | **F7** (`.set`, riesgo 1 %) | Desarrollo | 1 482 | 48.9 % | 0.76 | −5.37 | **−4.15** | −8.80 | **82.02** | −0.96 | **0 de 3** | – | ✘ falla b, c, d, e, f y g |
 | **F0** (†) | Desarrollo | 1 905 | 49.1 % | 0.72 | −4.84 | **−5.13** | −7.32 | **92.62** | −0.97 | **0 de 3** | – | ✘ falla b, c, d, e, f y g |
-| F1 … F6, S1 … S3, T0, T1 | Desarrollo | | | | | | | | | | | |
+| **T0** (‡) | Desarrollo | 989 | 31.4 % | 0.75 | −7.83 | **−3.90** | −10.74 | **79.20** | −0.97 | **0 de 3** | – | ✘ falla b, c, d, e, f y g |
+| F1 … F6, S1 … S3, T1 | Desarrollo | | | | | | | | | | | |
+
+(‡) Identificada por el modo «Tendencia: cruces + retrocesos», TP = 2 × SL (ATR 3 / 1.5) y la
+ausencia de trailing. Por año: 2022 −3 982.63 (321 op.), 2023 −2 653.62 (358 op.), 2024
+−1 111.68 (310 op.). Balance final 2 252.07. Gana 72.96 de media y pierde 44.89: una relación
+de 1.63, por debajo del 2 teórico por el spread y las salidas anticipadas. Con un 31.4 % de acierto no llega al punto
+de equilibrio.
 
 (†) El usuario no indicó el archivo. Se identifica como F0 porque es el primero de la lista, no
 tiene líneas de trailing y hace más operaciones que F7 (sin filtros). La relación SL/TP es la
