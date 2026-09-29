@@ -37,7 +37,7 @@ class Enter:
     tp_dist: float | None = None           # target distance (price) from the quoted entry price
     tp_price: float | None = None          # or an absolute target level
     tag: str = ""
-    max_spread_points: float | None = None  # wait (until the next decision) for spread <= this
+    max_spread_points: float | None = None  # entry spread cap; None -> engine cap (60), 0 -> no cap
 
 
 @dataclass(frozen=True)

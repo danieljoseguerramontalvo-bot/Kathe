@@ -5,13 +5,13 @@ con los datos M1 exportados de MetaTrader 5 (HF Markets). Todo lo que hay aquí 
 con **datos sintéticos**: en esta sesión no hubo acceso a datos reales. **Ningún resultado sobre datos
 sintéticos dice nada sobre el oro real**; sirven solo para comprobar que el motor funciona.
 
-- Paquete: `research/kq/` · Tests: `research/tests/` (105 tests, `pytest`) · Registro: `research/registry/experiments.jsonl`
+- Paquete: `research/kq/` · Tests: `research/tests/` (110 tests, `pytest`) · Registro: `research/registry/experiments.jsonl`
 - Python 3.11, `numpy`, `pandas` (probado con 3.0), `scipy`, `tzdata`; `pytest` para los tests.
 
 ```bash
 cd research
 python3.11 -m pip install -e ".[test]"      # o: pip install numpy pandas scipy tzdata pytest
-python3.11 -m pytest -q                      # 105 passed
+python3.11 -m pytest -q                      # 110 passed
 ```
 
 ---
@@ -64,19 +64,20 @@ M1 → `BacktestResult` → `compute_metrics()` → `metrics.json` + registro.
   abierta en la medianoche del servidor (entrada < 00:00 ≤ salida). Solo cuentan los días que terminan de
   lunes a viernes; el día `swap_3days` (numeración MT5: 3 = miércoles) cuenta triple. El swap se acumula en
   el flotante en ese momento y se realiza al cerrar.
-- **Ventana de rollover sin entradas nuevas** (activa por defecto, como en el EA en vivo): si la vela M1 de
-  ejecución cae en `[rollover_from_min, rollover_to_min)` minutos del día del servidor (por defecto 1425 →
-  75, es decir 23:45 → 01:15; puede cruzar la medianoche; `from == to` la desactiva), la entrada **se
-  descarta** con motivo `rollover` (no se retrasa). Las salidas no se ven afectadas.
-  **Consecuencia importante:** toda decisión que se toma a las 00:00 del servidor (el cierre de **cada vela
-  D1** y de la vela H4 de las 20:00, también la del viernes) se ejecuta en la apertura diaria (~01:00), dentro
-  de la ventana. Por eso **`TREND_DONCHIAN` en D1 no abre ninguna operación con los valores por defecto**, y
-  en H4 se pierde ~1 de cada 6 señales. El motor lo avisa en `stats["warnings"]` / `metrics.engine_warnings`
-  y la CLI lo imprime. Para D1 hay que decidir explícitamente: `--rollover-from 0 --rollover-to 0` u otra regla.
-- `max_spread_points` (REF_T0 y REF_RSI2 = 80 puntos, como `InpMaxSpreadPips = 8` del EA): si el spread de la
-  vela de ejecución es mayor, el motor espera dentro de la vela siguiente del marco de la estrategia a la
-  primera M1 con spread ≤ máximo (y fuera de la ventana de rollover); si no llega, descarta
-  (`spread_above_max`).
+- **Reglas de entrada comunes a todas las estrategias** (iguales que el EA, ver §12):
+  1. **Ventana de rollover**: ninguna entrada nueva se ejecuta en una vela M1 cuyo minuto del día del servidor
+     esté en `[rollover_from_min, rollover_to_min)` (por defecto 1425 → 75, es decir 23:45 → 01:15; puede cruzar
+     la medianoche; `from == to` la desactiva).
+  2. **Tope de spread**: ninguna entrada nueva se ejecuta en una vela M1 con spread > `max_spread_points`
+     (60 puntos por defecto; 0 lo desactiva; una estrategia puede fijar el suyo con su parámetro
+     `max_spread_points`).
+  3. **Espera con plazo**: la entrada pendiente espera a la primera M1 que cumpla 1 y 2, pero solo hasta el
+     **plazo** = mín(fin de la vela del marco de la estrategia en la que la señal se vuelve ejecutable,
+     apertura de esa vela + `entry_deadline_min` = 90 min). Si no la hay, se descarta con motivo `rollover`,
+     `spread` o `entry_deadline`. El retraso queda en `entry_delay_min` de cada operación.
+
+  Consecuencia: las señales de las 00:00 del servidor (cierre de cada vela D1 y de la H4 de las 20:00) se
+  ejecutan hacia las 01:15, no en la apertura de las ~01:00. Las salidas no se ven afectadas por estas reglas.
 
 **Tamaño de la posición**
 - Riesgo fijo sobre el **balance realizado** (como `ACCOUNT_BALANCE` en el EA):
@@ -118,7 +119,9 @@ El script de exportación del usuario escribe:
 - `KQ_<SÍMBOLO>_spec.json` (opcional) con claves como `symbol, digits, point, tick_size, tick_value,
   contract_size, volume_min, volume_max, volume_step, stops_level, swap_long, swap_short, swap_3days,
   account_currency, gmt_offset_seconds` (y opcionalmente `swap_mode`: 1 = puntos, 4 = dinero). Las claves
-  desconocidas se guardan en `spec.extra`. Sin archivo se usan los valores de XAUUSD en HF Markets (2 dígitos,
+  desconocidas se guardan en `spec.extra`. Si el script de auditoría escribe `commission_per_lot_side_observed`
+  (en NEGATIVO, con el signo de `DEAL_COMMISSION` de MT5), la CLI usa su **valor absoluto** × 2 como comisión
+  por lote ida y vuelta cuando no se pasa `--commission`. Sin archivo se usan los valores de XAUUSD en HF Markets (2 dígitos,
   point 0.01, 100 oz por lote, lote mínimo 0.01).
 
 ```python
@@ -147,8 +150,10 @@ python -m kq.run --data KQ_XAUUSD_M1.csv --spec KQ_XAUUSD_spec.json \
   M1/M5/…/D1), `metrics.json`, `skipped.csv` (señales descartadas y motivo), `daily_returns.csv`; y añade una
   línea al registro (`--registry` para otro archivo, `--no-registry` para no registrar).
 - Otras opciones: `--initial-equity`, `--risk-pct` (1.0), `--fixed-lots`, `--units-per-usd`, `--commission`
-  (por lote ida y vuelta), `--slippage-points`, `--swap` (+ `--swap-long/--swap-short`), `--spread-mult`,
-  `--spread-floor`, `--rollover-from/--rollover-to`, `--n-trials` (para el Deflated Sharpe), `--no-benchmarks`.
+  (por lote ida y vuelta; si se omite, 2 × |`commission_per_lot_side_observed`| del spec, o 0),
+  `--slippage-points`, `--swap` (+ `--swap-long/--swap-short`), `--spread-mult`, `--spread-floor`,
+  `--rollover-from/--rollover-to` (1425/75), `--max-spread-points` (60; 0 = sin tope), `--entry-deadline-min` (90),
+  `--n-trials` (para el Deflated Sharpe), `--no-benchmarks`.
 - `metrics.json` incluye además bootstrap del Sharpe y de la media diaria, Deflated Sharpe, Monte Carlo de las
   operaciones y los benchmarks.
 
@@ -179,13 +184,15 @@ python -m kq.run ... --strategy BUY_HOLD
 
 | Estrategia | Marco | Parámetros (valor por defecto) |
 |---|---|---|
-| `REF_T0` | H4 | `fast` 40, `slow` 200, `entry_mode` `cross_pullback` (o `cross_only`), `adx_period` 14, `adx_min` 20 (0 = sin filtro), `atr_period` 14, `sl_atr` 1.5, `tp_atr` 3.0, `close_on_opposite` true, `direction` both, `max_spread_points` 80, `warmup_bars` None (= 3×slow) |
-| `REF_RSI2` | M15 o H4 | `ema_period` 200, `rsi_period` 2, `buy_level` 10, `sell_level` 90, `exit_long` 70, `exit_short` 30, `atr_period` 14, `sl_atr` 1.5, `tp_atr` 6, `adx_filter` false (`adx_min` 20), `htf_filter` false (`htf_timeframe` H1, `htf_period` 200), `trail_atr` 0 (p. ej. 2), `session_start_hour`/`session_end_hour`/`close_hour` None (hora del servidor), `max_spread_points` 80 |
+| `REF_T0` | H4 | `fast` 40, `slow` 200, `entry_mode` `cross_pullback` (o `cross_only`), `adx_period` 14, `adx_min` 20 (0 = sin filtro), `atr_period` 14, `sl_atr` 1.5, `tp_atr` 3.0, `close_on_opposite` true, `direction` both, `warmup_bars` None (= 3×slow) |
+| `REF_RSI2` | M15 o H4 | `ema_period` 200, `rsi_period` 2, `buy_level` 10, `sell_level` 90, `exit_long` 70, `exit_short` 30, `atr_period` 14, `sl_atr` 1.5, `tp_atr` 6, `adx_filter` false (`adx_min` 20), `htf_filter` false (`htf_timeframe` H1, `htf_period` 200), `trail_atr` 0 (p. ej. 2), `session_start_hour`/`session_end_hour`/`close_hour` None (hora del servidor) |
 | `TREND_DONCHIAN` | H4 o D1 | `n` 20 (o 55), `atr_period` 14, `k_sl` 2, `k_trail` 3 (0 = sin chandelier), `close_on_opposite` true |
-| `SESSION_BREAKOUT` | M5 | `range_start_utc` 00:00, `range_end_utc` 07:00, `entry_start_utc` 07:00, `entry_end_utc` 12:00, `flat_utc` 20:00, `buffer_frac` 0.1, `c_max` 0.4 (None = sin filtro, variante incondicional), `tp_mult` 2 (1, 2 o None), `atr_period` 14 (D1), `min_range_m1_bars` 60, `anchor_mode` fixed/random, `anchor_seed`, `anchor_step_min` 15 |
+| `SESSION_BREAKOUT` | M5 | `range_start_utc` 00:00, `range_end_utc` 07:00, `entry_start_utc` 07:00, `entry_end_utc` 12:00, `flat_utc` 20:00, `buffer_frac` 0.1, `c_max` 0.4 (None = sin filtro, variante incondicional), `tp_mult` 2 (1, 2 o None), `atr_period` 14 (D1), `min_range_coverage` 0.5 (≥ 50 % de las M1 esperadas de la ventana: 210 de 420), `anchor_mode` fixed/random, `anchor_seed`, `anchor_step_min` 15 |
 | `SESSION_DRIFT` | rejilla horaria (ATR H1) | `h_in` 0, `h_out` 8, `side` +1, `sl_atr` 3, `atr_period` 14, `tp_atr` None, `weekdays` None, `max_exec_delay_min` 59, `skip_weekend_cross` true |
 | `RANDOM_ENTRY` | el del objetivo | `target`, `target_params`, `p_entry` (se calibra), `seed`, `use_target_exits` true, `respect_entry_window` true |
 | `regime_gate` (envoltorio) | — | `er_period` 20, `er_threshold` 0.3, `atr_period` 14, `pct_window` 250, `allow_regime` trend/range/any, `allow_vol` [0,1,2] |
+
+Todas las estrategias aceptan además `max_spread_points` (None = el tope del motor, 60 puntos).
 
 Detalles de las reglas:
 
@@ -199,10 +206,12 @@ Detalles de las reglas:
 - **TREND_DONCHIAN**: chandelier idéntico al del EA: `stop = max(stop, máximo HIGH de las velas del marco
   cerradas desde la vela de entrada (incluida una vez cerrada) − k_trail × ATR14 de la última vela cerrada)`,
   espejo para cortos, solo en cierres y solo estrechando.
-- **SESSION_BREAKOUT**: rango con máximos/mínimos M1 en la ventana UTC; como mucho **un intento por día**;
-  SL en el lado opuesto del rango (el SL de un corto se compara con el ask); cierre forzoso a las 20:00 UTC.
-- **SESSION_DRIFT**: entra en la primera M1 de la hora UTC `h_in` (si no hay mercado en 59 min, no entra) y sale
-  en la hora `h_out`; no entra si la salida prevista cae en fin de semana.
+- **SESSION_BREAKOUT**: rango con máximos/mínimos M1 en la ventana UTC (el día sin al menos el 50 % de las M1
+  esperadas no opera); como mucho **un intento por día** (el día se marca como usado cuando se EMITE la entrada,
+  aunque luego el motor la descarte); SL en el lado opuesto del rango (el SL de un corto se compara con el ask);
+  cierre forzoso a las 20:00 UTC.
+- **SESSION_DRIFT**: entra en la primera M1 válida de la hora UTC `h_in` (plazo: el final de esa vela H1; si no hay
+  mercado en 59 min, no entra) y sale en la hora `h_out`; no entra si la salida prevista cae en fin de semana.
 - **RANDOM_ENTRY**: dirección aleatoria en momentos aleatorios con las mismas salidas del objetivo (su SL/TP,
   su gestión y, opcionalmente, sus salidas por señal contraria) y la misma frecuencia de entrada.
 
@@ -224,7 +233,7 @@ res.trades, res.skipped, res.equity_frame("H1"), res.daily_returns()
 `compute_metrics(res, md=md)` añade `benchmarks` a cada ejecución:
 - `buy_hold`: mantener oro (cierres bid, sin costes).
 - `buy_hold_volscaled` (**BUY_HOLD_VOLSCALED**): siempre largo, rebalanceo diario en la primera M1 fuera de la
-  ventana de rollover, tamaño tal que 1 ATR14(D1) = `target_pct` % (1 %) del capital; paga el mismo modelo de
+  ventana de rollover y con spread ≤ tope, tamaño tal que 1 ATR14(D1) = `target_pct` % (1 %) del capital; paga el mismo modelo de
   costes (compra al ask + deslizamiento, venta al bid − deslizamiento, media comisión por lado, swap largo).
   **Las estrategias de tendencia deben compararse con él.**
 - `exposure_matched_long`: largo solo mientras la estrategia tiene posición (sea cual sea su lado).
@@ -309,27 +318,28 @@ apertura diaria y antes de la pausa, y algunos minutos ausentes. Escribe el CSV 
 
 ## 10. Rendimiento medido (datos sintéticos, 1 612 889 velas M1, 2022-01-03 → 2026-06-30)
 
-Máquina de esta sesión, Python 3.11, pandas 3.0, un solo hilo. Costes: comisión 7, deslizamiento 5 puntos, swap.
+Máquina de esta sesión, Python 3.11, pandas 3.0, un solo hilo. Costes: comisión 7, deslizamiento 5 puntos, swap;
+reglas de entrada por defecto (rollover 23:45–01:15, tope de spread 60, plazo 90 min).
 
 | Paso | Tiempo |
 |---|---|
-| Leer CSV (91 MB) + SHA-256 + conversión a UTC | 5.4 s |
+| Leer CSV (91 MB) + SHA-256 + conversión a UTC | 5.3 s |
 | Remuestrear M5/M15/H1/H4/D1 | 0.2 s |
-| `REF_T0` H4 (7 031 decisiones) | 0.2 s |
-| `REF_RSI2` M15 (107 823 decisiones; con ADX + H1 + trailing: 1.4 s) | 1.6 s |
+| `REF_T0` H4 (7 031 decisiones) | 0.3 s |
+| `REF_RSI2` M15 (107 823 decisiones; con ADX + H1 + trailing: 1.6 s) | 2.1 s |
 | `REF_RSI2` H4 | 0.2 s |
 | `TREND_DONCHIAN` H4 / D1 | 0.3 s / 0.1 s |
 | `SESSION_BREAKOUT` M5 (71 492 decisiones) | 1.0 s |
 | `SESSION_DRIFT` (rejilla horaria, 39 359 decisiones) | 0.5 s |
-| `RANDOM_ENTRY` (objetivo T0) / T0 con `regime_gate` | 0.2 s / 0.2 s |
-| `compute_metrics` (sin / con benchmarks) | 0.1 s / 0.2 s |
+| `RANDOM_ENTRY` (objetivo T0) / T0 con `regime_gate` | 0.2 s / 0.1 s |
+| `compute_metrics` (sin / con benchmarks) | 0.1 s / 0.25 s |
 | `BUY_HOLD_VOLSCALED` | 0.1 s |
-| CLI completa `REF_T0` (carga + backtest + métricas + bootstrap + MC + archivos + registro) | ≈ 7–8 s |
-| Walk-forward Donchian 4 combinaciones × 6 ventanas | 3.2 s |
-| Test del mono: por ejecución aleatoria | ≈ 0.35 s |
-| Control de ancla aleatoria: por semilla | ≈ 0.9 s |
-| Barrido de ventanas horarias (2 años, 576 ventanas) | 0.1 s |
-| Suite de tests (105) | ≈ 13 s |
+| CLI completa (carga + backtest + métricas + benchmarks + bootstrap + MC + archivos + registro) | ≈ 8–10 s |
+| Walk-forward Donchian 4 combinaciones × 6 ventanas | 3.9 s |
+| Test del mono: por ejecución aleatoria | ≈ 0.3 s |
+| Control de ancla aleatoria: por semilla | ≈ 1 s |
+| Barrido de ventanas horarias (2 años, 576 ventanas) | 0.2 s |
+| Suite de tests (110) | ≈ 15 s |
 
 ## 11. Diferencias conocidas con el probador de estrategias de MT5
 
@@ -342,12 +352,12 @@ Máquina de esta sesión, Python 3.11, pandas 3.0, un solo hilo. Costes: comisi�
    primer tick de la vela nueva (normalmente el mismo precio, salvo que el primer tick llegue tarde en ese minuto).
 4. **Trailing del EA en REF_RSI2.** El EA mueve el trailing tick a tick con un paso mínimo de max(1 pip, 0.1 ATR);
    aquí solo en cierres de vela, sin paso mínimo. El chandelier de TREND_DONCHIAN sí sigue la definición del EA.
-5. **Protecciones del EA no modeladas:** pérdida diaria máxima, bloqueo por drawdown, máximo de operaciones por día,
+5. **Protecciones del EA no modeladas:** pérdida diaria máxima (los presets de investigación del EA la desactivan),
+   bloqueo por drawdown, máximo de operaciones por día,
    comprobación de margen, lotes máximos, espera tras cerrar, filtro horario por defecto del EA (08–20) y cierre
    intradía (REF_RSI2 tiene `session_*_hour`/`close_hour` opcionales). Tampoco margen, stop-out ni `freeze_level`.
-6. **Ventana de rollover:** descarta (no retrasa) las entradas; con los valores por defecto D1 no opera nunca y en
-   H4 se descartan las señales de la vela de las 20:00 (también la del viernes, que se ejecutaría el lunes a la
-   apertura). Hay que confirmar que el EA en vivo hace exactamente lo mismo.
+6. **Reglas de entrada:** el motor evalúa la ventana de rollover y el tope de spread con el spread de cada vela M1
+   (el EA, con el spread de cada tick); la espera se resuelve a la resolución de 1 minuto.
 7. **Historial de calentamiento.** Las EMAs/ADX dependen de dónde empieza el historial (semilla); MT5 usa el
    historial que tenga el terminal. Con el mismo historial los valores coinciden (fórmulas de iMA, ATR.mq5, RSI.mq5
    y ADX.mq5, este con sus búferes iniciados a 0). Exportar suficiente historial previo.
@@ -357,3 +367,31 @@ Máquina de esta sesión, Python 3.11, pandas 3.0, un solo hilo. Costes: comisi�
 10. **Divisa:** se supone divisa de beneficio USD (XAUUSD) y cuenta USD o USC.
 11. **El SL de un corto de SESSION_BREAKOUT** (máximo del rango, un nivel bid) se compara con el ask, así que el
     stop efectivo del corto es más estrecho que el del largo por el spread.
+
+## 12. Paridad con el EA (reglas canónicas acordadas tras la revisión independiente)
+
+El EA se está cambiando para seguir exactamente estas reglas; el motor ya las aplica:
+
+1. **Rollover**: una entrada cuya ejecución cae en `[23:45, 01:15)` del servidor **no se descarta**: se **retrasa**
+   a la primera M1 fuera de la ventana, siempre que siga dentro del plazo (regla 3); solo se descarta si no existe
+   esa vela antes del plazo (motivo `rollover`). El primer tick del día del oro llega hacia las 01:00, dentro de la
+   ventana: sin el retraso, las señales D1 (y las H4/H1 que cierran a las 00:00) no operarían nunca. El EA espera y
+   entra hacia las 01:15.
+2. **Tope de spread**: todas las estrategias, `max_spread_points = 60` por defecto (0 lo desactiva). Si el spread de
+   la vela de ejecución supera el tope, se espera a la primera M1 posterior (antes del plazo) con spread ≤ tope; si
+   no la hay, se descarta con motivo `spread`.
+3. **Plazo de entrada**: una entrada pendiente vale hasta mín(fin de la vela del marco de la señal en la que se vuelve
+   ejecutable, apertura de esa vela + 90 minutos). Para SESSION_DRIFT (hipótesis H3) el plazo es el final de esa
+   vela H1; para M5/M15 es el final de la vela.
+4. **SESSION_BREAKOUT (H2)**: el rango exige al menos el 50 % de las M1 esperadas de la ventana (210 de 420 para
+   00–07 UTC); el día se marca como usado cuando se **emite** la entrada.
+5. **Sin bloqueo por pérdida diaria** en las pruebas de investigación; una posición a la vez.
+6. **Comisión observada**: el script de auditoría de MT5 escribe `commission_per_lot_side_observed` en negativo
+   (signo de `DEAL_COMMISSION`); se usa su valor absoluto (× 2 para ida y vuelta).
+7. **Cierres por señal contraria y salidas por RSI**: el EA los reintenta hasta que se ejecutan; en el motor se
+   ejecutan en la apertura de la siguiente M1, como antes.
+8. **Resto de reglas ya alineadas**: señales solo con velas cerradas; la señal contraria de REF_T0 cierra aunque
+   ADX < 20 (el ADX solo bloquea la entrada nueva); calentamiento `Bars() < 3 × 200`; chandelier de TREND_DONCHIAN
+   con el máximo HIGH / mínimo LOW de las velas cerradas desde la de entrada (incluida) y el ATR14 de la última
+   vela cerrada, solo en cierres y solo estrechando; SL/TP desde el precio cotizado; tamaño por riesgo sobre el
+   balance sin redondear nunca hacia arriba.
