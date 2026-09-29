@@ -136,6 +136,30 @@ vacíos o ≤ 0 y repara velas con OHLC incoherente (lo cuenta en el informe). *
 antes del inicio de la prueba**: los indicadores se calculan desde la primera vela del archivo (EMA200 en H4
 necesita 600 velas de calentamiento, unos 5 meses) y solo después se limita el periodo de trading.
 
+### 3.1 Alternativa: historial de Dukascopy (escenario B del protocolo)
+
+Sirve para el escenario B del protocolo: historial largo, desde 2008. Solo funciona si la política de red del entorno permite `datafeed.dukascopy.com`.
+
+```bash
+python -m kq.dukascopy --symbol XAUUSD --start 2007-01-01 --end 2026-09-25 \
+    --out data/KQ_XAUUSD_DUKA_M1.csv --cache data/raw/dukascopy
+```
+
+**Qué hace**
+- Descarga los archivos diarios `BID/ASK_candles_min_1.bi5`, en UTC. El mes de la URL empieza en 0.
+- Los guarda en caché: si se interrumpe, se puede reanudar. Un 404 cuenta como día vacío.
+- Escribe un CSV con el mismo formato que la exportación de MT5:
+  - precios BID;
+  - hora del servidor NY+7;
+  - `spread` = ASK open − BID open, en puntos de 0.01.
+- Los minutos sin cotizaciones (volumen 0) se descartan, igual que MT5 no crea velas sin ticks.
+- Un minuto sin ASK recibe la mediana del spread de ese día. El resumen cuenta cuántos hubo.
+- El divisor de precio se detecta y se valida por rango. Queda anotado en el resumen.
+
+**Límites**
+- Precios y spreads son de Dukascopy, no de HF Markets, y su spread suele ser menor. Hay que añadir la diferencia observada con `KQ_AuditoriaEntorno`, por ejemplo con `--slippage-points` o `--spread-mult`. Como mínimo, hay que exigir las pruebas de estrés de +10, +20 y +40 puntos del protocolo.
+- El spread es el de la apertura del minuto; MT5 guarda un único valor por vela.
+
 ## 4. Ejecutar estrategias (CLI)
 
 ```bash
