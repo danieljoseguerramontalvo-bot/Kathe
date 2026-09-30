@@ -71,6 +71,7 @@ DEFAULTS = {
     "state_dir": "topstep_state",
     "display_tz": "America/Aruba",     # hora local en pantalla y en el panel (Aruba = Venezuela = UTC-4)
     "open_panel": True,                # abrir topstep_state/panel.html en el navegador al arrancar
+    "label": None,                     # nombre en pantalla y en Telegram (p. ej. «ORO DÍA»); por defecto, el símbolo
     "trades_days": 60,                 # días de ejecuciones de la cuenta que muestra el panel
     "profit_target_usd": 3000.0,       # objetivo de beneficio del Combine (50K); compruébalo en TopstepX
     "consistency_pct": 50.0,           # regla de consistencia: el mejor día, menos de este % del beneficio total
@@ -185,6 +186,8 @@ class TopstepBot:
         self.execute = False
         self._heartbeat_hour = None
         self._bt_trades = None
+        self._foreign_pos = None
+        self.daily_summary = True              # con varios turnos en ejecución, solo uno manda el resumen diario
         self._risk_now: tuple[bool | None, str] = (None, "")
         self._trades: list[dict] = []
         self._trades_at: datetime | None = None
@@ -193,7 +196,11 @@ class TopstepBot:
     # ------------------------------------------------------------------ registro
     def log(self, msg: str):
         tz = self.cfg.get("display_tz")
-        self.log_fn(f"[{panel.fmt_local(self.now_fn(), tz, '%d/%m %H:%M:%S')} {panel.tz_label(tz)}] {msg}")
+        self.log_fn(f"[{panel.fmt_local(self.now_fn(), tz, '%d/%m %H:%M:%S')} {panel.tz_label(tz)}] [{self.name}] {msg}")
+
+    @property
+    def name(self) -> str:
+        return self.cfg.get("label") or self.cfg["symbol_search"]
 
     def journal(self, event: str, **kw):
         path = self.dir / "diario.csv"
@@ -215,7 +222,7 @@ class TopstepBot:
     # ------------------------------------------------------------------ avisos (Telegram)
     def notify(self, text: str):
         if self.notifier is not None:
-            self.notifier.send(f"[{self.cfg['symbol_search']}] {text}")
+            self.notifier.send(f"[{self.name}] {text}")
 
     def _hora(self, ts=None) -> str:
         return panel.fmt_local(ts or self.now_fn(), self.cfg.get("display_tz"), "%H:%M")
@@ -583,7 +590,7 @@ class TopstepBot:
         out["can_open"], out["why"] = can_open, why
         self._risk_now = (can_open, why)
         panel.append_balance(self.dir / "saldo.csv", now, balance)
-        if self.execute and prev_day is not None and st.day_key != prev_day and prev_pnl is not None:
+        if self.execute and self.daily_summary and prev_day is not None and st.day_key != prev_day and prev_pnl is not None:
             self.notify(f"📊 Resumen del día {prev_day}: {prev_pnl:+,.2f} USD\n{self._progress_text(balance)}\n"
                         f"Distancia al MLL: {self._risk_snapshot()['room']:,.0f} USD\n{self._next_entry_text()}".strip())
         if st.hard_lock and st.hard_lock != prev_hard:
@@ -621,7 +628,10 @@ class TopstepBot:
         ref_price = float(self.bars["close"].iloc[-1])
         if self.execute:
             if pos and self.state.position_key is None:
-                self.log("Hay una posición en el contrato que no abrió el bot: no se opera mientras exista.")
+                if self._foreign_pos != pos.get("id"):             # una vez por posición, no en cada vela
+                    self._foreign_pos = pos.get("id")
+                    self.log("Hay una posición en este contrato que no abrió este turno (otro turno o a mano): "
+                             "no opera mientras exista.")
                 self.state.save(self.state_path)
                 return out
             if not pos and self.state.position_key is not None:
@@ -716,7 +726,8 @@ class TopstepBot:
         pos = self._position_snapshot(last_price)
         alerts = []
         if pos and self.execute and not pos.get("mine"):
-            alerts.append("Hay una posición en el contrato que no abrió el bot: el bot no opera mientras exista.")
+            alerts.append("Hay una posición en este contrato que no abrió este turno (otro turno o a mano): "
+                          "este turno no opera mientras exista.")
         return {"generated_utc": now, "tz": self.cfg.get("display_tz"),
                 "mode": "EJECUCION" if self.execute else "SENALES",
                 "account": {k: (self.account or {}).get(k) for k in ("id", "name", "simulated")},
@@ -770,20 +781,40 @@ def run_many(bots: list[TopstepBot], sleep=time.sleep, rounds: int | None = None
         done += 1
 
 
+def session_hours(cfg: dict) -> set[int] | None:
+    """Horas UTC que ocupa un turno SESSION_DRIFT, incluida la hora de salida; None para otras estrategias."""
+    if cfg.get("strategy") != "SESSION_DRIFT":
+        return None
+    p = cfg.get("params") or {}
+    h_in, h_out = int(p.get("h_in", 0)), int(p.get("h_out", 8))
+    return {(h_in + k) % 24 for k in range((h_out - h_in) % 24 + 1)}
+
+
 def check_configs(cfgs: list[dict]) -> None:
-    """Varias configuraciones a la vez: cada una con su carpeta, y como mucho una que EJECUTE por cuenta
-    (el riesgo de dos estrategias ejecutando en la misma cuenta no está coordinado)."""
+    """Varias configuraciones a la vez: cada una con su carpeta. En una misma cuenta solo pueden EJECUTAR
+    varias si son turnos SESSION_DRIFT que no se solapan: así nunca hay dos posiciones abiertas a la vez, y la
+    pérdida diaria y el colchón del MLL se controlan con el saldo común de la cuenta. Cualquier otra combinación
+    en ejecución se rechaza (su riesgo conjunto no está coordinado)."""
     dirs = [str(Path(c["state_dir"]).resolve()) for c in cfgs]
     if len(set(dirs)) != len(dirs):
         raise ValueError("cada configuración necesita su propio state_dir (p. ej. topstep_state_mnq)")
-    seen = {}
+    by_acc: dict = {}
     for c in cfgs:
         if c["execute"]:
             for acc in c["account_ids"]:
-                if acc in seen:
-                    raise ValueError(f"la cuenta {acc} tiene dos configuraciones en EJECUCION ({seen[acc]} y "
-                                     f"{c['symbol_search']}): solo una puede ejecutar; pon la otra en \"execute\": false")
-                seen[acc] = c["symbol_search"]
+                by_acc.setdefault(acc, []).append(c)
+    for acc, cs in by_acc.items():
+        names = [c.get("label") or c["symbol_search"] for c in cs]
+        hours = [session_hours(c) for c in cs]
+        if len(cs) > 1 and any(h is None for h in hours):
+            raise ValueError(f"la cuenta {acc} tiene varias configuraciones en EJECUCION ({', '.join(names)}): solo una "
+                             "puede ejecutar, salvo turnos SESSION_DRIFT que no se solapen; pon las demás en \"execute\": false")
+        for i in range(len(cs)):
+            for j in range(i + 1, len(cs)):
+                both = hours[i] & hours[j]
+                if both:
+                    raise ValueError(f"la cuenta {acc}: los turnos {names[i]} y {names[j]} se solapan (horas UTC "
+                                     f"{sorted(both)}); solo pueden ejecutar a la vez turnos que no coincidan")
 
 
 # ---------------------------------------------------------------------- utilidades de línea de órdenes
@@ -891,6 +922,9 @@ def main(argv=None) -> int:
     print("Avisos por Telegram: activados." if notifier else
           "Avisos por Telegram: no configurados (opcional: python -m kq.live.notify --setup).")
     bots = [TopstepBot(c, client, notifier=notifier) for c in cfgs]
+    executing = [b for b in bots if b.cfg["execute"]]
+    for b in executing[1:]:
+        b.daily_summary = False
     bot = bots[0]
     if a.export_bars:
         export_bars(bot, a.export_bars, Path(a.out))

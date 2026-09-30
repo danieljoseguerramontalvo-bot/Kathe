@@ -585,3 +585,34 @@ def test_several_markets_share_one_session_and_only_one_executes(tmp_path, marke
     with pytest.raises(ValueError, match="state_dir"):
         tb.check_configs([a, {**b, "execute": False, "state_dir": str(tmp_path / "x")}])
     tb.check_configs([a, {**b, "execute": False}])
+
+
+def test_two_non_overlapping_shifts_can_execute_on_one_account(tmp_path, market):
+    base = dict(tb.DEFAULTS)
+    day = {**base, "strategy": "SESSION_DRIFT", "execute": True, "account_ids": [7], "label": "ORO DÍA",
+           "params": {"h_in": 10, "h_out": 17, "side": -1}, "state_dir": str(tmp_path / "d")}
+    night = {**day, "label": "ORO NOCHE", "params": {"h_in": 0, "h_out": 8, "side": 1}, "state_dir": str(tmp_path / "n")}
+    tb.check_configs([day, night])                                  # 10-17 y 0-8 UTC no coinciden
+    late = {**night, "params": {"h_in": 16, "h_out": 20, "side": 1}}
+    with pytest.raises(ValueError, match="se solapan"):
+        tb.check_configs([day, late])
+    back_to_back = {**night, "params": {"h_in": 17, "h_out": 20, "side": 1}}
+    with pytest.raises(ValueError, match="se solapan"):               # la hora de salida cuenta
+        tb.check_configs([day, back_to_back])
+    # un turno no toca la posición del otro y solo lo avisa una vez
+    fake = FakeGateway(market)
+    a, _ = _bot(tmp_path / "a", fake, market, label="ORO DÍA")
+    b, _ = _bot(tmp_path / "b", fake, market, label="ORO NOCHE")
+    b.client = a.client
+    lines = []
+    b.log_fn = lines.append
+    a.startup()
+    b.startup()
+    a.step()
+    assert len(fake.positions) == 1
+    for _ in range(3):
+        b.last_eval_bar = None
+        b.step()
+    assert len(fake.placed(order_type=2)) == 1 and len(fake.positions) == 1
+    assert sum("no abrió este turno" in l for l in lines) == 1
+    assert all("[ORO NOCHE]" in l for l in lines)

@@ -405,12 +405,16 @@ No hay datos de futuros ejecutados todavía, así que ninguna de estas hipótesi
 | Nombre | Mercado | Regla (UTC) | Modo | Base en la literatura |
 |---|---|---|---|---|
 | H3-día | MGC | venta de 10:00 a 17:00, SL de 3×ATR14 de H1, lunes a viernes | **ejecución** en el Combine | Mitad diurna de la asimetría de Blose y Gondhalekar (2014) y Blose, Gondhalekar y Kort (2018): retorno diurno negativo en COMEX y del fixing AM al PM de Londres |
-| H3a | MGC | compra de 00:00 a 08:00, SL de 3×ATR14 de H1 | solo señales | La hipótesis confirmatoria del apartado 10 |
+| H3a | MGC | compra de 00:00 a 08:00, SL de 3×ATR14 de H1 | **ejecución** en el Combine (turno propio) | La hipótesis confirmatoria del apartado 10 |
 | NQ-noche | MNQ | compra de 23:00 a 13:00, SL de 3×ATR14 de H1, entradas de lunes a jueves | solo señales | Deriva nocturna de los índices de EE. UU.: Cooper, Cliff y Gulen (2008); Lou, Polk y Skouras (2019); Boyarchenko, Larsen y Whelan (2023) |
 
 - **Por qué H3-día ejecuta:** el titular de la cuenta quiere operar en horario diurno (desde las 6:00 de Aruba, que son las 10:00 UTC).
   - Es la otra mitad de la asimetría que motiva H3a. La literatura indica que **se ha debilitado con los años**.
   - Se acepta el riesgo de ejecutarla sin validar porque la cuenta es una evaluación simulada y el titular lo pidió expresamente.
+- **Actualización del mismo día, antes de cualquier resultado:** el titular pidió operar en varios turnos. H3a también ejecuta, en su propio turno.
+  - Los turnos no se solapan (00–08 y 10–17 UTC), así que nunca hay dos posiciones abiertas a la vez.
+  - Caen en el mismo día de Topstep, y el límite diario del bot, calculado con el saldo común, impide una segunda operación tras una pérdida completa.
+  - Cada turno se evalúa por separado.
 - **Evaluación:** R y resultado neto con comisiones, operación a operación. Las de las señales se toman del mismo motor.
 - **Regla de decisión:**
   - Con menos de 30 operaciones no se concluye nada.

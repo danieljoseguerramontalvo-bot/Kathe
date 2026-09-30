@@ -1,5 +1,6 @@
 {
   "symbol_search": "MGC",
+  "label": "ORO NOCHE",
   "account_ids": [],
   "execute": false,
   "strategy": "SESSION_DRIFT",

@@ -1,9 +1,16 @@
 {
   "symbol_search": "MNQ",
+  "label": "NASDAQ",
   "account_ids": [],
   "execute": false,
   "strategy": "SESSION_DRIFT",
-  "params": {"h_in": 23, "h_out": 13, "side": 1, "sl_atr": 3.0, "atr_period": 14},
+  "params": {
+    "h_in": 23,
+    "h_out": 13,
+    "side": 1,
+    "sl_atr": 3.0,
+    "atr_period": 14
+  },
   "warmup_days": 30,
   "risk_usd_per_trade": 350,
   "max_contracts": 1,

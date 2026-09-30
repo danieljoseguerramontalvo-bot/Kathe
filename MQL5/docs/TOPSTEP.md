@@ -111,21 +111,23 @@ Queda guardado en `telegram.txt`, que no se sube a git, y recibes un mensaje de 
 
 Si Telegram falla, el bot sigue operando igual.
 
-## Configuración actual (desde el 30-09-2026)
+## Configuración actual (desde el 30-09-2026): dos turnos de oro y el Nasdaq en señales
 
 | Archivo en tu PC | Plantilla | Qué hace | Hora de Aruba |
 |---|---|---|---|
-| `topstep.json` | `live/topstep.oro_dia_ejecucion.json` | **Ejecuta:** vende 1 MGC; stop de 3×ATR(H1) | de 6:00 a. m. a 1:00 p. m., de lunes a viernes |
-| `topstep_oro_noche.json` | `live/topstep.oro_noche_senales.json` | Solo señales: compra de oro nocturna (H3a) | de 8:00 p. m. a 4:00 a. m. |
-| `topstep_mnq.json` | `live/topstep.mnq_senales.json` | Solo señales: compra de micro Nasdaq nocturna | de 7:00 p. m. a 9:00 a. m., de lunes a jueves |
-
-Las tres se arrancan juntas:
+| `topstep.json` | `live/topstep.oro_dia_ejecucion.json` | **ORO DIA, ejecuta:** vende 1 MGC; stop de 3×ATR(H1) | de 6:00 a. m. a 1:00 p. m., de lunes a viernes |
+| `topstep_oro_noche.json` | `live/topstep.h3a_ejecucion.json` | **ORO NOCHE, ejecuta:** compra 1 MGC (H3a); stop de 3×ATR(H1) | de 8:00 p. m. a 4:00 a. m., de domingo a jueves |
+| `topstep_mnq.json` | `live/topstep.mnq_senales.json` | **NASDAQ, solo señales:** compra de micro Nasdaq nocturna | de 7:00 p. m. a 9:00 a. m., de lunes a jueves |
 
 ```powershell
 python -m kq.live.topstep_bot --config topstep.json --config topstep_oro_noche.json --config topstep_mnq.json
 ```
 
-Ninguna de las tres está validada; la enmienda 4 del protocolo fija cómo se evalúan. Los avisos del oro de día y del de noche llevan el mismo prefijo, `[MGC]`. Se distinguen porque el de día dice «ENTRADA» y el de noche «SEÑAL».
+- **Varios turnos en la misma cuenta:** el bot solo acepta que ejecuten a la vez turnos SESSION_DRIFT cuyos horarios no coincidan (se cuenta también la hora de salida). Así nunca hay dos posiciones abiertas.
+- **Límites compartidos:** los dos turnos de oro caen en el mismo día de Topstep. La pérdida diaria y el colchón del MLL se calculan con el saldo común, así que tras una pérdida completa (−350) el segundo turno no entra: 350 + 350 superaría los 500 del límite diario.
+- **Nombres:** `label` da nombre a cada turno en la consola y en Telegram.
+- **Resumen diario:** lo manda solo el primer turno en ejecución.
+- **Validación:** ninguna de las tres está validada. La enmienda 4 del protocolo fija cómo se evalúan, turno a turno.
 
 ## Varios mercados a la vez (Nasdaq en modo señales)
 
