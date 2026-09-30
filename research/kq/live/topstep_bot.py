@@ -609,6 +609,7 @@ def ask_credentials(env=None, input_fn=input, getpass_fn=None) -> tuple[str, str
         key = clean(getpass_fn("API key de TopstepX (no se verá al escribir; pégala con clic derecho y pulsa Enter): "))
     if user.lower() in PLACEHOLDERS or key.lower() in PLACEHOLDERS:
         raise SystemExit("Falta el usuario o la API key de TopstepX.")
+    print(f"(usuario '{user}'; clave recibida: {len(key)} caracteres)")
     return user, key
 
 

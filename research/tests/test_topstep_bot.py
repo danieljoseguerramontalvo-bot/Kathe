@@ -305,6 +305,10 @@ def test_client_retries_relogins_and_raises():
                          transport=lambda *a: (200, b'{"success": false, "errorCode": 3, "errorMessage": "no"}'))
     with pytest.raises(ProjectXError):
         bad.login()
+    code3 = ProjectXClient(username="u", api_key="k", sleep=lambda s: None,
+                           transport=lambda *a: (200, b'{"success": false, "errorCode": 3, "errorMessage": null}'))
+    with pytest.raises(ProjectXError, match="usuario de TopstepX"):
+        code3.login()
     assert "SECRETKEY123" not in repr(c)
 
 

@@ -127,7 +127,14 @@ class ProjectXClient:
     def login(self) -> None:
         if not self.username or not self._api_key:
             raise ProjectXError("faltan TOPSTEPX_USERNAME / TOPSTEPX_API_KEY en las variables de entorno")
-        data = self._post("/api/Auth/loginKey", {"userName": self.username, "apiKey": self._api_key}, auth=False)
+        try:
+            data = self._post("/api/Auth/loginKey", {"userName": self.username, "apiKey": self._api_key}, auth=False)
+        except ProjectXError as e:
+            if e.code == 3:
+                raise ProjectXError("inicio de sesión rechazado (código 3): el usuario de TopstepX o la API key no son "
+                                    "correctos. Usa el nombre de usuario exacto de TopstepX (no el email ni el del panel "
+                                    "de ProjectX) y una clave copiada con el icono de copiar.", code=3) from None
+            raise
         self.token, self.token_time = data["token"], self.clock()
 
     def ensure_token(self) -> None:
