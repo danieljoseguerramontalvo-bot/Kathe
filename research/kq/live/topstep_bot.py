@@ -72,6 +72,7 @@ DEFAULTS = {
     "display_tz": "America/Aruba",     # hora local en pantalla y en el panel (Aruba = Venezuela = UTC-4)
     "open_panel": True,                # abrir topstep_state/panel.html en el navegador al arrancar
     "label": None,                     # nombre en pantalla y en Telegram (p. ej. «ORO DÍA»); por defecto, el símbolo
+    "heartbeat_url": None,             # opcional: URL de un vigilante externo (p. ej. healthchecks.io) que avisa si el PC se apaga
     "trades_days": 60,                 # días de ejecuciones de la cuenta que muestra el panel
     "profit_target_usd": 3000.0,       # objetivo de beneficio del Combine (50K); compruébalo en TopstepX
     "consistency_pct": 50.0,           # regla de consistencia: el mejor día, menos de este % del beneficio total
@@ -761,8 +762,10 @@ class TopstepBot:
 def run_many(bots: list[TopstepBot], sleep=time.sleep, rounds: int | None = None):
     """Bucle de varios mercados con una sola sesión de la API: cada ronda da un paso a cada bot y
     actualiza su panel. Un error de un mercado no para a los demás."""
+    from .notify import Heartbeat
     errors = 0
     poll = min(float(b.cfg["poll_seconds"]) for b in bots)
+    beats = [Heartbeat(u) for u in sorted({b.cfg.get("heartbeat_url") for b in bots} - {None, ""})]
     done = 0
     while rounds is None or done < rounds:
         failed = False
@@ -774,6 +777,8 @@ def run_many(bots: list[TopstepBot], sleep=time.sleep, rounds: int | None = None
                 failed = True
                 b.log(f"Error de la API ({errors + 1}): {e}")
                 b.journal("ERROR", detail=str(e))
+        for hb in beats:
+            hb.beat()
         errors = errors + 1 if failed else 0
         if errors:
             sleep(min(300, 15 * errors))
@@ -818,16 +823,47 @@ def check_configs(cfgs: list[dict]) -> None:
 
 
 # ---------------------------------------------------------------------- utilidades de línea de órdenes
+def pid_alive(pid: int) -> bool:
+    """¿Sigue vivo el proceso? En Windows no se usa os.kill(pid, 0): allí os.kill TERMINA el proceso."""
+    if pid <= 0:
+        return False
+    if os.name == "nt":
+        import ctypes
+        k32 = ctypes.windll.kernel32
+        h = k32.OpenProcess(0x1000, False, pid)            # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return False
+        code = ctypes.c_ulong()
+        ok = k32.GetExitCodeProcess(h, ctypes.byref(code))
+        k32.CloseHandle(h)
+        return bool(ok) and code.value == 259               # STILL_ACTIVE
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
 class InstanceLock:
     def __init__(self, path: Path):
         self.path = path
 
-    def acquire(self):
+    def acquire(self, _retry: bool = True):
+        self.path.parent.mkdir(parents=True, exist_ok=True)       # la carpeta de un mercado nuevo aún no existe
         try:
             fd = os.open(str(self.path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         except FileExistsError:
-            raise SystemExit(f"Ya hay otro bot usando {self.path.parent}. Si no es así (se cerró de golpe), "
-                             f"borra {self.path} y vuelve a arrancar.")
+            try:
+                pid = int(self.path.read_text().strip() or 0)
+            except (OSError, ValueError):
+                pid = 0
+            if _retry and not pid_alive(pid):         # candado de un bot que se cerró de golpe (apagón, reinicio)
+                self.path.unlink(missing_ok=True)
+                return self.acquire(_retry=False)
+            raise SystemExit(f"Ya hay otro bot usando {self.path.parent} (proceso {pid}). Ciérralo antes de "
+                             f"arrancar otro.")
         os.write(fd, str(os.getpid()).encode())
         os.close(fd)
         atexit.register(self.release)
@@ -863,12 +899,15 @@ PLACEHOLDERS = {"", "tu_usuario_de_topstepx", "tu_usuario", "la_clave_nueva", "t
 
 
 KEY_FILE = "clave_topstepx.txt"
+USER_FILE = "usuario_topstepx.txt"
 
 
-def ask_credentials(env=None, input_fn=input, getpass_fn=None, key_file: str | Path | None = KEY_FILE) -> tuple[str, str]:
+def ask_credentials(env=None, input_fn=input, getpass_fn=None, key_file: str | Path | None = KEY_FILE,
+                    user_file: str | Path | None = USER_FILE, interactive: bool = True) -> tuple[str, str]:
     """Usuario y API key. La clave sale, por este orden, de la variable TOPSTEPX_API_KEY, del archivo
     ``clave_topstepx.txt`` de la carpeta actual (solo la clave, en la primera línea) o se pide por
-    teclado sin mostrarla. El usuario sale de TOPSTEPX_USERNAME o se pide por teclado."""
+    teclado sin mostrarla. El usuario sale de TOPSTEPX_USERNAME, de ``usuario_topstepx.txt`` o se pide por
+    teclado. Sin ``interactive`` (arranque automático) nunca pregunta: si falta algo, termina."""
     import getpass
     env = os.environ if env is None else env
     getpass_fn = getpass_fn or getpass.getpass
@@ -876,12 +915,20 @@ def ask_credentials(env=None, input_fn=input, getpass_fn=None, key_file: str | P
     def clean(v):
         return (v or "").strip().strip('"').strip("'").strip().lstrip("\ufeff")
 
+    def first_line(path):
+        lines = Path(path).read_text(encoding="utf-8-sig", errors="replace").splitlines()
+        return clean(lines[0]) if lines else ""
+
     user = clean(env.get("TOPSTEPX_USERNAME"))
     key = clean(env.get("TOPSTEPX_API_KEY"))
     if key.lower() in PLACEHOLDERS and key_file and Path(key_file).exists():
-        lines = Path(key_file).read_text(encoding="utf-8-sig", errors="replace").splitlines()
-        key = clean(lines[0]) if lines else ""
+        key = first_line(key_file)
         print(f"(clave leída de {key_file})")
+    if user.lower() in PLACEHOLDERS and user_file and Path(user_file).exists():
+        user = first_line(user_file)
+    if not interactive and (user.lower() in PLACEHOLDERS or key.lower() in PLACEHOLDERS):
+        raise SystemExit(f"Arranque automático: faltan {USER_FILE} o {KEY_FILE} en esta carpeta. "
+                         "Créalos con  python -m kq.live.autoinicio --instalar")
     if user.lower() in PLACEHOLDERS:
         user = clean(input_fn("Usuario de TopstepX: "))
     if key.lower() in PLACEHOLDERS:
@@ -892,11 +939,45 @@ def ask_credentials(env=None, input_fn=input, getpass_fn=None, key_file: str | P
     return user, key
 
 
+def run_bots(cfgs: list[dict], client: ProjectXClient, notifier=None, once: bool = False,
+             open_panels: bool = True) -> int:
+    """Crea y arranca un bot por configuración y los hace funcionar juntos hasta que se paren."""
+    bots = [TopstepBot(c, client, notifier=notifier) for c in cfgs]
+    for b in [b for b in bots if b.cfg["execute"]][1:]:
+        b.daily_summary = False
+    started = []
+    for b in bots:
+        try:
+            b.startup()
+            started.append(b)
+        except (ValueError, ProjectXError) as e:
+            if b.cfg["execute"] or len(bots) == 1:
+                raise
+            print(f"[{b.name}] no se pudo arrancar ({e}); los demás mercados siguen.")
+    if once:
+        for b in started:
+            print(json.dumps(b.step(), default=str))
+            b.write_panel()
+        return 0
+    for b in started:
+        path = b.write_panel()
+        if path:
+            b.log(f"Panel: {path.resolve()} (ábrelo con doble clic; se actualiza solo)")
+            if open_panels and b.cfg["open_panel"]:
+                import webbrowser
+                webbrowser.open(path.resolve().as_uri())
+    run_many(started)
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Bot KatheQuant para TopstepX (ProjectX API)")
     ap.add_argument("--config", required=True, action="append",
                     help="archivo de configuración; repítelo para varios mercados (p. ej. oro y Nasdaq)")
     ap.add_argument("--once", action="store_true", help="un solo paso y termina")
+    ap.add_argument("--auto", action="store_true",
+                    help="modo desatendido: no pregunta nada (usuario y clave en archivos) y, si algo falla, "
+                         "vuelve a arrancar cada 60 s")
     ap.add_argument("--export-bars", type=int, default=None, help="descargar N días de velas M1 y terminar")
     ap.add_argument("--out", default="KQ_MGC_M1.csv")
     ap.add_argument("--test-login", action="store_true", help="solo comprobar el inicio de sesión y listar las cuentas")
@@ -904,7 +985,7 @@ def main(argv=None) -> int:
     cfgs = [load_config(c) for c in a.config]
     check_configs(cfgs)
     cfg = cfgs[0]
-    user, key = ask_credentials()
+    user, key = ask_credentials(interactive=not a.auto)
     client = ProjectXClient(username=user, api_key=key, base_url=cfg["base_url"])
     if a.test_login:
         try:
@@ -917,54 +998,51 @@ def main(argv=None) -> int:
             print(f"  id {acc.get('id')} | {acc.get('name')} | saldo {acc.get('balance')} | "
                   f"simulada={acc.get('simulated')} | puede operar={acc.get('canTrade')}")
         return 0
+    if a.export_bars:
+        export_bars(TopstepBot(cfg, client), a.export_bars, Path(a.out))
+        return 0
     from .notify import load_notifier
     notifier = load_notifier()
     print("Avisos por Telegram: activados." if notifier else
           "Avisos por Telegram: no configurados (opcional: python -m kq.live.notify --setup).")
-    bots = [TopstepBot(c, client, notifier=notifier) for c in cfgs]
-    executing = [b for b in bots if b.cfg["execute"]]
-    for b in executing[1:]:
-        b.daily_summary = False
-    bot = bots[0]
-    if a.export_bars:
-        export_bars(bot, a.export_bars, Path(a.out))
-        return 0
-    for b in bots:
-        InstanceLock(Path(b.cfg["state_dir"]) / "bot.lock").acquire()
-    started = []
-    for b in bots:
-        try:
-            b.startup()
-            started.append(b)
-        except (ValueError, ProjectXError) as e:
-            if b.cfg["execute"] or len(bots) == 1:
-                raise
-            print(f"[{b.cfg['symbol_search']}] no se pudo arrancar ({e}); los demás mercados siguen.")
-    bots, bot = started, started[0]
-    if a.once:
-        for b in bots:
-            print(json.dumps(b.step(), default=str))
-            b.write_panel()
-        return 0
-    for b in bots:
-        path = b.write_panel()
-        if path:
-            b.log(f"Panel {b.cfg['symbol_search']}: {path.resolve()} (ábrelo con doble clic; se actualiza solo)")
-            if b.cfg["open_panel"]:
-                import webbrowser
-                webbrowser.open(path.resolve().as_uri())
+
+    def tell(text):
+        if notifier is not None:
+            notifier.send(f"[KatheBot] {text}")
+
+    locks = [InstanceLock(Path(c["state_dir"]) / "bot.lock") for c in cfgs]
+    for lock in locks:
+        lock.acquire()
+    first, last_err = True, None
     try:
-        run_many(bots)
-    except KeyboardInterrupt:
-        bot.log("Detenido por el usuario. Las órdenes y posiciones abiertas NO se tocan al salir.")
-        bot.notify("⏹️ Bot detenido por el usuario. Si había una posición abierta, conserva su stop en Topstep.")
-    except Exception as e:
-        bot.notify(f"💥 El bot se ha parado por un error: {e}. Revisa el PC. Las posiciones abiertas conservan su stop.")
-        raise
+        while True:
+            try:
+                return run_bots(cfgs, client, notifier, once=a.once, open_panels=first)
+            except KeyboardInterrupt:
+                print("Detenido por el usuario. Las órdenes y posiciones abiertas NO se tocan al salir.")
+                tell("⏹️ Bot detenido por el usuario. Si había una posición abierta, conserva su stop en Topstep.")
+                return 0
+            except Exception as e:
+                if str(e) != last_err:
+                    tell(f"💥 El bot se ha parado por un error: {e}. "
+                         + ("Se vuelve a intentar cada 60 s." if a.auto else
+                            "Revisa el PC. Las posiciones abiertas conservan su stop."))
+                last_err = str(e)
+                if not a.auto:
+                    raise
+                print(f"Error: {e}. Se vuelve a intentar en 60 s (Ctrl+C para parar).")
+            first = False
+            try:
+                time.sleep(60)
+            except KeyboardInterrupt:
+                print("Detenido por el usuario.")
+                return 0
+            client = ProjectXClient(username=user, api_key=key, base_url=cfg["base_url"])
     finally:
+        for lock in locks:
+            lock.release()
         if notifier is not None:
             notifier.flush()
-    return 0
 
 
 if __name__ == "__main__":

@@ -91,6 +91,33 @@ class TelegramNotifier:
                 self._q.task_done()
 
 
+class Heartbeat:
+    """Latido para un vigilante externo (p. ej. healthchecks.io, gratis): el bot hace un GET a la URL como
+    mucho cada ``every`` segundos. Si los latidos dejan de llegar (PC apagado, sin internet, bot parado),
+    el vigilante avisa por Telegram o correo. Nunca bloquea ni detiene el bot."""
+
+    def __init__(self, url: str, every: float = 60.0, transport=None, clock=time.monotonic, background: bool = True):
+        self.url, self.every, self.transport, self.clock, self.background = url, every, transport, clock, background
+        self.last: float | None = None
+
+    def beat(self) -> bool:
+        now = self.clock()
+        if self.last is not None and now - self.last < self.every:
+            return False
+        self.last = now
+        if self.background:
+            threading.Thread(target=self._ping, daemon=True).start()
+        else:
+            self._ping()
+        return True
+
+    def _ping(self):
+        try:
+            (self.transport or _urllib_transport)("GET", self.url, {}, None, 10.0)
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def load_notifier(path: str | Path = TELEGRAM_FILE, env=None, **kw) -> TelegramNotifier | None:
     env = os.environ if env is None else env
     token, chat = (env.get("TELEGRAM_BOT_TOKEN") or "").strip(), (env.get("TELEGRAM_CHAT_ID") or "").strip()

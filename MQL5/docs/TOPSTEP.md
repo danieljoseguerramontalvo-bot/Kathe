@@ -152,6 +152,39 @@ Cómo funciona:
 
 **Bitcoin:** no hay una hipótesis con evidencia que se pueda defender, así que no se generan señales.
 
+## Funcionamiento desatendido (sin tocar el PC)
+
+**Con el PC apagado no se puede.** Topstep prohíbe usar la API desde un VPS, una VPN o un servidor remoto, y si lo detecta cierra la cuenta. Lo más cerca que se puede llegar es que el bot funcione sin que tengas que usar el PC:
+
+```powershell
+python -m kq.live.autoinicio --instalar
+```
+
+Hazlo una vez, desde la carpeta `research`. Hace esto:
+- **Credenciales:** guarda el usuario en `usuario_topstepx.txt` y la API key en `clave_topstepx.txt`. Quedan solo en tu PC y no se suben a git.
+- **Arranque manual:** crea `iniciar_bot.cmd`; con doble clic arranca el bot con las configuraciones que existan (`topstep.json`, `topstep_oro_noche.json`, `topstep_mnq.json`).
+- **Arranque automático:** lo añade a la carpeta de Inicio de Windows. Al iniciar sesión, el bot arranca solo en modo `--auto`:
+  - no pregunta nada;
+  - si no hay internet o algo falla, vuelve a intentarlo cada 60 s;
+  - avisa por Telegram de cada caída y de cada arranque.
+- **Energía:** desactiva la suspensión y la hibernación con el PC enchufado.
+- **Candados:** si el PC se apagó de golpe, el candado que quedó se detecta como abandonado y se recupera solo.
+
+Para quitarlo: `python -m kq.live.autoinicio --quitar`.
+
+Recomendaciones:
+- En la BIOS, activa «encender al volver la corriente» (*Restore on AC power loss*). Si además quieres que arranque sin ti tras un apagón, activa el inicio de sesión automático de Windows.
+- En Windows Update, fija el horario activo para que no reinicie de madrugada.
+
+**Aviso si el PC se apaga (opcional y gratis):** un bot apagado no puede avisar de que está apagado. Para eso hace falta un vigilante externo:
+1. Crea una cuenta gratuita en healthchecks.io y un *check* con periodo de 5 minutos.
+2. Conecta ahí tu Telegram.
+3. Pon su URL en `heartbeat_url` de `topstep.json`.
+
+El bot le envía un latido cada minuto, y si dejan de llegar, healthchecks te avisa. Solo recibe latidos, nunca datos de la cuenta.
+
+**Si quieres operar con el PC apagado,** necesitas una firma que permita VPS, normalmente con MetaTrader 5. El EA `KatheQuant_v5.mq5` ya tiene la misma estrategia (`KQ_STRAT_SESSION_DRIFT`) y podría funcionar en un VPS. En cuentas reales va solo con señales, según las reglas del proyecto.
+
 ## Configuración y riesgo
 
 | Clave | Valor por defecto | Qué hace |
@@ -168,6 +201,8 @@ Cómo funciona:
 | `display_tz` | `America/Aruba` | Zona horaria de la consola y del panel |
 | `open_panel` | `true` | Abre el panel en el navegador al arrancar |
 | `trades_days` | 60 | Días de ejecuciones de la cuenta que muestra el panel |
+| `label` | — | Nombre del turno en la consola y en Telegram |
+| `heartbeat_url` | — | URL del vigilante externo, p. ej. healthchecks.io (opcional) |
 | `profit_target_usd` | 3000 | Objetivo de beneficio del Combine. Compruébalo en TopstepX |
 | `consistency_pct` | 50 | Regla de consistencia: el mejor día debe ser menos de este % del beneficio total |
 

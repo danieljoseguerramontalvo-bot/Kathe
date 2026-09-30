@@ -1,5 +1,6 @@
 """Bot de TopstepX contra un servidor ProjectX simulado (sin red ni cuentas reales)."""
 import json
+import os
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
@@ -616,3 +617,79 @@ def test_two_non_overlapping_shifts_can_execute_on_one_account(tmp_path, market)
     assert len(fake.placed(order_type=2)) == 1 and len(fake.positions) == 1
     assert sum("no abrió este turno" in l for l in lines) == 1
     assert all("[ORO NOCHE]" in l for l in lines)
+
+
+def test_stale_lock_is_taken_over_but_a_live_one_is_not(tmp_path):
+    lock = tmp_path / "bot.lock"
+    lock.write_text("999999999")                                    # proceso que ya no existe (apagón)
+    tb.InstanceLock(lock).acquire()
+    assert lock.read_text() == str(os.getpid())
+    with pytest.raises(SystemExit, match="Ya hay otro bot"):
+        tb.InstanceLock(lock).acquire()                              # este proceso sigue vivo
+    tb.InstanceLock(lock).release()
+
+
+def test_heartbeat_pings_at_most_once_a_minute():
+    from kq.live.notify import Heartbeat
+    calls, now = [], {"t": 0.0}
+    hb = Heartbeat("https://hc-ping.example/abc", transport=lambda *a: calls.append(a) or (200, b"OK"),
+                   clock=lambda: now["t"], background=False)
+    assert hb.beat() and not hb.beat()
+    now["t"] = 61.0
+    assert hb.beat()
+    assert len(calls) == 2 and calls[0][0] == "GET" and calls[0][1] == "https://hc-ping.example/abc"
+
+
+def test_credentials_from_files_and_no_questions_in_auto_mode(tmp_path):
+    (tmp_path / "u.txt").write_text("yo@example.com\n", encoding="utf-8")
+    (tmp_path / "k.txt").write_text("\ufeffCLAVE44\n", encoding="utf-8")
+    ask = lambda *_: pytest.fail("no debe preguntar")
+    assert tb.ask_credentials(env={}, input_fn=ask, getpass_fn=ask, key_file=tmp_path / "k.txt",
+                              user_file=tmp_path / "u.txt", interactive=False) == ("yo@example.com", "CLAVE44")
+    with pytest.raises(SystemExit, match="autoinicio"):
+        tb.ask_credentials(env={}, input_fn=ask, getpass_fn=ask, key_file=tmp_path / "k.txt",
+                           user_file=tmp_path / "nada.txt", interactive=False)
+
+
+def test_auto_mode_restarts_after_an_error(tmp_path, monkeypatch):
+    cfg = tmp_path / "c.json"
+    cfg.write_text(json.dumps({"state_dir": str(tmp_path / "st")}))
+    calls, sleeps = [], []
+
+    def fake_run_bots(cfgs, client, notifier, once=False, open_panels=True):
+        calls.append(open_panels)
+        if len(calls) == 1:
+            raise ProjectXError("sin internet al arrancar")
+        return 0
+
+    monkeypatch.setattr(tb, "run_bots", fake_run_bots)
+    monkeypatch.setattr(tb, "ask_credentials", lambda interactive=True: ("u", "k"))
+    monkeypatch.setattr(tb.time, "sleep", lambda s: sleeps.append(s))
+    import kq.live.notify as nt
+    monkeypatch.setattr(nt, "load_notifier", lambda *a, **k: None)
+    assert tb.main(["--config", str(cfg), "--auto"]) == 0
+    assert calls == [True, False] and sleeps == [60]            # reintenta una vez; el panel solo se abre al principio
+    with pytest.raises(ProjectXError):                            # sin --auto, el error se propaga
+        calls.clear()
+        tb.main(["--config", str(cfg)])
+
+
+def test_autoinicio_installs_launcher_credentials_and_startup_entry(tmp_path):
+    from kq.live import autoinicio
+    work, startup = tmp_path / "research", tmp_path / "Startup"
+    work.mkdir()
+    (work / "topstep.json").write_text("{}")
+    (work / "topstep_mnq.json").write_text("{}")
+    ran = []
+    rc = autoinicio.install(work, input_fn=lambda *_: "yo@example.com", getpass_fn=lambda *_: "CLAVE",
+                            run=lambda cmd, **k: ran.append(cmd), startup=startup, python=r"C:\Python312\python.exe")
+    assert rc == 0
+    assert (work / "usuario_topstepx.txt").read_text().strip() == "yo@example.com"
+    assert (work / "clave_topstepx.txt").read_text().strip() == "CLAVE"
+    cmd = (work / "iniciar_bot.cmd").read_text(encoding="ascii")
+    assert '--config "topstep.json" --config "topstep_mnq.json" --auto' in cmd and "topstep_oro_noche" not in cmd
+    assert f'cd /d "{work.resolve()}"' in cmd
+    assert "iniciar_bot.cmd" in (startup / "KatheBot.cmd").read_text(encoding="ascii")
+    assert ["powercfg", "/change", "standby-timeout-ac", "0"] in ran
+    autoinicio.remove(startup)
+    assert not (startup / "KatheBot.cmd").exists()
