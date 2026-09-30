@@ -21,6 +21,7 @@ class FakeGateway:
     """Servidor ProjectX mínimo: cuentas, contrato MGC, velas, órdenes, brackets y posiciones."""
 
     def __init__(self, df_server, simulated=True, brackets="ok", fail_stop=False, balance=50000.0):
+        self.reject_brackets = False
         utc = pd.DatetimeIndex(server_to_utc(df_server.index))
         self.all_bars = [{"t": _iso(t), "o": round(o, 1), "h": round(h, 1), "l": round(l, 1), "c": round(c, 1), "v": 10}
                          for t, o, h, l, c in zip(utc, df_server["open"], df_server["high"], df_server["low"], df_server["close"])]
@@ -57,6 +58,8 @@ class FakeGateway:
             bars = [b for b in self.all_bars[:self.visible] if s <= pd.Timestamp(b["t"]) < e]
             return 200, json.dumps({**ok, "bars": bars[-d["limit"]:]}).encode()
         if path == "/api/Order/place":
+            if self.reject_brackets and "stopLossBracket" in d:
+                return 200, json.dumps({"success": False, "errorCode": 2, "errorMessage": "brackets"}).encode()
             oid = self._id()
             if d["type"] == 2:
                 side = 1 if d["side"] == 0 else -1
@@ -351,3 +354,16 @@ def test_test_login_mode(tmp_path, market, monkeypatch, capsys):
     assert tb.main(["--config", str(cfg), "--test-login"]) == 0
     out = capsys.readouterr().out
     assert "Inicio de sesión correcto" in out and "id 7" in out and "ABC123" not in out
+
+
+def test_rejected_brackets_retry_without_them_and_protect(tmp_path, market):
+    fake = FakeGateway(market)
+    fake.reject_brackets = True
+    bot, _ = _bot(tmp_path, fake, market)
+    bot.startup()
+    bot.step()
+    assert fake.positions, "la entrada se reintenta sin brackets"
+    stops = [o for o in fake.orders if o["type"] == 4]
+    tps = [o for o in fake.orders if o["type"] == 1]
+    assert len(stops) == 1 and stops[0]["stopPrice"] < fake.positions[0]["averagePrice"]
+    assert len(tps) == 1 and tps[0]["limitPrice"] > fake.positions[0]["averagePrice"]

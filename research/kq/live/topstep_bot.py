@@ -404,14 +404,23 @@ class TopstepBot:
             self.log(f"SEÑAL {side_txt} {n} contrato(s) ~{ref_price} | SL {self._round(stop_px)} | "
                      f"TP {self._round(tp_px) if tp_px else '-'} (solo señales: no se envía la orden)")
             return True
+        side_code = SIDE_BUY if tgt.side > 0 else SIDE_SELL
         try:
-            oid = self.client.place_order(int(self.account["id"]), self.contract["id"], TYPE_MARKET,
-                                          SIDE_BUY if tgt.side > 0 else SIDE_SELL, n, custom_tag=f"KQ-{tgt.key}",
-                                          stop_loss_ticks=stop_ticks, take_profit_ticks=tp_ticks)
+            oid = self.client.place_order(int(self.account["id"]), self.contract["id"], TYPE_MARKET, side_code, n,
+                                          custom_tag=f"KQ-{tgt.key}", stop_loss_ticks=stop_ticks,
+                                          take_profit_ticks=tp_ticks)
         except ProjectXError as e:
-            self.journal("ERROR", side=tgt.side, contracts=n, detail=f"entrada rechazada: {e}")
-            self.log(f"Entrada rechazada: {e}")
-            return False
+            # p. ej. brackets no admitidos (modo «Position Brackets») o convención de signo distinta:
+            # se reintenta sin brackets y ensure_protection pone el stop y el objetivo a continuación
+            self.journal("ERROR", side=tgt.side, contracts=n, detail=f"entrada con brackets rechazada: {e}; reintento sin brackets")
+            self.log(f"Entrada con brackets rechazada ({e}); se reintenta sin brackets.")
+            try:
+                oid = self.client.place_order(int(self.account["id"]), self.contract["id"], TYPE_MARKET, side_code, n,
+                                              custom_tag=f"KQ-{tgt.key}-nb")
+            except ProjectXError as e2:
+                self.journal("ERROR", side=tgt.side, contracts=n, detail=f"entrada rechazada: {e2}")
+                self.log(f"Entrada rechazada: {e2}")
+                return False
         pos = None
         for _ in range(10):
             pos = self._my_position()
