@@ -31,7 +31,8 @@ class FakeGateway:
                         "simulated": simulated}
         self.contract = {"id": "CON.F.US.MGC.Z26", "name": "MGCZ6", "tickSize": 0.1, "tickValue": 1.0,
                          "activeContract": True}
-        self.positions, self.orders, self.calls = [], [], []
+        self.positions, self.orders, self.calls, self.trades = [], [], [], []
+        self.fail_trades = False
         self.brackets, self.fail_stop, self.next_id = brackets, fail_stop, 100
 
     @property
@@ -97,6 +98,10 @@ class FakeGateway:
             return 200, json.dumps({**ok, "orders": self.orders}).encode()
         if path == "/api/Position/searchOpen":
             return 200, json.dumps({**ok, "positions": self.positions}).encode()
+        if path == "/api/Trade/search":
+            if self.fail_trades:
+                return 500, b"{}"
+            return 200, json.dumps({**ok, "trades": self.trades}).encode()
         if path == "/api/Position/closeContract":
             self.positions = [p for p in self.positions if p["contractId"] != d["contractId"]]
             return 200, json.dumps(ok).encode()
@@ -385,3 +390,66 @@ def test_console_shows_heartbeat_and_journal_events(tmp_path, market):
     bot.last_eval_bar = None
     bot.step()                                                     # misma hora: sin nueva línea de latido
     assert not any("Funcionando" in l for l in lines[n:])
+
+
+def test_panel_shows_account_position_orders_and_local_times(tmp_path, market):
+    fake = FakeGateway(market)
+    fake.trades = [
+        {"id": 1, "contractId": "CON.F.US.MGC.Z26", "creationTimestamp": "2026-09-23T00:01:05Z", "price": 1690.0,
+         "profitAndLoss": None, "fees": 0.74, "side": 0, "size": 1, "voided": False},
+        {"id": 2, "contractId": "CON.F.US.MGC.Z26", "creationTimestamp": "2026-09-23T08:00:40Z", "price": 1695.0,
+         "profitAndLoss": 50.0, "fees": 0.74, "side": 1, "size": 1, "voided": False},
+    ]
+    bot, _ = _bot(tmp_path, fake, market)
+    bot.startup()
+    bot.step()
+    path = bot.write_panel()
+    text = path.read_text(encoding="utf-8")
+    assert "EJECUCIÓN" in text and "Compra 3" in text
+    assert "Órdenes en el servidor de Topstep" in text and "Stop" in text
+    assert "hora Aruba" in text and "Entrada ejecutada" in text
+    assert "22/09 20:01:05" in text                                # 00:01 UTC = 20:01 del día anterior en Aruba
+    assert "+50.00" in text and "Operaciones cerradas</dt><dd>1 " in text
+    assert (bot.dir / "saldo.csv").exists()
+
+
+def test_panel_never_breaks_the_bot(tmp_path, market):
+    fake = FakeGateway(market)
+    fake.fail_trades = True
+    bot, _ = _bot(tmp_path, fake, market, execute=False)
+    bot.startup()
+    bot.journal("ERROR", detail="<script>alert(1)</script>")
+    bot.step()
+    path = bot.write_panel()
+    text = path.read_text(encoding="utf-8")
+    assert "SOLO SEÑALES" in text
+    assert "<script>alert(1)</script>" not in text and "&lt;script&gt;" in text
+
+
+def test_session_schedule_in_aruba_time():
+    from kq.live import panel
+    cfg = {"strategy": "SESSION_DRIFT", "params": {"h_in": 0, "h_out": 8}, "display_tz": "America/Aruba"}
+    now = pd.Timestamp("2026-09-30 03:29", tz="UTC")                   # miércoles, dentro de la ventana de hoy
+    cur = panel.session_schedule(cfg, now)
+    nxt = panel.session_schedule(cfg, now, upcoming_only=True)
+    assert cur["active"] and cur["start"] == pd.Timestamp("2026-09-30 00:00", tz="UTC")
+    assert not nxt["active"] and nxt["start"] == pd.Timestamp("2026-10-01 00:00", tz="UTC")
+    assert panel.schedule_text(nxt, cfg["display_tz"]) == \
+        "entra a las 20:00 y sale a las 04:00 (hora Aruba), de domingo a jueves"
+    fri = panel.session_schedule(cfg, pd.Timestamp("2026-10-02 09:00", tz="UTC"))
+    assert fri["start"] == pd.Timestamp("2026-10-05 00:00", tz="UTC")   # sin entradas en fin de semana UTC
+    assert panel.session_schedule({"strategy": "REF_T0", "params": {}}, now) is None
+
+
+def test_trade_stats_and_balance_log(tmp_path):
+    from kq.live import panel
+    st = panel.trade_stats([{"profitAndLoss": None, "fees": 1.0}, {"profitAndLoss": 80.0, "fees": 1.0},
+                            {"profitAndLoss": -40.0, "fees": 1.0}, {"profitAndLoss": -500.0, "voided": True}])
+    assert st["n"] == 2 and st["wins"] == 1 and st["losses"] == 1 and st["net"] == 37.0 and st["win_rate"] == 50.0
+    p = tmp_path / "saldo.csv"
+    t0 = pd.Timestamp("2026-09-30 00:00", tz="UTC")
+    assert panel.append_balance(p, t0, 50000.0)
+    assert not panel.append_balance(p, t0 + pd.Timedelta(minutes=5), 50000.0)     # sin cambios: no repite
+    assert panel.append_balance(p, t0 + pd.Timedelta(minutes=6), 50012.5)
+    assert panel.append_balance(p, t0 + pd.Timedelta(minutes=40), 50012.5)
+    assert [b for _, b in panel.read_balance(p)] == [50000.0, 50012.5, 50012.5]

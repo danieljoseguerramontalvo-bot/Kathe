@@ -2,7 +2,7 @@
 
 Topstep opera **futuros del CME**, no CFD, y no usa MetaTrader. El EA de MQL5 no funciona ahí. Para Topstep hay un bot en Python que usa la misma lógica que el motor de investigación (`research/kq`). En cada vela de 1 minuto vuelve a pasar la estrategia por el historial y copia la posición que la estrategia quiere en ese momento. Así lo que se opera es exactamente lo que se prueba.
 
-- Código: `research/kq/live/topstep_bot.py` y `research/kq/live/projectx.py`, con 20 pruebas contra un servidor simulado.
+- Código: `research/kq/live/topstep_bot.py` y `research/kq/live/projectx.py`, con 25 pruebas contra un servidor simulado.
 - Configuración de ejemplo (solo señales): `research/live/topstep.ejemplo.json`.
 - Configuración de ejecución H3a: `research/live/topstep.h3a_ejecucion.json`.
 
@@ -73,6 +73,22 @@ Vuelve a arrancarlo.
 - El bot se niega a ejecutar si la cuenta no está en `account_ids`, si la API no la marca como simulada o si la cuenta no puede operar.
 - **Para pararlo:** Ctrl+C. Las posiciones abiertas se quedan con su stop en el servidor de Topstep.
 
+## Panel
+
+Al arrancar, el bot abre `topstep_state\panel.html` en el navegador. Es una página local: no usa internet ni ningún servicio, y se recarga sola cada 20 segundos. Si la cierras, ábrela otra vez con doble clic.
+
+Qué muestra:
+- **Cuenta:** saldo, resultado total, resultado del día de Topstep y distancia al MLL estimado.
+- **Posición del bot:** precio medio, stop, resultado aproximado y las órdenes de protección que hay en el servidor.
+- **Horario:** próxima entrada y salida de la estrategia.
+- **Curva de saldo:** con las líneas del saldo inicial, el colchón y el MLL.
+- **Operaciones:** las ejecuciones de la cuenta según la API y su resumen (acierto, bruto, comisiones, neto).
+- **Diario del bot:** los últimos eventos.
+
+Todas las horas salen en `display_tz`, que por defecto es Aruba (UTC-4, igual que Venezuela). Si la página deja de actualizarse más de 2 minutos, avisa en rojo de que el bot parece parado.
+
+La consola también muestra cada evento, más una línea por hora («Funcionando…»).
+
 ## Configuración y riesgo
 
 | Clave | Valor por defecto | Qué hace |
@@ -86,6 +102,9 @@ Vuelve a arrancarlo.
 | `mll_buffer_usd` | 500 | Nunca se acerca al MLL a menos de esto. Si ocurre, cierra y se bloquea |
 | `entry_max_age_min` | 10 | No persigue señales viejas |
 | `strategy` / `params` | `REF_T0` / `{}` | Cualquier estrategia del motor, con sus parámetros |
+| `display_tz` | `America/Aruba` | Zona horaria de la consola y del panel |
+| `open_panel` | `true` | Abre el panel en el navegador al arrancar |
+| `trades_days` | 60 | Días de ejecuciones de la cuenta que muestra el panel |
 
 **Reglas que no se pueden desactivar:**
 - Contratos = riesgo ÷ pérdida al stop de 1 contrato, redondeado hacia abajo. **Si 1 contrato arriesga más de lo permitido, no entra.**

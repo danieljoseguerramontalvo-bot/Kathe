@@ -45,6 +45,7 @@ from ..data import MarketData, SymbolSpec
 from ..engine import BacktestConfig, run_backtest
 from ..strategies import make_strategy
 from ..timeutil import server_to_utc, utc_to_server
+from . import panel
 from .projectx import SIDE_BUY, SIDE_SELL, TYPE_LIMIT, TYPE_MARKET, TYPE_STOP, ProjectXClient, ProjectXError
 
 DEFAULTS = {
@@ -68,6 +69,9 @@ DEFAULTS = {
     "entry_max_age_min": 10,           # no persigue señales más antiguas que esto
     "poll_seconds": 15,
     "state_dir": "topstep_state",
+    "display_tz": "America/Aruba",     # hora local en pantalla y en el panel (Aruba = Venezuela = UTC-4)
+    "open_panel": True,                # abrir topstep_state/panel.html en el navegador al arrancar
+    "trades_days": 60,                 # días de ejecuciones de la cuenta que muestra el panel
 }
 FORBIDDEN_CONFIG_KEYS = {"api_key", "apikey", "apiKey", "password", "token", "secret"}
 
@@ -177,10 +181,15 @@ class TopstepBot:
         self.last_eval_bar = None
         self.execute = False
         self._heartbeat_hour = None
+        self._risk_now: tuple[bool | None, str] = (None, "")
+        self._trades: list[dict] = []
+        self._trades_at: datetime | None = None
+        self._panel_error: str | None = None
 
     # ------------------------------------------------------------------ registro
     def log(self, msg: str):
-        self.log_fn(f"[{self.now_fn():%Y-%m-%d %H:%M:%S} UTC] {msg}")
+        tz = self.cfg.get("display_tz")
+        self.log_fn(f"[{panel.fmt_local(self.now_fn(), tz, '%Y-%m-%d %H:%M:%S')} {panel.tz_label(tz)}] {msg}")
 
     def journal(self, event: str, **kw):
         path = self.dir / "diario.csv"
@@ -233,6 +242,9 @@ class TopstepBot:
                  f"{self.spec.tick_value} USD. Modo: {'EJECUCION' if self.execute else 'SOLO SENALES'}. "
                  f"Estrategia {self.cfg['strategy']} {self.cfg['params']}.")
         self.log("Recuerda: Topstep prohíbe VPS/VPN con la API; ejecuta el bot en tu PC y vigílalo.")
+        sch = panel.session_schedule(self.cfg, self.now_fn())
+        if sch:
+            self.log(f"Horario: {panel.schedule_text(sch, self.cfg.get('display_tz'))}.")
         now = self.now_fn()
         self.bars = self._load_bars(now - timedelta(days=int(self.cfg["warmup_days"])), now)
         self.log(f"Historial cargado: {len(self.bars)} velas M1 desde {self.bars.index[0] if len(self.bars) else '-'}")
@@ -488,6 +500,8 @@ class TopstepBot:
         balance = float(acct["balance"]) if acct else float(self.state.last_balance or self.cfg["initial_balance"])
         can_open, why = self._update_risk(balance)
         out["can_open"], out["why"] = can_open, why
+        self._risk_now = (can_open, why)
+        panel.append_balance(self.dir / "saldo.csv", now, balance)
         hour = pd.Timestamp(now).floor("h")
         if hour != self._heartbeat_hour:              # una línea por hora para vigilar que sigue vivo
             self._heartbeat_hour = hour
@@ -550,11 +564,93 @@ class TopstepBot:
         self.state.save(self.state_path)
         return out
 
+    # ------------------------------------------------------------------ panel
+    @property
+    def panel_path(self) -> Path:
+        return self.dir / "panel.html"
+
+    def _risk_snapshot(self) -> dict:
+        st, c = self.state, self.cfg
+        bal = st.last_balance if st.last_balance is not None else (self.account or {}).get("balance")
+        bal = float(bal) if bal is not None else None
+        floor = (float(c["mll_floor_override"]) if c["mll_floor_override"] is not None
+                 else min(float(c["initial_balance"]), float(st.max_eod_balance or c["initial_balance"]) - float(c["mll_usd"])))
+        can_open, why = self._risk_now
+        return {"balance": bal, "initial": float(c["initial_balance"]),
+                "pnl_total": None if bal is None else bal - float(c["initial_balance"]),
+                "pnl_day": None if bal is None or st.day_start_balance is None else bal - float(st.day_start_balance),
+                "day_key": st.day_key, "floor": floor, "room": None if bal is None else bal - floor,
+                "buffer": float(c["mll_buffer_usd"]), "dll": float(c["daily_loss_limit_usd"]),
+                "risk_per_trade": float(c["risk_usd_per_trade"]), "max_contracts": int(c["max_contracts"]),
+                "can_open": can_open, "why": why, "hard_lock": st.hard_lock,
+                "locked_today": st.locked_day is not None and st.locked_day == st.day_key}
+
+    def _position_snapshot(self, last_price: float | None) -> dict | None:
+        if self.execute:
+            pos = self._my_position()
+            if not pos:
+                return None
+            side = 1 if int(pos.get("type", 1)) == 1 else -1
+            size, avg = int(pos.get("size", 0)), float(pos.get("averagePrice") or 0.0)
+            unreal = None
+            if last_price is not None and avg:
+                unreal = (last_price - avg) / self.spec.tick_size * self.spec.tick_value * size * side
+            return {"side": side, "size": size, "avg": avg, "stop": self.state.position_stop,
+                    "unrealized": unreal, "orders": self._my_orders(), "mine": self.state.position_key is not None}
+        if self.state.position_key:
+            return {"side": self.state.position_side, "size": "(señal)", "avg": "–", "stop": self.state.position_stop,
+                    "unrealized": None, "orders": []}
+        return None
+
+    def panel_data(self) -> dict:
+        now = self.now_fn()
+        if self._trades_at is None or now - self._trades_at >= timedelta(minutes=5):
+            self._trades_at = now
+            try:
+                self._trades = self.client.trades(int(self.account["id"]), now - timedelta(days=int(self.cfg["trades_days"])))
+            except ProjectXError as e:
+                self.log(f"No se pudieron leer las ejecuciones de la cuenta para el panel: {e}")
+        last_price = float(self.bars["close"].iloc[-1]) if len(self.bars) else None
+        last_bar_local = "-"
+        if len(self.bars):
+            last_bar_local = panel.fmt_local(server_to_utc(pd.DatetimeIndex([self.bars.index[-1]]))[0],
+                                             self.cfg.get("display_tz"), "%d/%m %H:%M")
+        pos = self._position_snapshot(last_price)
+        alerts = []
+        if pos and self.execute and not pos.get("mine"):
+            alerts.append("Hay una posición en el contrato que no abrió el bot: el bot no opera mientras exista.")
+        return {"generated_utc": now, "tz": self.cfg.get("display_tz"),
+                "mode": "EJECUCION" if self.execute else "SENALES",
+                "account": {k: (self.account or {}).get(k) for k in ("id", "name", "simulated")},
+                "contract": (self.contract or {}).get("id"), "tick_size": self.spec.tick_size if self.spec else None,
+                "tick_value": self.spec.tick_value if self.spec else None,
+                "strategy": self.cfg["strategy"], "params": self.cfg["params"],
+                "schedule": panel.session_schedule(self.cfg, now, upcoming_only=self.state.position_key is None),
+                "risk": self._risk_snapshot(), "position": pos, "alerts": alerts,
+                "last_price": last_price, "last_bar_local": last_bar_local,
+                "journal": panel.read_journal(self.dir / "diario.csv"),
+                "balance_hist": panel.read_balance(self.dir / "saldo.csv"),
+                "trades": self._trades, "stats": panel.trade_stats(self._trades),
+                "trades_days": int(self.cfg["trades_days"])}
+
+    def write_panel(self) -> Path | None:
+        """Reescribe panel.html. Un fallo del panel nunca detiene el bot."""
+        try:
+            panel.write_atomic(self.panel_path, panel.render_panel(self.panel_data()))
+            self._panel_error = None
+            return self.panel_path
+        except Exception as e:  # noqa: BLE001 - el panel es informativo
+            if str(e) != self._panel_error:
+                self._panel_error = str(e)
+                self.log(f"No se pudo actualizar el panel: {e}")
+            return None
+
     def run(self):
         errors = 0
         while True:
             try:
                 self.step()
+                self.write_panel()
                 errors = 0
             except ProjectXError as e:
                 errors += 1
@@ -669,7 +765,14 @@ def main(argv=None) -> int:
     bot.startup()
     if a.once:
         print(json.dumps(bot.step(), default=str))
+        bot.write_panel()
         return 0
+    path = bot.write_panel()
+    if path:
+        bot.log(f"Panel: {path.resolve()} (ábrelo con doble clic; se actualiza solo)")
+        if cfg["open_panel"]:
+            import webbrowser
+            webbrowser.open(path.resolve().as_uri())
     try:
         bot.run()
     except KeyboardInterrupt:
