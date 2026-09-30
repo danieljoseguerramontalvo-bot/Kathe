@@ -111,6 +111,22 @@ Queda guardado en `telegram.txt`, que no se sube a git, y recibes un mensaje de 
 
 Si Telegram falla, el bot sigue operando igual.
 
+## Configuración actual (desde el 30-09-2026)
+
+| Archivo en tu PC | Plantilla | Qué hace | Hora de Aruba |
+|---|---|---|---|
+| `topstep.json` | `live/topstep.oro_dia_ejecucion.json` | **Ejecuta:** vende 1 MGC; stop de 3×ATR(H1) | de 6:00 a. m. a 1:00 p. m., de lunes a viernes |
+| `topstep_oro_noche.json` | `live/topstep.oro_noche_senales.json` | Solo señales: compra de oro nocturna (H3a) | de 8:00 p. m. a 4:00 a. m. |
+| `topstep_mnq.json` | `live/topstep.mnq_senales.json` | Solo señales: compra de micro Nasdaq nocturna | de 7:00 p. m. a 9:00 a. m., de lunes a jueves |
+
+Las tres se arrancan juntas:
+
+```powershell
+python -m kq.live.topstep_bot --config topstep.json --config topstep_oro_noche.json --config topstep_mnq.json
+```
+
+Ninguna de las tres está validada; la enmienda 4 del protocolo fija cómo se evalúan. Los avisos del oro de día y del de noche llevan el mismo prefijo, `[MGC]`. Se distinguen porque el de día dice «ENTRADA» y el de noche «SEÑAL».
+
 ## Varios mercados a la vez (Nasdaq en modo señales)
 
 Un solo proceso puede llevar varios mercados con una única sesión de la API. Hay que repetir `--config`:

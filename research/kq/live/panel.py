@@ -101,7 +101,9 @@ def schedule_text(sch: dict | None, tz: str | None) -> str:
     rot = _rotate(sch["days_local"])
     contiguous = len(rot) > 2 and all((b - a) % 7 == 1 for a, b in zip(rot, rot[1:]))
     dias = f"de {DAY_NAMES[rot[0]]} a {DAY_NAMES[rot[-1]]}" if contiguous else ", ".join(DAY_NAMES[i] for i in rot)
-    return f"entra a las {sch['entry_local']} y sale a las {sch['exit_local']} (hora {tz_label(tz)}), {dias}"
+    def a_las(h: str) -> str:
+        return ("a la " if h.startswith("1:") else "a las ") + h
+    return f"entra {a_las(sch['entry_local'])} y sale {a_las(sch['exit_local'])} (hora {tz_label(tz)}), {dias}"
 
 
 def _rotate(idx: list[int]) -> list[int]:

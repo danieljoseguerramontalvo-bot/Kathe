@@ -397,3 +397,23 @@ Un revisor independiente auditó `research/` contra este protocolo y contra el E
 18. **Riesgo vigilado en el criterio k.** Si en datos reales las entradas de una familia coinciden con ATR alto, la relación de stops aleatorios / reales puede salir de 0.8–1.25. Entonces k falla por invalidez del control, no por falta de ventaja.
     - Es un error en contra de la estrategia (conservador).
     - El informe lo muestra con el valor `stop_ratio` para no confundirlo con un fracaso de la estrategia.
+
+## 13. Enmienda 4 (30-09-2026, antes de ningún resultado en vivo): pruebas prospectivas en Topstep
+
+No hay datos de futuros ejecutados todavía, así que ninguna de estas hipótesis está validada. Se fijan hoy, antes de ver resultados, y lo que ocurra en vivo es **dato prospectivo**: no se usa para ajustar parámetros.
+
+| Nombre | Mercado | Regla (UTC) | Modo | Base en la literatura |
+|---|---|---|---|---|
+| H3-día | MGC | venta de 10:00 a 17:00, SL de 3×ATR14 de H1, lunes a viernes | **ejecución** en el Combine | Mitad diurna de la asimetría de Blose y Gondhalekar (2014) y Blose, Gondhalekar y Kort (2018): retorno diurno negativo en COMEX y del fixing AM al PM de Londres |
+| H3a | MGC | compra de 00:00 a 08:00, SL de 3×ATR14 de H1 | solo señales | La hipótesis confirmatoria del apartado 10 |
+| NQ-noche | MNQ | compra de 23:00 a 13:00, SL de 3×ATR14 de H1, entradas de lunes a jueves | solo señales | Deriva nocturna de los índices de EE. UU.: Cooper, Cliff y Gulen (2008); Lou, Polk y Skouras (2019); Boyarchenko, Larsen y Whelan (2023) |
+
+- **Por qué H3-día ejecuta:** el titular de la cuenta quiere operar en horario diurno (desde las 6:00 de Aruba, que son las 10:00 UTC).
+  - Es la otra mitad de la asimetría que motiva H3a. La literatura indica que **se ha debilitado con los años**.
+  - Se acepta el riesgo de ejecutarla sin validar porque la cuenta es una evaluación simulada y el titular lo pidió expresamente.
+- **Evaluación:** R y resultado neto con comisiones, operación a operación. Las de las señales se toman del mismo motor.
+- **Regla de decisión:**
+  - Con menos de 30 operaciones no se concluye nada.
+  - Con 30 o más, una hipótesis cuyo neto acumulado sea negativo se retira.
+  - Una hipótesis en modo señales solo pasa a ejecución si su neto es positivo y su media en R supera los costes con t ≥ 2.
+
