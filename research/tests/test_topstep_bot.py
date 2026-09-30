@@ -526,7 +526,7 @@ def test_telegram_messages_for_entry_exit_and_day_summary(tmp_path, market):
     # cambio de día de Topstep (17:00 de Chicago): resumen del día anterior
     clock["now"] += timedelta(hours=24)
     bot.step()
-    assert any(m.startswith("[MGC] 📊 Resumen del día") for m in tg.sent)
+    assert any(m.startswith("[CUENTA] 📊 Resumen del día") for m in tg.sent)
 
 
 def test_telegram_failure_never_breaks_the_bot(tmp_path, market):
@@ -726,3 +726,17 @@ def test_entry_message_has_levels(tmp_path, market):
     assert "Entrada ~" in entry and "Stop " in entry and "riesgo 150 USD" in entry and "Objetivo " in entry
     text = bot.write_panel().read_text(encoding="utf-8")
     assert "Compra ejecutada" in text
+
+
+
+def test_signals_mode_sends_the_signal_even_above_the_risk_cap(tmp_path, market):
+    from kq.live import notify
+    tg = FakeTelegram()
+    fake = FakeGateway(market)
+    bot, _ = _bot(tmp_path, fake, market, execute=False, risk_usd_per_trade=20.0)
+    bot.notifier = notify.TelegramNotifier("T", 1, transport=tg, background=False)
+    bot.startup()
+    bot.step()
+    sig = [m for m in tg.sent if "SEÑAL COMPRA 1" in m]
+    assert sig and "Entrada ~" in sig[0] and "Stop " in sig[0]
+    assert "solo informativo" in _journal(bot) and bot.state.position_key and fake.placed() == []

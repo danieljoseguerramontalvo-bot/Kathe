@@ -222,9 +222,9 @@ class TopstepBot:
         self._notify_event(event, kw)
 
     # ------------------------------------------------------------------ avisos (Telegram)
-    def notify(self, text: str):
+    def notify(self, text: str, prefix: str | None = None):
         if self.notifier is not None:
-            self.notifier.send(f"[{self.name}] {text}")
+            self.notifier.send(f"[{prefix or self.name}] {text}")
 
     def _hora(self, ts=None) -> str:
         return panel.fmt_local(ts or self.now_fn(), self.cfg.get("display_tz"), "%H:%M")
@@ -516,16 +516,23 @@ class TopstepBot:
             return False
         stop_px = ref_price - tgt.side * stop_ticks * self.spec.tick_size
         tp_px = ref_price + tgt.side * tp_ticks * self.spec.tick_size if tp_ticks else None
+        over_note = ""
         if n < 1:
             per = stop_ticks * self.spec.tick_value + float(self.cfg["commission_per_contract_rt"])
-            msg = (f"1 contrato arriesgaría {per:.0f} USD, más que el riesgo permitido "
-                   f"({float(self.cfg['risk_usd_per_trade']):.0f}); no se entra")
-            self.journal("SKIP", side=tgt.side, price=ref_price, stop=self._round(stop_px),
-                         tp=self._round(tp_px) if tp_px else "", detail=msg)
-            self.log(f"Señal {side_txt} descartada: {msg}.")
-            return False
+            if not self.execute:
+                # en modo señales no se arriesga nada: la señal se manda igual, con 1 contrato y el aviso
+                n = 1
+                over_note = (f"; 1 contrato arriesgaría {per:.0f} USD, más que los "
+                             f"{float(self.cfg['risk_usd_per_trade']):.0f} permitidos en la cuenta (solo informativo)")
+            else:
+                msg = (f"1 contrato arriesgaría {per:.0f} USD, más que el riesgo permitido "
+                       f"({float(self.cfg['risk_usd_per_trade']):.0f}); no se entra")
+                self.journal("SKIP", side=tgt.side, price=ref_price, stop=self._round(stop_px),
+                             tp=self._round(tp_px) if tp_px else "", detail=msg)
+                self.log(f"Señal {side_txt} descartada: {msg}.")
+                return False
         self.journal("SIGNAL", side=tgt.side, contracts=n, price=ref_price, stop=self._round(stop_px),
-                     tp=self._round(tp_px) if tp_px else "", detail=f"{stop_ticks} ticks de stop; clave {tgt.key}")
+                     tp=self._round(tp_px) if tp_px else "", detail=f"{stop_ticks} ticks de stop; clave {tgt.key}{over_note}")
         if not self.execute:
             self.state.extra["virtual_contracts"] = n
             self.log(f"SEÑAL {side_txt} {n} contrato(s) ~{ref_price} | SL {self._round(stop_px)} | "
@@ -619,8 +626,9 @@ class TopstepBot:
         self._risk_now = (can_open, why)
         panel.append_balance(self.dir / "saldo.csv", now, balance)
         if self.execute and self.daily_summary and prev_day is not None and st.day_key != prev_day and prev_pnl is not None:
-            self.notify(f"📊 Resumen del día {prev_day}: {prev_pnl:+,.2f} USD\n{self._progress_text(balance)}\n"
-                        f"Distancia al MLL: {self._risk_snapshot()['room']:,.0f} USD\n{self._next_entry_text()}".strip())
+            self.notify(f"📊 Resumen del día {prev_day} de la cuenta (todas las operaciones, también las manuales): "
+                        f"{prev_pnl:+,.2f} USD\n{self._progress_text(balance)}\n"
+                        f"Distancia al MLL estimada: {self._risk_snapshot()['room']:,.0f} USD", prefix="CUENTA")
         if st.hard_lock and st.hard_lock != prev_hard:
             self.notify(f"⛔ Bot bloqueado: {st.hard_lock}. No abrirá más operaciones hasta que lo revises.")
         elif st.locked_day and st.locked_day != prev_locked:
