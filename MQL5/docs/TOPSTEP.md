@@ -20,34 +20,36 @@ Topstep opera **futuros del CME**, no CFD, y no usa MetaTrader. El EA de MQL5 no
 
 ## Instalación (una vez)
 
-1. Descarga el repositorio: en GitHub, rama `claude/mql5-ema-crossover-advisor-awun6l` → **Code → Download ZIP**, y descomprímelo.
-2. Abre PowerShell en la carpeta `research` y ejecuta:
+1. **Descarga el código.** Con tu sesión de GitHub abierta en el navegador, abre:
+   `https://github.com/danieljoseguerramontalvo-bot/Kathe/archive/refs/heads/claude/mql5-ema-crossover-advisor-awun6l.zip`
+2. **Descomprímelo** en `C:\KatheBot`. Quedará una carpeta `C:\KatheBot\Kathe-claude-mql5-ema-crossover-advisor-awun6l`.
+3. **Abre PowerShell y ejecuta, línea a línea:**
    ```powershell
+   cd C:\KatheBot\Kathe-claude-mql5-ema-crossover-advisor-awun6l\research
    pip install -e .
    copy live\topstep.ejemplo.json topstep.json
    ```
+   - No lo ejecutes desde `C:\WINDOWS\System32`: el bot tiene que arrancar desde la carpeta `research`.
+   - Si PowerShell se queda en `>>` (una comilla sin cerrar), pulsa **Ctrl+C**.
 
-## Credenciales: nunca en archivos
+## Credenciales: nunca en archivos ni en pantalla
 
-Ponlas en variables de entorno, en cada sesión de PowerShell:
-
-```powershell
-$env:TOPSTEPX_USERNAME = "tu_usuario_de_topstep"
-$env:TOPSTEPX_API_KEY  = "tu_api_key"
-```
-
+- **El bot te pide el usuario y la API key al arrancar.** La clave no se ve mientras la escribes: pégala con **clic derecho** y pulsa **Enter**.
+- No hace falta escribirla en ningún comando.
+- **No hagas capturas de pantalla donde se vea la clave.** Si ocurre, revócala en TopstepX → Settings → API (papelera) y crea otra.
 - El bot **rechaza** una configuración que contenga claves.
-- No las pegues en el chat ni las subas a GitHub.
-- Si una clave se expone, revócala en TopstepX → Settings → API.
 
 ## Paso 1: solo señales (1–2 semanas)
 
+Desde la carpeta `research`:
+
 ```powershell
-python -m kq.live.topstep_bot --config topstep.json
+python -m kq.live.topstep_bot --config topstep.json --once
 ```
 
 - Al arrancar, el bot lista tus cuentas: id, nombre, si es simulada y si puede operar. Anota el id de tu Combine.
 - Con `"execute": false` **no envía órdenes**. Anota cada señal, con su stop, su objetivo y el tamaño, en `topstep_state\diario.csv`.
+- Para dejarlo funcionando, quita `--once`. Para pararlo, pulsa **Ctrl+C**.
 - Revisa que las señales tienen sentido y mándame el diario.
 
 ## Paso 2: ejecución en el Combine

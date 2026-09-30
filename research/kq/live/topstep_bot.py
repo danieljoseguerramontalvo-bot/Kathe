@@ -19,9 +19,7 @@ Seguridad (reglas del proyecto y de Topstep):
   Maximum Loss Limit estimado; quedan guardados en ``state.json``;
 * Topstep prohíbe usar VPS, VPN o servidores remotos con la API: ejecútalo en tu propio PC y vigílalo.
 
-Uso:
-    set TOPSTEPX_USERNAME=tu_usuario            (Windows; en Linux/macOS: export ...)
-    set TOPSTEPX_API_KEY=tu_api_key
+Uso (el bot pide el usuario y la API key al arrancar; la clave no se muestra en pantalla):
     python -m kq.live.topstep_bot --config topstep.json          (bucle)
     python -m kq.live.topstep_bot --config topstep.json --once   (un solo paso)
     python -m kq.live.topstep_bot --config topstep.json --export-bars 365 --out KQ_MGC_M1.csv
@@ -589,6 +587,31 @@ def export_bars(bot: TopstepBot, days: int, out: Path):
     print(f"{len(df)} velas -> {out} ; especificación -> {spec_path}")
 
 
+PLACEHOLDERS = {"", "tu_usuario_de_topstepx", "tu_usuario", "la_clave_nueva", "tu_api_key", "pega_aquí_la_clave_nueva",
+                "pega_aqui_la_clave_nueva"}
+
+
+def ask_credentials(env=None, input_fn=input, getpass_fn=None) -> tuple[str, str]:
+    """Usuario y API key: de las variables de entorno si tienen un valor real; si no, se piden por
+    teclado. La clave se pide sin mostrarla en pantalla (pégala con clic derecho y pulsa Enter)."""
+    import getpass
+    env = os.environ if env is None else env
+    getpass_fn = getpass_fn or getpass.getpass
+
+    def clean(v):
+        return (v or "").strip().strip('"').strip("'").strip()
+
+    user = clean(env.get("TOPSTEPX_USERNAME"))
+    key = clean(env.get("TOPSTEPX_API_KEY"))
+    if user.lower() in PLACEHOLDERS:
+        user = clean(input_fn("Usuario de TopstepX: "))
+    if key.lower() in PLACEHOLDERS:
+        key = clean(getpass_fn("API key de TopstepX (no se verá al escribir; pégala con clic derecho y pulsa Enter): "))
+    if user.lower() in PLACEHOLDERS or key.lower() in PLACEHOLDERS:
+        raise SystemExit("Falta el usuario o la API key de TopstepX.")
+    return user, key
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Bot KatheQuant para TopstepX (ProjectX API)")
     ap.add_argument("--config", required=True)
@@ -597,7 +620,8 @@ def main(argv=None) -> int:
     ap.add_argument("--out", default="KQ_MGC_M1.csv")
     a = ap.parse_args(argv)
     cfg = load_config(a.config)
-    client = ProjectXClient(base_url=cfg["base_url"])
+    user, key = ask_credentials()
+    client = ProjectXClient(username=user, api_key=key, base_url=cfg["base_url"])
     bot = TopstepBot(cfg, client)
     if a.export_bars:
         export_bars(bot, a.export_bars, Path(a.out))

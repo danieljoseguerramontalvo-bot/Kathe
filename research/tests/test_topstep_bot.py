@@ -314,3 +314,16 @@ def test_instance_lock(tmp_path):
     with pytest.raises(SystemExit):
         tb.InstanceLock(tmp_path / "bot.lock").acquire()
     lock.release()
+
+
+def test_credentials_are_prompted_and_placeholders_ignored():
+    asked = []
+    user, key = tb.ask_credentials(env={"TOPSTEPX_USERNAME": "tu_usuario_de_TopstepX", "TOPSTEPX_API_KEY": "la_clave_nueva"},
+                                   input_fn=lambda p: asked.append(p) or " cjdemo ",
+                                   getpass_fn=lambda p: asked.append(p) or '"ABC123="')
+    assert (user, key) == ("cjdemo", "ABC123=") and len(asked) == 2
+    user, key = tb.ask_credentials(env={"TOPSTEPX_USERNAME": "u1", "TOPSTEPX_API_KEY": "K1"},
+                                   input_fn=lambda p: 1 / 0, getpass_fn=lambda p: 1 / 0)
+    assert (user, key) == ("u1", "K1")
+    with pytest.raises(SystemExit):
+        tb.ask_credentials(env={}, input_fn=lambda p: "", getpass_fn=lambda p: "")
