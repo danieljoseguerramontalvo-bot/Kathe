@@ -132,8 +132,9 @@ class ProjectXClient:
         except ProjectXError as e:
             if e.code == 3:
                 raise ProjectXError("inicio de sesión rechazado (código 3): el usuario de TopstepX o la API key no son "
-                                    "correctos. Usa el nombre de usuario exacto de TopstepX (no el email ni el del panel "
-                                    "de ProjectX) y una clave copiada con el icono de copiar.", code=3) from None
+                                    "correctos. Usa el «Username» del correo de Topstep «Trading Combine credentials» "
+                                    "(a menudo es tu email; no el nombre de la cuenta ni el usuario del panel de ProjectX) "
+                                    "y una clave copiada con el icono de copiar.", code=3) from None
             raise
         self.token, self.token_time = data["token"], self.clock()
 
