@@ -6,3 +6,6 @@ build/
 dist/
 runs/
 data/
+topstep_state/
+topstep.json
+KQ_*_M1.csv
