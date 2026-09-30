@@ -2,8 +2,9 @@
 
 Topstep opera **futuros del CME**, no CFD, y no usa MetaTrader. El EA de MQL5 no funciona ahí. Para Topstep hay un bot en Python que usa la misma lógica que el motor de investigación (`research/kq`). En cada vela de 1 minuto vuelve a pasar la estrategia por el historial y copia la posición que la estrategia quiere en ese momento. Así lo que se opera es exactamente lo que se prueba.
 
-- Código: `research/kq/live/topstep_bot.py` y `research/kq/live/projectx.py`, con 16 pruebas contra un servidor simulado.
-- Configuración de ejemplo: `research/live/topstep.ejemplo.json`.
+- Código: `research/kq/live/topstep_bot.py` y `research/kq/live/projectx.py`, con 20 pruebas contra un servidor simulado.
+- Configuración de ejemplo (solo señales): `research/live/topstep.ejemplo.json`.
+- Configuración de ejecución H3a: `research/live/topstep.h3a_ejecucion.json`.
 
 ## Qué necesitas
 
@@ -63,6 +64,12 @@ En `topstep.json`:
 
 Vuelve a arrancarlo.
 
+**Configuración de ejecución H3a.** `live\topstep.h3a_ejecucion.json` trae la estrategia SESSION_DRIFT: compra a las 00:00 UTC, cierra a las 08:00 UTC, stop de 3 × ATR(H1), 1 MGC como máximo y un riesgo máximo de 350 USD.
+- Si tu descarga no trae ese archivo, abre `notepad topstep.json`, borra todo y pega su contenido.
+- Pon el id de tu cuenta en `account_ids`.
+- Guarda como UTF-8 (el bot también acepta UTF-8 con BOM).
+- H3a **no está validada**. Es la mejor hipótesis del análisis previo, no una ventaja demostrada.
+
 - El bot se niega a ejecutar si la cuenta no está en `account_ids`, si la API no la marca como simulada o si la cuenta no puede operar.
 - **Para pararlo:** Ctrl+C. Las posiciones abiertas se quedan con su stop en el servidor de Topstep.
 
@@ -105,6 +112,9 @@ Si me subes `KQ_MGC_M1.csv` y `KQ_MGC_spec.json`, puedo ejecutar el protocolo co
 
 ## Lo que no se ha probado
 
-- **El bot no se ha conectado nunca a TopstepX.** Desde este entorno no hay acceso a la API ni a tu cuenta.
-- Los nombres de los campos y los códigos salen de la documentación pública de ProjectX y de dos SDK de código abierto.
-- **Por eso el primer uso real tiene que ser en modo señales.**
+- **Comprobado:** el inicio de sesión y el listado de cuentas funcionan contra TopstepX desde el PC del usuario.
+  - El usuario de la API es el «Username» del correo de Topstep; en esta cuenta es el email.
+- **Sin comprobar todavía:** el envío de órdenes, los brackets y el cierre contra el servidor real.
+  - Los nombres de los campos y los códigos salen de la documentación pública de ProjectX y de dos SDK de código abierto.
+  - Si los brackets se rechazan, el bot reintenta la entrada sin ellos y pone su propio stop. Si no puede, cierra la posición.
+  - Revisa en TopstepX la primera operación: debe tener su stop en el lado correcto.

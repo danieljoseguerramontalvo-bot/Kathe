@@ -154,6 +154,8 @@ def test_config_rejects_credentials_and_unknown_keys(tmp_path):
         tb.load_config(p)
     p.write_text(json.dumps({"account_ids": [1], "execute": True}))
     assert tb.load_config(p)["execute"] is True
+    p.write_bytes(b"\xef\xbb\xbf" + json.dumps({"account_ids": [2]}).encode("utf-8"))   # guardado con BOM
+    assert tb.load_config(p)["account_ids"] == [2]
 
 
 def test_signal_mode_never_places_orders(tmp_path, market):

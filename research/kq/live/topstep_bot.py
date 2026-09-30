@@ -74,7 +74,7 @@ FORBIDDEN_CONFIG_KEYS = {"api_key", "apikey", "apiKey", "password", "token", "se
 
 def load_config(path) -> dict:
     cfg = dict(DEFAULTS)
-    user = json.loads(Path(path).read_text(encoding="utf-8")) if path else {}
+    user = json.loads(Path(path).read_text(encoding="utf-8-sig")) if path else {}   # -sig: el Bloc de notas puede añadir BOM
     bad = [k for k in user if k in FORBIDDEN_CONFIG_KEYS or k.lower() in FORBIDDEN_CONFIG_KEYS]
     if bad:
         raise ValueError(f"la configuración no puede contener credenciales ({bad}): usa las variables de entorno "
