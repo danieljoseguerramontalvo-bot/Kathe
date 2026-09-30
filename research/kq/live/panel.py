@@ -293,6 +293,36 @@ footer{color:var(--muted);font-size:12px;margin-top:8px}
 """
 
 
+SIGNAL_EVENTS = {"SIGNAL", "FILL", "EXIT", "SKIP"}
+
+
+def last_signal(journal: list[dict]) -> dict | None:
+    """La señal más reciente del diario (ya viene del más nuevo al más viejo): entrada, señal, salida o
+    señal descartada con sus niveles. Se ignoran los descartes sin precio (p. ej. «no se persigue»)."""
+    for row in journal or []:
+        ev = row.get("event")
+        if ev in SIGNAL_EVENTS and (ev != "SKIP" or row.get("price")):
+            return row
+    return None
+
+
+def signal_summary(row: dict | None, tz: str | None) -> tuple[str, str]:
+    if not row:
+        return "Ninguna todavía", ""
+    ev = row.get("event")
+    state = {"SIGNAL": "señal", "FILL": "ejecutada", "EXIT": "cerrada", "SKIP": "descartada"}.get(ev, ev)
+    value = f"{_side(row.get('side'))} {state}" if row.get("side") else state.capitalize()
+    parts = [fmt_local(row.get("time_utc"), tz, "%d/%m %H:%M")]
+    if row.get("price"):
+        parts.append(f"entrada ~{row['price']}")
+    if row.get("stop"):
+        parts.append(f"stop {row['stop']}")
+    parts.append(f"objetivo {row['tp']}" if row.get("tp") else "sin objetivo fijo")
+    if ev in ("SKIP", "EXIT") and row.get("detail"):
+        parts.append(str(row["detail"]))
+    return value, " · ".join(_e(x) for x in parts)
+
+
 def render_panel(d: dict) -> str:
     tz = d.get("tz")
     lab = tz_label(tz)
@@ -317,7 +347,9 @@ def render_panel(d: dict) -> str:
         return (f'<div class="card kpi"><div class="l">{_e(label)}</div><div class="v {cls}">{value}</div>'
                 f'<div class="s">{sub}</div></div>')
 
-    if pos:
+    if pos and pos.get("mine") is False:
+        pos_v, pos_s = "De otro turno", "hay una posición en el contrato que abrió otro turno"
+    elif pos:
         pos_v = f'{_side(pos.get("side"))} {pos.get("size", "")}'
         pos_s = f'a {_e(pos.get("avg"))} · stop {_e(pos.get("stop"))}'
         if pos.get("unrealized") is not None:
@@ -341,6 +373,7 @@ def render_panel(d: dict) -> str:
             "neg" if r.get("room") is not None and r.get("buffer") is not None and r["room"] < 2 * r["buffer"] else ""),
         kpi("Posición del bot", _e(pos_v), pos_s),
         kpi(nxt_label, nxt_v, nxt_s),
+        kpi("Última señal", *[_e(x) if i == 0 else x for i, x in enumerate(signal_summary(last_signal(d.get("journal")), tz))]),
     ])
 
     orders_html = ""
@@ -439,7 +472,7 @@ def render_panel(d: dict) -> str:
 <body><main>
 <div id="stale" class="banner bad" hidden></div>
 {banner_html}
-<header><div><h1>KatheBot · Topstep {mode_badge}</h1>
+<header><div><h1>KatheBot · {_e(d.get("name") or "Topstep")} {mode_badge}</h1>
 <div class="sub">Actualizado {_e(fmt_local(gen, tz, "%d/%m/%Y %H:%M:%S"))} (hora {_e(lab)}) · se recarga cada {REFRESH_SECONDS} s</div></div>
 <div class="sub">Cuenta {_e(acct.get("id"))} · {_e(d.get("contract"))}</div></header>
 <section class="grid-cards">{cards}</section>
@@ -457,3 +490,99 @@ if(Date.now()-gen>{STALE_SECONDS * 1000}){{b.hidden=false;b.textContent='El pane
 </script>
 </body></html>
 """
+
+
+def render_overview(items: list[dict]) -> str:
+    """Página única con todos los turnos: cuenta, cada turno (posición, última señal, próxima entrada) y los
+    últimos eventos de todos juntos. Enlaza al panel detallado de cada turno."""
+    if not items:
+        return "<!doctype html><title>Panel KatheBot</title><p>Sin datos todavía.</p>"
+    tz = items[0].get("tz")
+    gen = max(pd.Timestamp(i["generated_utc"]) for i in items)
+    gen_ms = int(to_local(gen, "UTC").value // 1_000_000)
+    main = next((i for i in items if i.get("mode") == "EJECUCION"), items[0])
+    r = main.get("risk") or {}
+
+    def kpi(label, value, sub="", cls=""):
+        return (f'<div class="card kpi"><div class="l">{_e(label)}</div><div class="v {cls}">{value}</div>'
+                f'<div class="s">{sub}</div></div>')
+
+    tot = r.get("pnl_total")
+    target = r.get("target")
+    acct_cards = "".join([
+        kpi("Saldo", _usd(r.get("balance")), f'cuenta {_e((main.get("account") or {}).get("id"))}'),
+        kpi("Resultado total", _usd(tot, True),
+            (f"objetivo +{_n0(target)} · faltan {_n0(max(0.0, float(target) - (tot or 0.0)))}" if target else ""), _cls(tot)),
+        kpi("Resultado del día", _usd(r.get("pnl_day"), True), f'límite del bot −{_usd(r.get("dll"))}', _cls(r.get("pnl_day"))),
+        kpi("Distancia al MLL", _usd(r.get("room")), f'MLL estimado {_usd(r.get("floor"))}',
+            "neg" if r.get("room") is not None and r.get("buffer") and r["room"] < 2 * r["buffer"] else ""),
+    ])
+    turns = []
+    events = []
+    for it in items:
+        execute = it.get("mode") == "EJECUCION"
+        badge = '<span class="badge exec">EJECUCIÓN</span>' if execute else '<span class="badge sig">SOLO SEÑALES</span>'
+        pos = it.get("position")
+        if pos and pos.get("mine") is False:
+            pos_txt = "Ninguna propia (la posición abierta en el contrato es de otro turno)"
+        elif pos:
+            pos_txt = f'{_side(pos.get("side"))} {_e(pos.get("size"))} a {_e(pos.get("avg"))} · stop {_e(pos.get("stop"))}'
+            if pos.get("unrealized") is not None:
+                pos_txt += f' · <span class="{_cls(pos["unrealized"])}">{_usd(pos["unrealized"], True)} USD aprox.</span>'
+        else:
+            pos_txt = "Sin posición"
+        sig_v, sig_s = signal_summary(last_signal(it.get("journal")), tz)
+        sch = it.get("schedule")
+        if sch:
+            nxt = (f"cierre previsto {_e(fmt_day(sch['end'], tz))}" if sch["active"] else
+                   f"próxima entrada {_e(fmt_day(sch['start'], tz))}")
+            horario = _e(schedule_text(sch, tz))
+        else:
+            nxt, horario = "según la estrategia", ""
+        rr = it.get("risk") or {}
+        can = {True: "puede abrir", False: f"no abre: {rr.get('why')}", None: "pendiente del primer ciclo"}.get(rr.get("can_open"))
+        href = it.get("panel_href") or "#"
+        turns.append(
+            f'<div class="card"><h2>{_e(it.get("name"))} {badge}</h2><dl>'
+            f'<dt>Horario</dt><dd>{horario}</dd><dt>Ahora</dt><dd>{nxt} · {_e(can)}</dd>'
+            f'<dt>Posición</dt><dd>{pos_txt}</dd><dt>Última señal</dt><dd><b>{_e(sig_v)}</b><br>'
+            f'<span class="muted">{sig_s}</span></dd></dl>'
+            f'<p style="margin:10px 0 0"><a href="{_e(href)}">Ver el panel completo de {_e(it.get("name"))} →</a></p></div>')
+        for row in it.get("journal") or []:
+            if row.get("event") in SIGNAL_EVENTS | {"ERROR", "STOP_PROPIO"} and not (
+                    row.get("event") == "SKIP" and not row.get("price")):
+                events.append((str(row.get("time_utc", "")), it.get("name"), row))
+    events.sort(key=lambda x: x[0], reverse=True)
+    ev_rows = []
+    for _, name, row in events[:40]:
+        label, cls = EVENT_LABELS.get(row.get("event", ""), (row.get("event", ""), "info"))
+        ev_rows.append(f'<tr><td>{_e(fmt_local(row.get("time_utc"), tz, "%d/%m %H:%M"))}</td><td>{_e(name)}</td>'
+                       f'<td><span class="tag {cls}">{_e(label)}</span></td>'
+                       f'<td>{_side(row.get("side")) if row.get("side") else ""}</td><td>{_e(row.get("price"))}</td>'
+                       f'<td>{_e(row.get("stop"))}</td><td>{_e(row.get("tp")) or "–"}</td><td>{_e(row.get("detail"))}</td></tr>')
+    ev_html = ("".join(ev_rows) or '<tr><td colspan=8 class="muted">Sin señales todavía.</td></tr>')
+    return f"""<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="refresh" content="{REFRESH_SECONDS}">
+<title>Panel general KatheBot</title><style>{CSS}
+.turns{{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px;margin-bottom:12px}}
+a{{color:var(--info)}}</style></head>
+<body><main>
+<div id="stale" class="banner bad" hidden></div>
+<header><div><h1>KatheBot · panel general</h1>
+<div class="sub">Actualizado {_e(fmt_local(gen, tz, "%d/%m/%Y %H:%M:%S"))} (hora {_e(tz_label(tz))}) · se recarga cada {REFRESH_SECONDS} s</div></div></header>
+<section class="grid-cards">{acct_cards}</section>
+<section class="turns">{"".join(turns)}</section>
+<div class="card section"><h2>Señales y operaciones de todos los turnos</h2><div class="tbl"><table>
+<tr><th>Hora</th><th>Turno</th><th>Evento</th><th>Lado</th><th>Entrada</th><th>Stop</th><th>Objetivo</th><th>Detalle</th></tr>
+{ev_html}</table></div></div>
+<footer>Panel local generado por el bot en tu PC; no se envía a ningún sitio.</footer>
+</main>
+<script>
+(function(){{var gen={gen_ms};function chk(){{var m=Math.round((Date.now()-gen)/60000);var b=document.getElementById('stale');
+if(Date.now()-gen>{STALE_SECONDS * 1000}){{b.hidden=false;b.textContent='El panel no se actualiza desde hace '+m+
+' min: ¿el bot está parado o el PC se suspendió?';}}}}chk();setInterval(chk,5000);}})();
+</script>
+</body></html>
+"""
+

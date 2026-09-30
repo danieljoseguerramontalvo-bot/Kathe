@@ -17,7 +17,7 @@
     "h_in": 0,
     "h_out": 8,
     "side": 1,
-    "sl_atr": 3.0,
+    "sl_atr": 2.0,
     "atr_period": 14
   },
   "state_dir": "topstep_state_noche",

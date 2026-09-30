@@ -420,4 +420,8 @@ No hay datos de futuros ejecutados todavía, así que ninguna de estas hipótesi
   - Con menos de 30 operaciones no se concluye nada.
   - Con 30 o más, una hipótesis cuyo neto acumulado sea negativo se retira.
   - Una hipótesis en modo señales solo pasa a ejecución si su neto es positivo y su media en R supera los costes con t ≥ 2.
+- **Cambio del 30-09-2026, 6:30 a. m. de Aruba, antes de cualquier operación ejecutada:** la primera señal de H3-día se descartó porque 1 MGC con SL de 3×ATR superaba los 350 USD de riesgo.
+  - Para no subir el riesgo en dólares (regla del proyecto), los dos turnos de oro pasan a **SL de 2×ATR14 de H1**. Es la variante vecina ya preregistrada para H3a en la enmienda 2 (punto 7, criterio i: «del SL (2 o 4 ATR)»).
+  - Se aplica también a H3-día por simetría.
+  - No se ha visto ningún resultado: la señal descartada no aporta información sobre el retorno.
 

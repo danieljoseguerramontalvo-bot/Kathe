@@ -73,6 +73,17 @@ Vuelve a arrancarlo.
 - El bot se niega a ejecutar si la cuenta no está en `account_ids`, si la API no la marca como simulada o si la cuenta no puede operar.
 - **Para pararlo:** Ctrl+C. Las posiciones abiertas se quedan con su stop en el servidor de Topstep.
 
+## Panel general
+
+Al arrancar se abre **`panel_general.html`**, en la carpeta `research`. Es una sola página con:
+- la cuenta: saldo, resultado total y del día, objetivo y distancia al MLL;
+- cada turno: horario, próxima entrada o cierre, posición y última señal (entrada, stop y objetivo, o por qué se descartó);
+- una tabla con las señales y operaciones de todos los turnos.
+
+Cada turno enlaza a su panel detallado.
+
+Los avisos de Telegram de cada señal llevan siempre la entrada, el stop (con el riesgo en USD), el objetivo o «sin objetivo fijo» y la hora de cierre prevista, **también cuando la señal se descarta**. En ese caso se añade el motivo.
+
 ## Panel
 
 Al arrancar, el bot abre `topstep_state\panel.html` en el navegador. Es una página local: no usa internet ni ningún servicio, y se recarga sola cada 20 segundos. Si la cierras, ábrela otra vez con doble clic.
@@ -115,8 +126,8 @@ Si Telegram falla, el bot sigue operando igual.
 
 | Archivo en tu PC | Plantilla | Qué hace | Hora de Aruba |
 |---|---|---|---|
-| `topstep.json` | `live/topstep.oro_dia_ejecucion.json` | **ORO DIA, ejecuta:** vende 1 MGC; stop de 3×ATR(H1) | de 6:00 a. m. a 1:00 p. m., de lunes a viernes |
-| `topstep_oro_noche.json` | `live/topstep.h3a_ejecucion.json` | **ORO NOCHE, ejecuta:** compra 1 MGC (H3a); stop de 3×ATR(H1) | de 8:00 p. m. a 4:00 a. m., de domingo a jueves |
+| `topstep.json` | `live/topstep.oro_dia_ejecucion.json` | **ORO DIA, ejecuta:** vende 1 MGC; stop de 2×ATR(H1) | de 6:00 a. m. a 1:00 p. m., de lunes a viernes |
+| `topstep_oro_noche.json` | `live/topstep.h3a_ejecucion.json` | **ORO NOCHE, ejecuta:** compra 1 MGC (H3a); stop de 2×ATR(H1) | de 8:00 p. m. a 4:00 a. m., de domingo a jueves |
 | `topstep_mnq.json` | `live/topstep.mnq_senales.json` | **NASDAQ, solo señales:** compra de micro Nasdaq nocturna | de 7:00 p. m. a 9:00 a. m., de lunes a jueves |
 
 ```powershell

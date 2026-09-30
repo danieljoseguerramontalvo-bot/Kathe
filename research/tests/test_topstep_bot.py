@@ -572,7 +572,9 @@ def test_several_markets_share_one_session_and_only_one_executes(tmp_path, marke
     gold.notifier = other.notifier = n
     gold.startup()
     other.startup()
-    tb.run_many([gold, other], sleep=lambda s: None, rounds=1)
+    tb.run_many([gold, other], sleep=lambda s: None, rounds=1, overview=tmp_path / "general.html")
+    general = (tmp_path / "general.html").read_text(encoding="utf-8")
+    assert "panel general" in general and general.count("Ver el panel completo") == 2
     assert len(fake.placed(order_type=2)) == 1                     # solo ordena el que ejecuta
     assert (gold.dir / "panel.html").exists() and (other.dir / "panel.html").exists()
     assert all(m.startswith("[MGC] ") for m in tg.sent)
@@ -693,3 +695,34 @@ def test_autoinicio_installs_launcher_credentials_and_startup_entry(tmp_path):
     assert ["powercfg", "/change", "standby-timeout-ac", "0"] in ran
     autoinicio.remove(startup)
     assert not (startup / "KatheBot.cmd").exists()
+
+
+
+def test_skipped_signal_still_reports_entry_stop_and_reason(tmp_path, market):
+    from kq.live import notify
+    tg = FakeTelegram()
+    fake = FakeGateway(market)
+    bot, _ = _bot(tmp_path, fake, market, risk_usd_per_trade=20.0)
+    bot.notifier = notify.TelegramNotifier("T", 1, transport=tg, background=False)
+    bot.startup()
+    bot.step()
+    assert fake.placed() == []
+    msg = [m for m in tg.sent if "NO SE OPERA" in m]
+    assert msg and "Entrada ~" in msg[0] and "Stop " in msg[0] and "riesgo 5" in msg[0]
+    assert "Motivo: 1 contrato arriesgaría" in msg[0]
+    text = bot.write_panel().read_text(encoding="utf-8")
+    assert "Última señal" in text and "Compra descartada" in text and "stop " in text
+
+
+def test_entry_message_has_levels(tmp_path, market):
+    from kq.live import notify
+    tg = FakeTelegram()
+    fake = FakeGateway(market)
+    bot, _ = _bot(tmp_path, fake, market)
+    bot.notifier = notify.TelegramNotifier("T", 1, transport=tg, background=False)
+    bot.startup()
+    bot.step()
+    entry = [m for m in tg.sent if "ENTRADA COMPRA 3" in m][0]
+    assert "Entrada ~" in entry and "Stop " in entry and "riesgo 150 USD" in entry and "Objetivo " in entry
+    text = bot.write_panel().read_text(encoding="utf-8")
+    assert "Compra ejecutada" in text

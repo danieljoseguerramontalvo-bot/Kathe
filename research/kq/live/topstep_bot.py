@@ -188,6 +188,7 @@ class TopstepBot:
         self._heartbeat_hour = None
         self._bt_trades = None
         self._foreign_pos = None
+        self._last_panel: dict | None = None
         self.daily_summary = True              # con varios turnos en ejecución, solo uno manda el resumen diario
         self._risk_now: tuple[bool | None, str] = (None, "")
         self._trades: list[dict] = []
@@ -238,21 +239,46 @@ class TopstepBot:
         sch = panel.session_schedule(self.cfg, self.now_fn(), upcoming_only=True)
         return f"Próxima entrada: {panel.fmt_day(sch['start'], self.cfg.get('display_tz'))}" if sch else ""
 
+    def _planned_exit_text(self) -> str:
+        sch = panel.session_schedule(self.cfg, self.now_fn())
+        if sch and sch["active"]:
+            return f"cierre previsto {panel.clock(panel.to_local(sch['end'], self.cfg.get('display_tz')))}"
+        return ""
+
+    def _levels_text(self, kw: dict) -> str:
+        """«Entrada ~X · Stop Y (riesgo Z USD) · Objetivo W / sin objetivo fijo · cierre previsto HH»."""
+        parts = [f"Entrada ~{kw.get('price')}"]
+        try:
+            n = int(kw.get("contracts") or 1)
+            risk = abs(float(kw["price"]) - float(kw["stop"])) / self.spec.tick_size * self.spec.tick_value * n
+            parts.append(f"Stop {kw.get('stop')} (riesgo {risk:,.0f} USD)")
+        except (KeyError, TypeError, ValueError, AttributeError):
+            parts.append(f"Stop {kw.get('stop')}")
+        parts.append(f"Objetivo {kw['tp']}" if kw.get("tp") not in (None, "") else "Sin objetivo fijo")
+        exit_txt = self._planned_exit_text()
+        if exit_txt:
+            parts.append(exit_txt)
+        return " · ".join(parts)
+
     def _notify_event(self, event: str, kw: dict):
         if self.notifier is None:
             return
         side = {1: "COMPRA", -1: "VENTA"}.get(int(kw["side"]) if str(kw.get("side", "")).lstrip("-").isdigit() else 0, "")
         detail = str(kw.get("detail", ""))
         if event == "FILL":
-            self.notify(f"🟢 ENTRADA {side} {kw.get('contracts')} {self.cfg['symbol_search']} a {kw.get('price')} "
-                        f"({self._hora()})\nStop {kw.get('stop')} · objetivo {kw.get('tp') or '–'}")
+            self.notify(f"🟢 ENTRADA {side} {kw.get('contracts')} {self.cfg['symbol_search']} ({self._hora()})\n"
+                        f"{self._levels_text(kw)}")
         elif event == "SIGNAL" and not self.execute:
-            self.notify(f"📣 SEÑAL {side} {kw.get('contracts')} a ~{kw.get('price')} ({self._hora()})\n"
-                        f"Stop {kw.get('stop')} · objetivo {kw.get('tp') or '–'} (solo señales: no se envía la orden)")
+            self.notify(f"📣 SEÑAL {side} {kw.get('contracts')} {self.cfg['symbol_search']} ({self._hora()}) — solo "
+                        f"señal, no se envía la orden\n{self._levels_text(kw)}")
         elif event == "EXIT" and not self.execute:
             self.notify(f"⚪ SALIDA de la señal ({self._hora()}): {detail}")
         elif event == "SKIP" and "no se persigue" not in detail:
-            self.notify(f"⏭️ Hoy no se opera ({self._hora()}): {detail}")
+            if kw.get("price") not in (None, ""):
+                self.notify(f"⏭️ SEÑAL {side} {self.cfg['symbol_search']} ({self._hora()}) — NO SE OPERA\n"
+                            f"{self._levels_text(kw)}\nMotivo: {detail}")
+            else:
+                self.notify(f"⏭️ Hoy no se opera ({self._hora()}): {detail}")
         elif event == "STOP_PROPIO":
             self.notify(f"🛡️ El bracket no dejó un stop válido: el bot puso su propio stop en {kw.get('stop')}.")
         elif event == "ERROR":
@@ -488,15 +514,16 @@ class TopstepBot:
         if stop_ticks <= 0:
             self.journal("SKIP", side=tgt.side, detail="distancia de stop nula")
             return False
+        stop_px = ref_price - tgt.side * stop_ticks * self.spec.tick_size
+        tp_px = ref_price + tgt.side * tp_ticks * self.spec.tick_size if tp_ticks else None
         if n < 1:
             per = stop_ticks * self.spec.tick_value + float(self.cfg["commission_per_contract_rt"])
             msg = (f"1 contrato arriesgaría {per:.0f} USD, más que el riesgo permitido "
                    f"({float(self.cfg['risk_usd_per_trade']):.0f}); no se entra")
-            self.journal("SKIP", side=tgt.side, detail=msg)
+            self.journal("SKIP", side=tgt.side, price=ref_price, stop=self._round(stop_px),
+                         tp=self._round(tp_px) if tp_px else "", detail=msg)
             self.log(f"Señal {side_txt} descartada: {msg}.")
             return False
-        stop_px = ref_price - tgt.side * stop_ticks * self.spec.tick_size
-        tp_px = ref_price + tgt.side * tp_ticks * self.spec.tick_size if tp_ticks else None
         self.journal("SIGNAL", side=tgt.side, contracts=n, price=ref_price, stop=self._round(stop_px),
                      tp=self._round(tp_px) if tp_px else "", detail=f"{stop_ticks} ticks de stop; clave {tgt.key}")
         if not self.execute:
@@ -658,7 +685,10 @@ class TopstepBot:
                 self.journal("SKIP", side=tgt.side, detail=f"señal de hace {age}; no se persigue")
             elif not can_open:
                 self.state.last_entry_key = tgt.key
-                self.journal("SKIP", side=tgt.side, detail=why)
+                dist = abs(tgt.entry_price - tgt.stop)
+                self.journal("SKIP", side=tgt.side, price=ref_price, stop=self._round(ref_price - tgt.side * dist),
+                             tp=self._round(ref_price + tgt.side * abs(tgt.tp - tgt.entry_price)) if tgt.tp else "",
+                             detail=why)
                 self.log(f"Señal descartada: {why}")
             elif self._enter(tgt, ref_price) and not self.execute:
                 # en modo señales se sigue una posición virtual para registrar el trailing y la salida
@@ -729,7 +759,9 @@ class TopstepBot:
         if pos and self.execute and not pos.get("mine"):
             alerts.append("Hay una posición en este contrato que no abrió este turno (otro turno o a mano): "
                           "este turno no opera mientras exista.")
-        return {"generated_utc": now, "tz": self.cfg.get("display_tz"),
+        panel_file = self.dir / "panel.html"
+        href = panel_file.as_posix() if not panel_file.is_absolute() else panel_file.resolve().as_uri()
+        return {"generated_utc": now, "tz": self.cfg.get("display_tz"), "name": self.name, "panel_href": href,
                 "mode": "EJECUCION" if self.execute else "SENALES",
                 "account": {k: (self.account or {}).get(k) for k in ("id", "name", "simulated")},
                 "contract": (self.contract or {}).get("id"), "tick_size": self.spec.tick_size if self.spec else None,
@@ -746,7 +778,8 @@ class TopstepBot:
     def write_panel(self) -> Path | None:
         """Reescribe panel.html. Un fallo del panel nunca detiene el bot."""
         try:
-            panel.write_atomic(self.panel_path, panel.render_panel(self.panel_data()))
+            self._last_panel = self.panel_data()
+            panel.write_atomic(self.panel_path, panel.render_panel(self._last_panel))
             self._panel_error = None
             return self.panel_path
         except Exception as e:  # noqa: BLE001 - el panel es informativo
@@ -759,7 +792,8 @@ class TopstepBot:
         run_many([self], sleep=self.sleep)
 
 
-def run_many(bots: list[TopstepBot], sleep=time.sleep, rounds: int | None = None):
+def run_many(bots: list[TopstepBot], sleep=time.sleep, rounds: int | None = None,
+             overview: str | Path | None = None):
     """Bucle de varios mercados con una sola sesión de la API: cada ronda da un paso a cada bot y
     actualiza su panel. Un error de un mercado no para a los demás."""
     from .notify import Heartbeat
@@ -777,6 +811,7 @@ def run_many(bots: list[TopstepBot], sleep=time.sleep, rounds: int | None = None
                 failed = True
                 b.log(f"Error de la API ({errors + 1}): {e}")
                 b.journal("ERROR", detail=str(e))
+        write_overview(bots, overview or OVERVIEW_FILE)
         for hb in beats:
             hb.beat()
         errors = errors + 1 if failed else 0
@@ -793,6 +828,23 @@ def session_hours(cfg: dict) -> set[int] | None:
     p = cfg.get("params") or {}
     h_in, h_out = int(p.get("h_in", 0)), int(p.get("h_out", 8))
     return {(h_in + k) % 24 for k in range((h_out - h_in) % 24 + 1)}
+
+
+OVERVIEW_FILE = "panel_general.html"
+
+
+def write_overview(bots: list[TopstepBot], path: str | Path = OVERVIEW_FILE) -> Path | None:
+    """Página única con todos los turnos (en la carpeta desde la que se arranca el bot)."""
+    try:
+        items = [b._last_panel for b in bots if b._last_panel]
+        if not items:
+            return None
+        panel.write_atomic(Path(path), panel.render_overview(items))
+        return Path(path)
+    except Exception as e:  # noqa: BLE001 - el panel es informativo
+        if bots:
+            bots[0].log(f"No se pudo actualizar el panel general: {e}")
+        return None
 
 
 def check_configs(cfgs: list[dict]) -> None:
@@ -962,10 +1014,13 @@ def run_bots(cfgs: list[dict], client: ProjectXClient, notifier=None, once: bool
     for b in started:
         path = b.write_panel()
         if path:
-            b.log(f"Panel: {path.resolve()} (ábrelo con doble clic; se actualiza solo)")
-            if open_panels and b.cfg["open_panel"]:
-                import webbrowser
-                webbrowser.open(path.resolve().as_uri())
+            b.log(f"Panel del turno: {path.resolve()}")
+    general = write_overview(started)
+    if general:
+        print(f"PANEL GENERAL (todos los turnos): {general.resolve()}  (ábrelo con doble clic; se actualiza solo)")
+        if open_panels and any(b.cfg["open_panel"] for b in started):
+            import webbrowser
+            webbrowser.open(general.resolve().as_uri())
     run_many(started)
     return 0
 
