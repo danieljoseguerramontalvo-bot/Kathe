@@ -408,7 +408,8 @@ def test_panel_shows_account_position_orders_and_local_times(tmp_path, market):
     assert "EJECUCIÓN" in text and "Compra 3" in text
     assert "Órdenes en el servidor de Topstep" in text and "Stop" in text
     assert "hora Aruba" in text and "Entrada ejecutada" in text
-    assert "22/09 20:01:05" in text                                # 00:01 UTC = 20:01 del día anterior en Aruba
+    assert "22/09 8:01:05 p. m." in text                           # 00:01 UTC = 8:01 p. m. del día anterior en Aruba
+    assert "Objetivo del Combine" in text
     assert "+50.00" in text and "Operaciones cerradas</dt><dd>1 " in text
     assert (bot.dir / "saldo.csv").exists()
 
@@ -435,7 +436,7 @@ def test_session_schedule_in_aruba_time():
     assert cur["active"] and cur["start"] == pd.Timestamp("2026-09-30 00:00", tz="UTC")
     assert not nxt["active"] and nxt["start"] == pd.Timestamp("2026-10-01 00:00", tz="UTC")
     assert panel.schedule_text(nxt, cfg["display_tz"]) == \
-        "entra a las 20:00 y sale a las 04:00 (hora Aruba), de domingo a jueves"
+        "entra a las 8:00 p. m. y sale a las 4:00 a. m. (hora Aruba), de domingo a jueves"
     fri = panel.session_schedule(cfg, pd.Timestamp("2026-10-02 09:00", tz="UTC"))
     assert fri["start"] == pd.Timestamp("2026-10-05 00:00", tz="UTC")   # sin entradas en fin de semana UTC
     assert panel.session_schedule({"strategy": "REF_T0", "params": {}}, now) is None
@@ -453,3 +454,84 @@ def test_trade_stats_and_balance_log(tmp_path):
     assert panel.append_balance(p, t0 + pd.Timedelta(minutes=6), 50012.5)
     assert panel.append_balance(p, t0 + pd.Timedelta(minutes=40), 50012.5)
     assert [b for _, b in panel.read_balance(p)] == [50000.0, 50012.5, 50012.5]
+
+
+class FakeTelegram:
+    """api.telegram.org mínimo: getMe, getUpdates y sendMessage."""
+
+    def __init__(self, chat_id=555, has_update=True):
+        self.sent, self.chat_id, self.has_update = [], chat_id, has_update
+
+    def __call__(self, method, url, headers, body, timeout):
+        d = json.loads(body or b"{}")
+        m = url.rsplit("/", 1)[1]
+        if "/botBAD/" in url:
+            return 401, json.dumps({"ok": False, "description": "Unauthorized"}).encode()
+        if m == "getMe":
+            return 200, json.dumps({"ok": True, "result": {"username": "kathe_test_bot"}}).encode()
+        if m == "getUpdates":
+            res = [{"update_id": 1, "message": {"chat": {"id": self.chat_id}, "text": "/start"}}] if self.has_update else []
+            return 200, json.dumps({"ok": True, "result": res}).encode()
+        if m == "sendMessage":
+            self.sent.append(d["text"])
+            return 200, json.dumps({"ok": True, "result": {}}).encode()
+        return 404, b"{}"
+
+
+def test_telegram_setup_saves_chat_and_sends_test(tmp_path):
+    from kq.live import notify
+    tg = FakeTelegram()
+    path = tmp_path / "telegram.txt"
+    assert notify.setup(input_fn=lambda *_: "", getpass_fn=lambda *_: "TOKEN123", transport=tg, path=path) == 0
+    assert path.read_text(encoding="utf-8").split() == ["TOKEN123", "555"]
+    assert tg.sent and "conectado" in tg.sent[0]
+    n = notify.load_notifier(path, env={}, transport=tg, background=False)
+    assert n is not None and "TOKEN" not in repr(n)
+    assert notify.setup(input_fn=lambda *_: "", getpass_fn=lambda *_: "BAD", transport=tg, path=tmp_path / "x.txt") == 1
+    assert notify.load_notifier(tmp_path / "no.txt", env={}) is None
+
+
+def test_telegram_messages_for_entry_exit_and_day_summary(tmp_path, market):
+    from kq.live import notify
+    tg = FakeTelegram()
+    fake = FakeGateway(market)
+    bot, clock = _bot(tmp_path, fake, market)
+    bot.notifier = notify.TelegramNotifier("T", 555, transport=tg, background=False)
+    bot.startup()
+    assert "KatheBot arrancado en EJECUCIÓN" in tg.sent[0]
+    bot.step()
+    entry = [m for m in tg.sent if m.startswith("🟢 ENTRADA COMPRA 3")]
+    assert entry and ("p. m." in entry[0] or "a. m." in entry[0])
+    # el stop salta en el servidor: el bot lo detecta y, cuando el saldo ya lo refleja, avisa del resultado
+    fake.positions.clear()
+    fake.orders.clear()
+    fake.account["balance"] = 49848.0
+    fake.visible += 1
+    clock["now"] += timedelta(minutes=1)
+    bot.step()
+    assert not any(m.startswith("🔴 SALIDA") for m in tg.sent)          # todavía no: espera a que el saldo cuadre
+    clock["now"] += timedelta(minutes=1)
+    fake.visible += 1
+    bot.step()
+    out = [m for m in tg.sent if m.startswith("🔴 SALIDA")]
+    assert out and "-152.00 USD" in out[0] and "faltan 3,152" in out[0]
+    # cambio de día de Topstep (17:00 de Chicago): resumen del día anterior
+    clock["now"] += timedelta(hours=24)
+    bot.step()
+    assert any(m.startswith("📊 Resumen del día") for m in tg.sent)
+
+
+def test_telegram_failure_never_breaks_the_bot(tmp_path, market):
+    from kq.live import notify
+
+    def down(*a, **k):
+        raise OSError("sin red")
+
+    logs = []
+    fake = FakeGateway(market)
+    bot, _ = _bot(tmp_path, fake, market)
+    bot.notifier = notify.TelegramNotifier("T", 1, transport=down, background=False, log=logs.append)
+    bot.startup()
+    bot.step()
+    assert len(fake.placed(order_type=2)) == 1
+    assert any("Telegram" in l for l in logs)

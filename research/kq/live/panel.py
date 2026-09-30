@@ -43,17 +43,26 @@ def to_local(ts, tz: str | None) -> pd.Timestamp:
     return t.tz_convert(tz or "UTC")
 
 
+def clock(t: pd.Timestamp, seconds: bool = False) -> str:
+    """Hora de 12 horas: «8:05 p. m.», «12:00 a. m.»."""
+    h = t.hour % 12 or 12
+    return f"{h}:{t.minute:02d}" + (f":{t.second:02d}" if seconds else "") + (" a. m." if t.hour < 12 else " p. m.")
+
+
 def fmt_local(ts, tz: str | None, fmt: str = "%d/%m %H:%M") -> str:
+    """strftime en la zona local; «%H:%M» y «%H:%M:%S» salen en formato de 12 horas."""
     try:
-        return to_local(ts, tz).strftime(fmt)
+        t = to_local(ts, tz)
     except (ValueError, TypeError):
         return str(ts)
+    out = t.strftime(fmt.replace("%H:%M:%S", "{CLK_S}").replace("%H:%M", "{CLK}"))
+    return out.replace("{CLK_S}", clock(t, True)).replace("{CLK}", clock(t))
 
 
 def fmt_day(ts, tz: str | None) -> str:
-    """«miércoles 30/09 20:00» (sin depender del idioma de Windows)."""
+    """«miércoles 30/09 8:00 p. m.» (sin depender del idioma de Windows)."""
     t = to_local(ts, tz)
-    return f"{DAY_NAMES[t.weekday()]} {t:%d/%m %H:%M}"
+    return f"{DAY_NAMES[t.weekday()]} {t:%d/%m} {clock(t)}"
 
 
 def session_schedule(cfg: dict, now_utc, upcoming_only: bool = False) -> dict | None:
@@ -81,7 +90,7 @@ def session_schedule(cfg: dict, now_utc, upcoming_only: bool = False) -> dict | 
                 if s.weekday() < 5 and (s + pd.Timedelta(hours=dur)).weekday() < 5 and (allowed is None or s.weekday() in allowed):
                     local_days.add(to_local(s, tz).weekday())
             return {"start": start, "end": end, "active": start <= now,
-                    "entry_local": to_local(start, tz).strftime("%H:%M"), "exit_local": to_local(end, tz).strftime("%H:%M"),
+                    "entry_local": clock(to_local(start, tz)), "exit_local": clock(to_local(end, tz)),
                     "days_local": sorted(local_days)}
     return None
 
@@ -156,13 +165,23 @@ def write_atomic(path: Path, text: str) -> None:
 
 
 # ---------------------------------------------------------------------- operaciones
-def trade_stats(trades: list[dict]) -> dict:
-    closed = [t for t in trades if t.get("profitAndLoss") is not None and not t.get("voided")]
+def trade_stats(trades: list[dict], day_fn=None) -> dict:
+    """Resumen de las ejecuciones de la API. ``day_fn(timestamp) -> clave de día`` agrupa el neto por día
+    de Topstep (para la regla de consistencia)."""
+    live = [t for t in trades if not t.get("voided")]
+    closed = [t for t in live if t.get("profitAndLoss") is not None]
     pnl = [float(t["profitAndLoss"]) for t in closed]
-    fees = sum(float(t.get("fees") or 0) for t in trades if not t.get("voided"))
+    fees = sum(float(t.get("fees") or 0) for t in live)
     wins = [x for x in pnl if x > 0]
     losses = [x for x in pnl if x < 0]
-    return {"n": len(closed), "wins": len(wins), "losses": len(losses), "gross": sum(pnl), "fees": fees,
+    by_day: dict[str, float] = {}
+    if day_fn is not None:
+        for t in live:
+            if t.get("creationTimestamp"):
+                k = day_fn(pd.Timestamp(t["creationTimestamp"]))
+                by_day[k] = by_day.get(k, 0.0) + float(t.get("profitAndLoss") or 0) - float(t.get("fees") or 0)
+    return {"by_day": by_day, "best_day": max(by_day.values()) if by_day else None,
+            "n": len(closed), "wins": len(wins), "losses": len(losses), "gross": sum(pnl), "fees": fees,
             "net": sum(pnl) - fees, "best": max(pnl) if pnl else 0.0, "worst": min(pnl) if pnl else 0.0,
             "win_rate": (len(wins) / len(closed) * 100.0) if closed else None,
             "avg_win": (sum(wins) / len(wins)) if wins else None, "avg_loss": (sum(losses) / len(losses)) if losses else None}
@@ -306,7 +325,7 @@ def render_panel(d: dict) -> str:
     if sch:
         t_main = to_local(sch["end"] if sch["active"] else sch["start"], tz)
         nxt_label = "Cierre previsto" if sch["active"] else "Próxima entrada"
-        nxt_v = f"{DAY_NAMES[t_main.weekday()][:3]} {t_main:%H:%M}"
+        nxt_v = f"{DAY_NAMES[t_main.weekday()][:3]} {clock(t_main)}"
         nxt_s = f"{t_main:%d/%m}" + ("" if sch["active"] else f" · salida {_e(fmt_day(sch['end'], tz))}")
     else:
         nxt_label, nxt_v, nxt_s = "Próxima entrada", "–", "según la estrategia"
@@ -348,6 +367,18 @@ def render_panel(d: dict) -> str:
             f'</dl>{orders_html}</div>')
 
     wr = f'{st["win_rate"]:.0f} %' if st.get("win_rate") is not None else "–"
+    combine = ""
+    if r.get("target"):
+        tot = r.get("pnl_total") or 0.0
+        pct = max(0.0, tot) / float(r["target"]) * 100.0
+        combine = (f'<dt>Objetivo del Combine</dt><dd>+{_n0(r["target"])} · llevas <span class="{_cls(tot)}">'
+                   f'{_usd(tot, True)}</span> ({pct:.0f} %) · faltan {_n0(max(0.0, float(r["target"]) - tot))}</dd>')
+        best = st.get("best_day")
+        if best is not None and tot > 0 and best > 0:
+            share = best / tot * 100.0
+            ok = share < float(r.get("consistency_pct") or 50)
+            combine += (f'<dt>Consistencia</dt><dd class="{"" if ok else "neg"}">mejor día {_usd(best, True)} = '
+                        f'{share:.0f} % del beneficio (Topstep pide menos de {_n0(r.get("consistency_pct") or 50)} %)</dd>')
     stats = (f'<div class="card"><h2>Resultados (API de Topstep, últimos {d.get("trades_days", 60)} días)</h2><dl>'
              f'<dt>Operaciones cerradas</dt><dd>{st["n"]} · ganadas {st["wins"]} · perdidas {st["losses"]} · acierto {wr}</dd>'
              f'<dt>Resultado bruto</dt><dd class="{_cls(st["gross"])}">{_usd(st["gross"], True)} USD</dd>'
@@ -355,6 +386,7 @@ def render_panel(d: dict) -> str:
              f'<dt>Resultado neto</dt><dd class="{_cls(st["net"])}">{_usd(st["net"], True)} USD</dd>'
              f'<dt>Media ganadora / perdedora</dt><dd>{_usd(st["avg_win"], True)} / {_usd(st["avg_loss"], True)}</dd>'
              f'<dt>Mejor / peor</dt><dd>{_usd(st["best"], True)} / {_usd(st["worst"], True)}</dd>'
+             f'{combine}'
              f'</dl><p class="muted" style="margin:8px 0 0">Incluye cualquier operación de la cuenta, también manuales. '
              f'Pocas operaciones no dicen si la estrategia funciona.</p></div>')
 

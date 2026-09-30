@@ -72,6 +72,8 @@ DEFAULTS = {
     "display_tz": "America/Aruba",     # hora local en pantalla y en el panel (Aruba = Venezuela = UTC-4)
     "open_panel": True,                # abrir topstep_state/panel.html en el navegador al arrancar
     "trades_days": 60,                 # días de ejecuciones de la cuenta que muestra el panel
+    "profit_target_usd": 3000.0,       # objetivo de beneficio del Combine (50K); compruébalo en TopstepX
+    "consistency_pct": 50.0,           # regla de consistencia: el mejor día, menos de este % del beneficio total
 }
 FORBIDDEN_CONFIG_KEYS = {"api_key", "apikey", "apiKey", "password", "token", "secret"}
 
@@ -164,8 +166,9 @@ class State:
 
 class TopstepBot:
     def __init__(self, cfg: dict, client: ProjectXClient, now_fn=None, strategy_factory=None, log=print,
-                 sleep=time.sleep):
+                 sleep=time.sleep, notifier=None):
         self.cfg = cfg
+        self.notifier = notifier
         self.client = client
         self.now_fn = now_fn or (lambda: datetime.now(timezone.utc))
         self.strategy_factory = strategy_factory or (lambda: make_strategy(cfg["strategy"], dict(cfg["params"])))
@@ -189,7 +192,7 @@ class TopstepBot:
     # ------------------------------------------------------------------ registro
     def log(self, msg: str):
         tz = self.cfg.get("display_tz")
-        self.log_fn(f"[{panel.fmt_local(self.now_fn(), tz, '%Y-%m-%d %H:%M:%S')} {panel.tz_label(tz)}] {msg}")
+        self.log_fn(f"[{panel.fmt_local(self.now_fn(), tz, '%d/%m %H:%M:%S')} {panel.tz_label(tz)}] {msg}")
 
     def journal(self, event: str, **kw):
         path = self.dir / "diario.csv"
@@ -203,6 +206,51 @@ class TopstepBot:
                         kw.get("tp", ""), kw.get("detail", "")])
         extra = " ".join(f"{k}={kw[k]}" for k in ("side", "contracts", "price", "stop", "tp") if kw.get(k) not in (None, ""))
         self.log(f"{event} {extra} {kw.get('detail', '')}".replace("  ", " ").strip())   # también en pantalla
+        if event == "EXIT" and self.execute:          # el resultado se avisa cuando el saldo ya lo refleja
+            self.state.extra["exit_pending"] = self.now_fn().isoformat()
+            self.state.extra["exit_why"] = kw.get("detail", "")
+        self._notify_event(event, kw)
+
+    # ------------------------------------------------------------------ avisos (Telegram)
+    def notify(self, text: str):
+        if self.notifier is not None:
+            self.notifier.send(text)
+
+    def _hora(self, ts=None) -> str:
+        return panel.fmt_local(ts or self.now_fn(), self.cfg.get("display_tz"), "%H:%M")
+
+    def _progress_text(self, balance: float) -> str:
+        total = balance - float(self.cfg["initial_balance"])
+        target = float(self.cfg["profit_target_usd"])
+        return (f"Saldo {balance:,.2f} · total {total:+,.2f} USD · objetivo +{target:,.0f}: "
+                f"faltan {max(0.0, target - total):,.0f}")
+
+    def _next_entry_text(self) -> str:
+        sch = panel.session_schedule(self.cfg, self.now_fn(), upcoming_only=True)
+        return f"Próxima entrada: {panel.fmt_day(sch['start'], self.cfg.get('display_tz'))}" if sch else ""
+
+    def _notify_event(self, event: str, kw: dict):
+        if self.notifier is None:
+            return
+        side = {1: "COMPRA", -1: "VENTA"}.get(int(kw["side"]) if str(kw.get("side", "")).lstrip("-").isdigit() else 0, "")
+        detail = str(kw.get("detail", ""))
+        if event == "FILL":
+            self.notify(f"🟢 ENTRADA {side} {kw.get('contracts')} {self.cfg['symbol_search']} a {kw.get('price')} "
+                        f"({self._hora()})\nStop {kw.get('stop')} · objetivo {kw.get('tp') or '–'}")
+        elif event == "SIGNAL" and not self.execute:
+            self.notify(f"📣 SEÑAL {side} {kw.get('contracts')} a ~{kw.get('price')} ({self._hora()})\n"
+                        f"Stop {kw.get('stop')} · objetivo {kw.get('tp') or '–'} (solo señales: no se envía la orden)")
+        elif event == "EXIT" and not self.execute:
+            self.notify(f"⚪ SALIDA de la señal ({self._hora()}): {detail}")
+        elif event == "SKIP" and "no se persigue" not in detail:
+            self.notify(f"⏭️ Hoy no se opera ({self._hora()}): {detail}")
+        elif event == "STOP_PROPIO":
+            self.notify(f"🛡️ El bracket no dejó un stop válido: el bot puso su propio stop en {kw.get('stop')}.")
+        elif event == "ERROR":
+            last = self.state.extra.get("last_error_msg")
+            if last != detail:
+                self.state.extra["last_error_msg"] = detail
+                self.notify(f"⚠️ Error ({self._hora()}): {detail}")
 
     # ------------------------------------------------------------------ arranque
     def startup(self):
@@ -248,6 +296,9 @@ class TopstepBot:
         now = self.now_fn()
         self.bars = self._load_bars(now - timedelta(days=int(self.cfg["warmup_days"])), now)
         self.log(f"Historial cargado: {len(self.bars)} velas M1 desde {self.bars.index[0] if len(self.bars) else '-'}")
+        bal = float(self.account.get("balance") or self.cfg["initial_balance"])
+        self.notify(f"🤖 KatheBot arrancado en {'EJECUCIÓN' if self.execute else 'SOLO SEÑALES'} · cuenta "
+                    f"{self.account['id']}\n{self._progress_text(bal)}\n{self._next_entry_text()}".strip())
 
     def _pick_contract(self) -> dict:
         found = self.client.contracts(self.cfg["symbol_search"], live=False)
@@ -450,6 +501,7 @@ class TopstepBot:
         stop_px = avg - tgt.side * stop_ticks * self.spec.tick_size
         tp_px = avg + tgt.side * tp_ticks * self.spec.tick_size if tp_ticks else None
         self.state.position_key, self.state.position_side, self.state.position_stop = tgt.key, tgt.side, self._round(stop_px)
+        self.state.extra["entry_balance"] = self.state.last_balance
         self.journal("FILL", side=tgt.side, contracts=int(pos.get("size", n)), price=avg, stop=self._round(stop_px),
                      tp=self._round(tp_px) if tp_px else "", detail=f"orden {oid}; esperado ~{ref_price}")
         self.log(f"ENTRADA {side_txt} {pos.get('size', n)} a {avg} | SL {self._round(stop_px)}")
@@ -498,10 +550,28 @@ class TopstepBot:
         out = {"new_bar": False}
         acct = next((a for a in self.client.accounts(only_active=True) if int(a["id"]) == int(self.account["id"])), None)
         balance = float(acct["balance"]) if acct else float(self.state.last_balance or self.cfg["initial_balance"])
+        st = self.state
+        prev_day, prev_hard, prev_locked = st.day_key, st.hard_lock, st.locked_day
+        prev_pnl = (st.last_balance - st.day_start_balance) if st.last_balance is not None and st.day_start_balance is not None else None
         can_open, why = self._update_risk(balance)
         out["can_open"], out["why"] = can_open, why
         self._risk_now = (can_open, why)
         panel.append_balance(self.dir / "saldo.csv", now, balance)
+        if prev_day is not None and st.day_key != prev_day and prev_pnl is not None:
+            self.notify(f"📊 Resumen del día {prev_day}: {prev_pnl:+,.2f} USD\n{self._progress_text(balance)}\n"
+                        f"Distancia al MLL: {self._risk_snapshot()['room']:,.0f} USD\n{self._next_entry_text()}".strip())
+        if st.hard_lock and st.hard_lock != prev_hard:
+            self.notify(f"⛔ Bot bloqueado: {st.hard_lock}. No abrirá más operaciones hasta que lo revises.")
+        elif st.locked_day and st.locked_day != prev_locked:
+            self.notify(f"⏸️ Sin más operaciones hoy: {st.locked_reason}.")
+        pend = st.extra.get("exit_pending")
+        if pend and now - datetime.fromisoformat(pend) >= timedelta(seconds=45):
+            eb = st.extra.pop("entry_balance", None)
+            st.extra.pop("exit_pending", None)
+            why_exit = st.extra.pop("exit_why", "")
+            res = f"{balance - float(eb):+,.2f} USD" if eb is not None else "(sin saldo de entrada)"
+            icon = "✅" if eb is not None and balance - float(eb) > 0 else "🔴"
+            self.notify(f"{icon} SALIDA ({why_exit}): resultado {res} con comisiones\n{self._progress_text(balance)}")
         hour = pd.Timestamp(now).floor("h")
         if hour != self._heartbeat_hour:              # una línea por hora para vigilar que sigue vivo
             self._heartbeat_hour = hour
@@ -583,7 +653,9 @@ class TopstepBot:
                 "buffer": float(c["mll_buffer_usd"]), "dll": float(c["daily_loss_limit_usd"]),
                 "risk_per_trade": float(c["risk_usd_per_trade"]), "max_contracts": int(c["max_contracts"]),
                 "can_open": can_open, "why": why, "hard_lock": st.hard_lock,
-                "locked_today": st.locked_day is not None and st.locked_day == st.day_key}
+                "locked_today": st.locked_day is not None and st.locked_day == st.day_key,
+                "target": float(c["profit_target_usd"]) if c.get("profit_target_usd") else None,
+                "consistency_pct": float(c["consistency_pct"])}
 
     def _position_snapshot(self, last_price: float | None) -> dict | None:
         if self.execute:
@@ -630,7 +702,7 @@ class TopstepBot:
                 "last_price": last_price, "last_bar_local": last_bar_local,
                 "journal": panel.read_journal(self.dir / "diario.csv"),
                 "balance_hist": panel.read_balance(self.dir / "saldo.csv"),
-                "trades": self._trades, "stats": panel.trade_stats(self._trades),
+                "trades": self._trades, "stats": panel.trade_stats(self._trades, topstep_day_key),
                 "trades_days": int(self.cfg["trades_days"])}
 
     def write_panel(self) -> Path | None:
@@ -757,7 +829,11 @@ def main(argv=None) -> int:
             print(f"  id {acc.get('id')} | {acc.get('name')} | saldo {acc.get('balance')} | "
                   f"simulada={acc.get('simulated')} | puede operar={acc.get('canTrade')}")
         return 0
-    bot = TopstepBot(cfg, client)
+    from .notify import load_notifier
+    notifier = load_notifier()
+    print("Avisos por Telegram: activados." if notifier else
+          "Avisos por Telegram: no configurados (opcional: python -m kq.live.notify --setup).")
+    bot = TopstepBot(cfg, client, notifier=notifier)
     if a.export_bars:
         export_bars(bot, a.export_bars, Path(a.out))
         return 0
@@ -777,6 +853,13 @@ def main(argv=None) -> int:
         bot.run()
     except KeyboardInterrupt:
         bot.log("Detenido por el usuario. Las órdenes y posiciones abiertas NO se tocan al salir.")
+        bot.notify("⏹️ Bot detenido por el usuario. Si había una posición abierta, conserva su stop en Topstep.")
+    except Exception as e:
+        bot.notify(f"💥 El bot se ha parado por un error: {e}. Revisa el PC. Las posiciones abiertas conservan su stop.")
+        raise
+    finally:
+        if notifier is not None:
+            notifier.flush()
     return 0
 
 

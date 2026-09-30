@@ -2,7 +2,7 @@
 
 Topstep opera **futuros del CME**, no CFD, y no usa MetaTrader. El EA de MQL5 no funciona ahí. Para Topstep hay un bot en Python que usa la misma lógica que el motor de investigación (`research/kq`). En cada vela de 1 minuto vuelve a pasar la estrategia por el historial y copia la posición que la estrategia quiere en ese momento. Así lo que se opera es exactamente lo que se prueba.
 
-- Código: `research/kq/live/topstep_bot.py` y `research/kq/live/projectx.py`, con 25 pruebas contra un servidor simulado.
+- Código: `research/kq/live/topstep_bot.py` y `research/kq/live/projectx.py`, con 28 pruebas contra un servidor simulado.
 - Configuración de ejemplo (solo señales): `research/live/topstep.ejemplo.json`.
 - Configuración de ejecución H3a: `research/live/topstep.h3a_ejecucion.json`.
 
@@ -85,9 +85,31 @@ Qué muestra:
 - **Operaciones:** las ejecuciones de la cuenta según la API y su resumen (acierto, bruto, comisiones, neto).
 - **Diario del bot:** los últimos eventos.
 
-Todas las horas salen en `display_tz`, que por defecto es Aruba (UTC-4, igual que Venezuela). Si la página deja de actualizarse más de 2 minutos, avisa en rojo de que el bot parece parado.
+Todas las horas salen en formato de 12 horas y en `display_tz`, que por defecto es Aruba (UTC-4, igual que Venezuela). Si la página deja de actualizarse más de 2 minutos, avisa en rojo de que el bot parece parado.
 
 La consola también muestra cada evento, más una línea por hora («Funcionando…»).
+
+## Avisos por Telegram (opcional, gratis)
+
+El bot te avisa al móvil de:
+- el arranque y la parada del bot;
+- cada entrada, con su stop y su objetivo;
+- cada salida, con el resultado en USD (comisiones incluidas) y lo que falta para el objetivo del Combine;
+- los días en que no opera y por qué;
+- los errores y los bloqueos;
+- un resumen al cambiar el día de Topstep.
+
+**Configurarlo (una vez), desde la carpeta `research`:**
+```powershell
+python -m kq.live.notify --setup
+```
+1. En Telegram, abre **@BotFather**, envía `/newbot`, elige un nombre y copia el token que te da.
+2. Pégalo cuando se pida. No se ve al escribir.
+3. Abre el enlace de tu bot, pulsa **Iniciar** y pulsa Enter en PowerShell.
+
+Queda guardado en `telegram.txt`, que no se sube a git, y recibes un mensaje de prueba. Después reinicia el bot: al arrancar dirá «Avisos por Telegram: activados».
+
+Si Telegram falla, el bot sigue operando igual.
 
 ## Configuración y riesgo
 
@@ -105,6 +127,8 @@ La consola también muestra cada evento, más una línea por hora («Funcionando
 | `display_tz` | `America/Aruba` | Zona horaria de la consola y del panel |
 | `open_panel` | `true` | Abre el panel en el navegador al arrancar |
 | `trades_days` | 60 | Días de ejecuciones de la cuenta que muestra el panel |
+| `profit_target_usd` | 3000 | Objetivo de beneficio del Combine. Compruébalo en TopstepX |
+| `consistency_pct` | 50 | Regla de consistencia: el mejor día debe ser menos de este % del beneficio total |
 
 **Reglas que no se pueden desactivar:**
 - Contratos = riesgo ÷ pérdida al stop de 1 contrato, redondeado hacia abajo. **Si 1 contrato arriesga más de lo permitido, no entra.**
