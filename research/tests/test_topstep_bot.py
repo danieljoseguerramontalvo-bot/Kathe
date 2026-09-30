@@ -331,3 +331,23 @@ def test_credentials_are_prompted_and_placeholders_ignored():
     assert (user, key) == ("u1", "K1")
     with pytest.raises(SystemExit):
         tb.ask_credentials(env={}, input_fn=lambda p: "", getpass_fn=lambda p: "")
+
+
+def test_key_can_come_from_a_local_file(tmp_path):
+    f = tmp_path / "clave_topstepx.txt"
+    f.write_text("﻿ABCDEF123=  \n", encoding="utf-8")
+    user, key = tb.ask_credentials(env={}, input_fn=lambda p: "trader.x", getpass_fn=lambda p: 1 / 0, key_file=f)
+    assert (user, key) == ("trader.x", "ABCDEF123=")
+
+
+def test_test_login_mode(tmp_path, market, monkeypatch, capsys):
+    fake = FakeGateway(market)
+    cfg = tmp_path / "c.json"
+    cfg.write_text(json.dumps({"state_dir": str(tmp_path / "st")}))
+    monkeypatch.setenv("TOPSTEPX_USERNAME", "trader.x")
+    monkeypatch.setenv("TOPSTEPX_API_KEY", "ABC123")
+    real = tb.ProjectXClient
+    monkeypatch.setattr(tb, "ProjectXClient", lambda **kw: real(transport=fake, sleep=lambda s: None, **kw))
+    assert tb.main(["--config", str(cfg), "--test-login"]) == 0
+    out = capsys.readouterr().out
+    assert "Inicio de sesión correcto" in out and "id 7" in out and "ABC123" not in out

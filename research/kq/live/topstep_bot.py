@@ -591,18 +591,26 @@ PLACEHOLDERS = {"", "tu_usuario_de_topstepx", "tu_usuario", "la_clave_nueva", "t
                 "pega_aqui_la_clave_nueva"}
 
 
-def ask_credentials(env=None, input_fn=input, getpass_fn=None) -> tuple[str, str]:
-    """Usuario y API key: de las variables de entorno si tienen un valor real; si no, se piden por
-    teclado. La clave se pide sin mostrarla en pantalla (pégala con clic derecho y pulsa Enter)."""
+KEY_FILE = "clave_topstepx.txt"
+
+
+def ask_credentials(env=None, input_fn=input, getpass_fn=None, key_file: str | Path | None = KEY_FILE) -> tuple[str, str]:
+    """Usuario y API key. La clave sale, por este orden, de la variable TOPSTEPX_API_KEY, del archivo
+    ``clave_topstepx.txt`` de la carpeta actual (solo la clave, en la primera línea) o se pide por
+    teclado sin mostrarla. El usuario sale de TOPSTEPX_USERNAME o se pide por teclado."""
     import getpass
     env = os.environ if env is None else env
     getpass_fn = getpass_fn or getpass.getpass
 
     def clean(v):
-        return (v or "").strip().strip('"').strip("'").strip()
+        return (v or "").strip().strip('"').strip("'").strip().lstrip("\ufeff")
 
     user = clean(env.get("TOPSTEPX_USERNAME"))
     key = clean(env.get("TOPSTEPX_API_KEY"))
+    if key.lower() in PLACEHOLDERS and key_file and Path(key_file).exists():
+        lines = Path(key_file).read_text(encoding="utf-8-sig", errors="replace").splitlines()
+        key = clean(lines[0]) if lines else ""
+        print(f"(clave leída de {key_file})")
     if user.lower() in PLACEHOLDERS:
         user = clean(input_fn("Usuario de TopstepX: "))
     if key.lower() in PLACEHOLDERS:
@@ -619,10 +627,22 @@ def main(argv=None) -> int:
     ap.add_argument("--once", action="store_true", help="un solo paso y termina")
     ap.add_argument("--export-bars", type=int, default=None, help="descargar N días de velas M1 y terminar")
     ap.add_argument("--out", default="KQ_MGC_M1.csv")
+    ap.add_argument("--test-login", action="store_true", help="solo comprobar el inicio de sesión y listar las cuentas")
     a = ap.parse_args(argv)
     cfg = load_config(a.config)
     user, key = ask_credentials()
     client = ProjectXClient(username=user, api_key=key, base_url=cfg["base_url"])
+    if a.test_login:
+        try:
+            client.login()
+        except ProjectXError as e:
+            print(f"NO se pudo iniciar sesión: {e}")
+            return 1
+        print("Inicio de sesión correcto. Cuentas activas:")
+        for acc in client.accounts(only_active=True):
+            print(f"  id {acc.get('id')} | {acc.get('name')} | saldo {acc.get('balance')} | "
+                  f"simulada={acc.get('simulated')} | puede operar={acc.get('canTrade')}")
+        return 0
     bot = TopstepBot(cfg, client)
     if a.export_bars:
         export_bars(bot, a.export_bars, Path(a.out))
