@@ -369,3 +369,19 @@ def test_rejected_brackets_retry_without_them_and_protect(tmp_path, market):
     tps = [o for o in fake.orders if o["type"] == 1]
     assert len(stops) == 1 and stops[0]["stopPrice"] < fake.positions[0]["averagePrice"]
     assert len(tps) == 1 and tps[0]["limitPrice"] > fake.positions[0]["averagePrice"]
+
+
+def test_console_shows_heartbeat_and_journal_events(tmp_path, market):
+    fake = FakeGateway(market)
+    bot, _ = _bot(tmp_path, fake, market)
+    lines = []
+    bot.log_fn = lines.append
+    bot.startup()
+    bot.step()
+    text = "\n".join(lines)
+    assert "Funcionando. Saldo" in text and "posición del bot: ninguna" in text
+    assert "FILL side=1 contracts=3" in text                       # los eventos del diario también salen en pantalla
+    n = len(lines)
+    bot.last_eval_bar = None
+    bot.step()                                                     # misma hora: sin nueva línea de latido
+    assert not any("Funcionando" in l for l in lines[n:])

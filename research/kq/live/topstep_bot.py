@@ -176,6 +176,7 @@ class TopstepBot:
         self.bars = pd.DataFrame()
         self.last_eval_bar = None
         self.execute = False
+        self._heartbeat_hour = None
 
     # ------------------------------------------------------------------ registro
     def log(self, msg: str):
@@ -191,6 +192,8 @@ class TopstepBot:
             w.writerow([f"{self.now_fn():%Y-%m-%d %H:%M:%S}", "EJECUCION" if self.execute else "SENALES", event,
                         kw.get("side", ""), kw.get("contracts", ""), kw.get("price", ""), kw.get("stop", ""),
                         kw.get("tp", ""), kw.get("detail", "")])
+        extra = " ".join(f"{k}={kw[k]}" for k in ("side", "contracts", "price", "stop", "tp") if kw.get(k) not in (None, ""))
+        self.log(f"{event} {extra} {kw.get('detail', '')}".replace("  ", " ").strip())   # también en pantalla
 
     # ------------------------------------------------------------------ arranque
     def startup(self):
@@ -485,6 +488,12 @@ class TopstepBot:
         balance = float(acct["balance"]) if acct else float(self.state.last_balance or self.cfg["initial_balance"])
         can_open, why = self._update_risk(balance)
         out["can_open"], out["why"] = can_open, why
+        hour = pd.Timestamp(now).floor("h")
+        if hour != self._heartbeat_hour:              # una línea por hora para vigilar que sigue vivo
+            self._heartbeat_hour = hour
+            self.log(f"Funcionando. Saldo {balance:.2f}; posición del bot: "
+                     f"{ {1: 'compra', -1: 'venta'}.get(self.state.position_side, 'ninguna') }; "
+                     f"última vela {self.bars.index[-1] if len(self.bars) else '-'} (hora servidor).")
         pos = self._my_position() if self.execute else None
         hard_or_day = bool(self.state.hard_lock) or self.state.locked_day == self.state.day_key
         if hard_or_day and ((self.execute and pos and self.state.position_key) or (not self.execute and self.state.position_key)):
