@@ -55,6 +55,23 @@ Hazlo en **cada cuenta**, la estándar y la Cent:
 2. Debe parecerse a la v4 con `R2_H4_T0_tendencia` (100 operaciones, PF 1.21, +1 370). Puede haber alguna operación más, porque la v5 corrige el rechazo «market closed» de la 01:00.
 3. Envía las líneas `[RESULTADO]` del Diario.
 
+## 4b. Montaje rápido en una cuenta demo (unos 10 minutos)
+
+Sirve para comprobar la ejecución, los diarios y los límites **antes** de tener un candidato validado. No es una validación de la estrategia.
+
+1. En HF Markets, abre una **cuenta demo**. En MT5: Archivo → Abrir una cuenta → HFMarkets → Demo.
+2. Entra en MT5 con esa cuenta demo.
+3. Compila `KatheQuant_v5` (apartado 1): tiene que salir 0 errores.
+4. Pulsa el botón **Algo Trading** de la barra superior. Tiene que quedar en verde.
+5. Abre un gráfico de `XAUUSD` y arrastra `KatheQuant_v5` sobre él.
+   - En la pestaña **Común**, marca «Permitir Algo Trading».
+   - En la pestaña **Parámetros**, pulsa **Cargar** y elige `KQ5_DEMO_listo_T0_H4.set`.
+   - Pulsa **Aceptar**.
+6. En la pestaña **Expertos** tiene que aparecer `[INICIO] ... AUTOMATICO en cuenta DEMO ... T0`. Si dice «SOLO SENALES», estás en la cuenta real.
+7. El PC tiene que quedarse encendido. Si no, usa un VPS: en MT5, clic derecho en la cuenta → «Registrar un servidor virtual».
+
+**No hace falta ninguna API key:** el EA opera a través del MT5 en el que has iniciado sesión.
+
 ## 5. Fase prospectiva en demo (solo con un candidato aprobado)
 
 **Requisitos:**
