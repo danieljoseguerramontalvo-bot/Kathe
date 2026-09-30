@@ -2,7 +2,7 @@
 
 Topstep opera **futuros del CME**, no CFD, y no usa MetaTrader. El EA de MQL5 no funciona ahí. Para Topstep hay un bot en Python que usa la misma lógica que el motor de investigación (`research/kq`). En cada vela de 1 minuto vuelve a pasar la estrategia por el historial y copia la posición que la estrategia quiere en ese momento. Así lo que se opera es exactamente lo que se prueba.
 
-- Código: `research/kq/live/topstep_bot.py` y `research/kq/live/projectx.py`, con 28 pruebas contra un servidor simulado.
+- Código: `research/kq/live/topstep_bot.py` y `research/kq/live/projectx.py`, con 30 pruebas contra un servidor simulado.
 - Configuración de ejemplo (solo señales): `research/live/topstep.ejemplo.json`.
 - Configuración de ejecución H3a: `research/live/topstep.h3a_ejecucion.json`.
 
@@ -105,11 +105,34 @@ python -m kq.live.notify --setup
 ```
 1. En Telegram, abre **@BotFather**, envía `/newbot`, elige un nombre y copia el token que te da.
 2. Pégalo cuando se pida. No se ve al escribir.
-3. Abre el enlace de tu bot, pulsa **Iniciar** y pulsa Enter en PowerShell.
+3. Abre el enlace de tu bot en el móvil y pulsa **Iniciar**. El programa espera solo, hasta 3 minutos.
 
 Queda guardado en `telegram.txt`, que no se sube a git, y recibes un mensaje de prueba. Después reinicia el bot: al arrancar dirá «Avisos por Telegram: activados».
 
 Si Telegram falla, el bot sigue operando igual.
+
+## Varios mercados a la vez (Nasdaq en modo señales)
+
+Un solo proceso puede llevar varios mercados con una única sesión de la API. Hay que repetir `--config`:
+
+```powershell
+python -m kq.live.topstep_bot --config topstep.json --config topstep_mnq.json
+```
+
+Cómo funciona:
+- **Cada configuración tiene su propia carpeta** (`state_dir`), con su diario y su panel.
+- **Solo una puede ejecutar en cada cuenta.** El bot se niega a arrancar si dos configuraciones ejecutan en la misma cuenta, porque el riesgo combinado no está coordinado.
+- **Si un mercado en modo señales no arranca** (por ejemplo, porque no encuentra el contrato), los demás siguen.
+- **Los avisos de Telegram** llevan delante el mercado: `[MGC]`, `[MNQ]`.
+
+**`live/topstep.mnq_senales.json` (MNQ, micro Nasdaq): prueba prospectiva, solo señales**
+- **Reglas:** compra a las 23:00 UTC y cierra a las 13:00 UTC, con stop de 3 × ATR(H1). En hora de Aruba: entra a las 7:00 p. m. y sale a las 9:00 a. m., de lunes a jueves.
+- **Hipótesis:** la «deriva nocturna» de los índices de EE. UU. Está documentada en la literatura: Cooper, Cliff y Gulen (2008); Lou, Polk y Skouras (2019); Boyarchenko, Larsen y Whelan, «The Overnight Drift» (2023).
+- **No está probada con nuestros datos.** Por eso no envía órdenes.
+- **Cada salida anota su resultado teórico** (el del mismo motor, con costes) y un acumulado. Así la hipótesis se valida con datos nuevos, sin arriesgar la cuenta.
+- Solo se pasará a ejecución si ese registro prospectivo lo justifica.
+
+**Bitcoin:** no hay una hipótesis con evidencia que se pueda defender, así que no se generan señales.
 
 ## Configuración y riesgo
 

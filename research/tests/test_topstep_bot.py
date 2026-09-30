@@ -472,6 +472,8 @@ class FakeTelegram:
         if m == "getUpdates":
             res = [{"update_id": 1, "message": {"chat": {"id": self.chat_id}, "text": "/start"}}] if self.has_update else []
             return 200, json.dumps({"ok": True, "result": res}).encode()
+        if m == "deleteWebhook":
+            return 200, json.dumps({"ok": True, "result": True}).encode()
         if m == "sendMessage":
             self.sent.append(d["text"])
             return 200, json.dumps({"ok": True, "result": {}}).encode()
@@ -482,12 +484,17 @@ def test_telegram_setup_saves_chat_and_sends_test(tmp_path):
     from kq.live import notify
     tg = FakeTelegram()
     path = tmp_path / "telegram.txt"
-    assert notify.setup(input_fn=lambda *_: "", getpass_fn=lambda *_: "TOKEN123", transport=tg, path=path) == 0
+    assert notify.setup(getpass_fn=lambda *_: "TOKEN123", transport=tg, path=path) == 0
     assert path.read_text(encoding="utf-8").split() == ["TOKEN123", "555"]
     assert tg.sent and "conectado" in tg.sent[0]
     n = notify.load_notifier(path, env={}, transport=tg, background=False)
     assert n is not None and "TOKEN" not in repr(n)
-    assert notify.setup(input_fn=lambda *_: "", getpass_fn=lambda *_: "BAD", transport=tg, path=tmp_path / "x.txt") == 1
+    assert notify.setup(getpass_fn=lambda *_: "BAD", transport=tg, path=tmp_path / "x.txt") == 1
+    ticks = iter(range(0, 1000, 60))                                   # nadie escribe al bot: se rinde a los 3 min
+    quiet = FakeTelegram(has_update=False)
+    assert notify.setup(getpass_fn=lambda *_: "T2", transport=quiet, path=tmp_path / "y.txt",
+                        clock=lambda: next(ticks)) == 1
+    assert not (tmp_path / "y.txt").exists()
     assert notify.load_notifier(tmp_path / "no.txt", env={}) is None
 
 
@@ -498,9 +505,9 @@ def test_telegram_messages_for_entry_exit_and_day_summary(tmp_path, market):
     bot, clock = _bot(tmp_path, fake, market)
     bot.notifier = notify.TelegramNotifier("T", 555, transport=tg, background=False)
     bot.startup()
-    assert "KatheBot arrancado en EJECUCIÓN" in tg.sent[0]
+    assert tg.sent[0].startswith("[MGC] 🤖 KatheBot arrancado en EJECUCIÓN")
     bot.step()
-    entry = [m for m in tg.sent if m.startswith("🟢 ENTRADA COMPRA 3")]
+    entry = [m for m in tg.sent if m.startswith("[MGC] 🟢 ENTRADA COMPRA 3")]
     assert entry and ("p. m." in entry[0] or "a. m." in entry[0])
     # el stop salta en el servidor: el bot lo detecta y, cuando el saldo ya lo refleja, avisa del resultado
     fake.positions.clear()
@@ -509,16 +516,16 @@ def test_telegram_messages_for_entry_exit_and_day_summary(tmp_path, market):
     fake.visible += 1
     clock["now"] += timedelta(minutes=1)
     bot.step()
-    assert not any(m.startswith("🔴 SALIDA") for m in tg.sent)          # todavía no: espera a que el saldo cuadre
+    assert not any(m.startswith("[MGC] 🔴 SALIDA") for m in tg.sent)          # todavía no: espera a que el saldo cuadre
     clock["now"] += timedelta(minutes=1)
     fake.visible += 1
     bot.step()
-    out = [m for m in tg.sent if m.startswith("🔴 SALIDA")]
+    out = [m for m in tg.sent if m.startswith("[MGC] 🔴 SALIDA")]
     assert out and "-152.00 USD" in out[0] and "faltan 3,152" in out[0]
     # cambio de día de Topstep (17:00 de Chicago): resumen del día anterior
     clock["now"] += timedelta(hours=24)
     bot.step()
-    assert any(m.startswith("📊 Resumen del día") for m in tg.sent)
+    assert any(m.startswith("[MGC] 📊 Resumen del día") for m in tg.sent)
 
 
 def test_telegram_failure_never_breaks_the_bot(tmp_path, market):
@@ -535,3 +542,46 @@ def test_telegram_failure_never_breaks_the_bot(tmp_path, market):
     bot.step()
     assert len(fake.placed(order_type=2)) == 1
     assert any("Telegram" in l for l in logs)
+
+
+def test_signals_mode_reports_theoretical_result(tmp_path, market):
+    fake = FakeGateway(market)
+    fake.visible -= 30
+    exit_ns = to_ns(market.index[fake.visible - 1] + pd.Timedelta(minutes=10))
+    bot, clock = _bot(tmp_path, fake, market, execute=False, exit_ns=exit_ns)
+    bot.startup()
+    bot.step()
+    assert bot.state.position_key and fake.placed() == []
+    fake.visible += 30
+    clock["now"] = clock["now"] + timedelta(minutes=30)
+    bot.step()
+    j = _journal(bot)
+    assert "resultado teórico" in j and "acumulado" in j and "en 1 señales" in j
+    assert bot.state.extra["virtual_n"] == 1 and fake.placed() == []
+
+
+def test_several_markets_share_one_session_and_only_one_executes(tmp_path, market):
+    from kq.live import notify
+    tg = FakeTelegram()
+    fake = FakeGateway(market)
+    gold, _ = _bot(tmp_path / "a", fake, market)
+    other, _ = _bot(tmp_path / "b", fake, market, execute=False)
+    other.client = gold.client                                     # una sola sesión de la API
+    n = notify.TelegramNotifier("T", 1, transport=tg, background=False)
+    gold.notifier = other.notifier = n
+    gold.startup()
+    other.startup()
+    tb.run_many([gold, other], sleep=lambda s: None, rounds=1)
+    assert len(fake.placed(order_type=2)) == 1                     # solo ordena el que ejecuta
+    assert (gold.dir / "panel.html").exists() and (other.dir / "panel.html").exists()
+    assert all(m.startswith("[MGC] ") for m in tg.sent)
+    logins = [c for c in fake.calls if c[0] == "/api/Auth/loginKey"]
+    assert len(logins) <= 2
+    base = dict(tb.DEFAULTS)
+    a = {**base, "execute": True, "account_ids": [7], "state_dir": str(tmp_path / "x")}
+    b = {**base, "execute": True, "account_ids": [7], "state_dir": str(tmp_path / "y"), "symbol_search": "MNQ"}
+    with pytest.raises(ValueError, match="solo una puede ejecutar"):
+        tb.check_configs([a, b])
+    with pytest.raises(ValueError, match="state_dir"):
+        tb.check_configs([a, {**b, "execute": False, "state_dir": str(tmp_path / "x")}])
+    tb.check_configs([a, {**b, "execute": False}])

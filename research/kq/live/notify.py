@@ -6,7 +6,7 @@ Configuración, una vez, desde la carpeta ``research``::
 
 1. En Telegram, abre @BotFather, envía /newbot, elige un nombre y copia el token que te da.
 2. Pega el token cuando se pida (no se muestra en pantalla).
-3. Abre el enlace de tu bot, pulsa «Iniciar» y vuelve a pulsar Enter.
+3. Abre el enlace de tu bot y pulsa «Iniciar»: el programa espera solo hasta 3 minutos.
 
 El token y tu chat id se guardan en ``telegram.txt`` (no se sube a git) y se envía un mensaje de prueba.
 También valen las variables de entorno TELEGRAM_BOT_TOKEN y TELEGRAM_CHAT_ID.
@@ -50,7 +50,7 @@ class TelegramNotifier:
     def __init__(self, token: str, chat_id: str | int, transport=None, background: bool = True, log=print):
         self.token, self.chat_id = token, str(chat_id)
         self.transport, self.log = transport, log
-        self._last_error_at = 0.0
+        self._last_error_at: float | None = None
         self._q: queue.Queue | None = None
         if background:
             self._q = queue.Queue()
@@ -77,7 +77,7 @@ class TelegramNotifier:
                                              "disable_web_page_preview": True}, self.transport)
             return True
         except Exception as e:  # noqa: BLE001 - un aviso fallido no puede parar el bot
-            if time.monotonic() - self._last_error_at > 600:
+            if self._last_error_at is None or time.monotonic() - self._last_error_at > 600:
                 self._last_error_at = time.monotonic()
                 self.log(f"(Telegram: no se pudo enviar un aviso: {e})")
             return False
@@ -103,7 +103,20 @@ def load_notifier(path: str | Path = TELEGRAM_FILE, env=None, **kw) -> TelegramN
     return TelegramNotifier(token, chat, **kw)
 
 
-def setup(input_fn=input, getpass_fn=None, transport=None, path: str | Path = TELEGRAM_FILE, tries: int = 3) -> int:
+def wait_for_chat(token: str, transport=None, seconds: float = 180.0, clock=time.monotonic) -> int | None:
+    """Espera (long polling) hasta que alguien escriba al bot y devuelve el id de ese chat."""
+    end = clock() + seconds
+    while True:
+        updates = call(token, "getUpdates", {"timeout": 20}, transport, timeout=30.0) or []
+        chats = [u["message"]["chat"]["id"] for u in updates if isinstance(u, dict) and u.get("message", {}).get("chat")]
+        if chats:
+            return chats[-1]
+        if clock() >= end:
+            return None
+
+
+def setup(getpass_fn=None, transport=None, path: str | Path = TELEGRAM_FILE, wait_seconds: float = 180.0,
+          clock=time.monotonic) -> int:
     import getpass
     getpass_fn = getpass_fn or getpass.getpass
     print("1) En Telegram abre @BotFather, envía /newbot, elige un nombre y copia el token.")
@@ -113,18 +126,17 @@ def setup(input_fn=input, getpass_fn=None, transport=None, path: str | Path = TE
     except TelegramError as e:
         print(f"El token no es válido: {e}")
         return 1
-    print(f"2) Abre https://t.me/{me.get('username')} , pulsa «Iniciar» (o envíale cualquier mensaje).")
-    chat_id = None
-    for _ in range(tries):
-        input_fn("   Cuando lo hayas hecho, pulsa Enter aquí... ")
-        updates = call(token, "getUpdates", {"timeout": 0}, transport) or []
-        chats = [u["message"]["chat"]["id"] for u in updates if isinstance(u, dict) and u.get("message", {}).get("chat")]
-        if chats:
-            chat_id = chats[-1]
-            break
-        print("   Aún no veo tu mensaje. Envíale /start a tu bot y vuelve a pulsar Enter.")
+    try:
+        call(token, "deleteWebhook", {}, transport)       # getUpdates no funciona si hay un webhook puesto
+    except TelegramError:
+        pass
+    print(f"2) En el móvil abre  https://t.me/{me.get('username')}  y pulsa el botón INICIAR (abajo),")
+    print("   o escríbele cualquier mensaje. No hace falta tocar nada aquí.")
+    print(f"   Esperando tu mensaje (hasta {int(wait_seconds // 60)} minutos)...")
+    chat_id = wait_for_chat(token, transport, wait_seconds, clock)
     if chat_id is None:
-        print("No se recibió ningún mensaje del bot; repite --setup.")
+        print("No llegó ningún mensaje a tu bot. Repite  python -m kq.live.notify --setup  y pulsa INICIAR en "
+              f"https://t.me/{me.get('username')}")
         return 1
     Path(path).write_text(f"{token}\n{chat_id}\n", encoding="utf-8")
     TelegramNotifier(token, chat_id, transport, background=False).send(

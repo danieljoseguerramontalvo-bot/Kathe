@@ -184,6 +184,7 @@ class TopstepBot:
         self.last_eval_bar = None
         self.execute = False
         self._heartbeat_hour = None
+        self._bt_trades = None
         self._risk_now: tuple[bool | None, str] = (None, "")
         self._trades: list[dict] = []
         self._trades_at: datetime | None = None
@@ -214,7 +215,7 @@ class TopstepBot:
     # ------------------------------------------------------------------ avisos (Telegram)
     def notify(self, text: str):
         if self.notifier is not None:
-            self.notifier.send(text)
+            self.notifier.send(f"[{self.cfg['symbol_search']}] {text}")
 
     def _hora(self, ts=None) -> str:
         return panel.fmt_local(ts or self.now_fn(), self.cfg.get("display_tz"), "%H:%M")
@@ -332,6 +333,7 @@ class TopstepBot:
                                              commission_per_lot_rt=float(self.cfg["commission_per_contract_rt"])),
                              max_spread_points=0.0)
         res = run_backtest(md, self.strategy_factory(), cfg)
+        self._bt_trades = res.trades
         info = {"n_trades": int(len(res.trades)), "n_skipped": int(len(res.skipped))}
         tr = res.trades
         open_tr = tr[tr["exit_reason"] == "end_of_test"] if len(tr) else tr
@@ -411,9 +413,32 @@ class TopstepBot:
                 self.journal("ERROR", detail=f"cierre: {e}")
                 return
             self._cancel_all_orders()
+        else:
+            why += self._virtual_result()
         self.journal("EXIT", side=self.state.position_side, detail=why)
         self.log(f"Cierre: {why}")
         self._set_position()
+
+    def _virtual_result(self) -> str:
+        """Modo señales: resultado teórico de la señal que se cierra, según el mismo backtest (costes incluidos),
+        y acumulado de todas las señales. Sirve de validación prospectiva sin arriesgar la cuenta."""
+        tr = getattr(self, "_bt_trades", None)
+        key = self.state.position_key
+        if tr is None or not len(tr) or not key:
+            return ""
+        keys = [f"{pd.Timestamp(t):%Y%m%d%H%M}{'L' if sd > 0 else 'S'}" for t, sd in zip(tr["entry_time"], tr["side"])]
+        rows = tr[[k == key for k in keys]]
+        rows = rows[rows["exit_reason"] != "end_of_test"]
+        if not len(rows):
+            return ""
+        n = int(self.state.extra.get("virtual_contracts") or 1)
+        pnl = float(rows.iloc[-1]["net_pnl"]) * n
+        ex = self.state.extra
+        ex["virtual_n"] = int(ex.get("virtual_n", 0)) + 1
+        ex["virtual_wins"] = int(ex.get("virtual_wins", 0)) + (1 if pnl > 0 else 0)
+        ex["virtual_total"] = round(float(ex.get("virtual_total", 0.0)) + pnl, 2)
+        return (f"; resultado teórico {pnl:+.2f} USD ({n} contrato(s)); acumulado {ex['virtual_total']:+.2f} USD "
+                f"en {ex['virtual_n']} señales ({ex['virtual_wins']} ganadoras)")
 
     def ensure_protection(self, pos: dict, stop_price: float, tp_price: float | None) -> bool:
         """Toda posición debe tener un stop del lado correcto. Si falta, lo pone; si no puede, cierra."""
@@ -467,6 +492,7 @@ class TopstepBot:
         self.journal("SIGNAL", side=tgt.side, contracts=n, price=ref_price, stop=self._round(stop_px),
                      tp=self._round(tp_px) if tp_px else "", detail=f"{stop_ticks} ticks de stop; clave {tgt.key}")
         if not self.execute:
+            self.state.extra["virtual_contracts"] = n
             self.log(f"SEÑAL {side_txt} {n} contrato(s) ~{ref_price} | SL {self._round(stop_px)} | "
                      f"TP {self._round(tp_px) if tp_px else '-'} (solo señales: no se envía la orden)")
             return True
@@ -557,7 +583,7 @@ class TopstepBot:
         out["can_open"], out["why"] = can_open, why
         self._risk_now = (can_open, why)
         panel.append_balance(self.dir / "saldo.csv", now, balance)
-        if prev_day is not None and st.day_key != prev_day and prev_pnl is not None:
+        if self.execute and prev_day is not None and st.day_key != prev_day and prev_pnl is not None:
             self.notify(f"📊 Resumen del día {prev_day}: {prev_pnl:+,.2f} USD\n{self._progress_text(balance)}\n"
                         f"Distancia al MLL: {self._risk_snapshot()['room']:,.0f} USD\n{self._next_entry_text()}".strip())
         if st.hard_lock and st.hard_lock != prev_hard:
@@ -718,18 +744,46 @@ class TopstepBot:
             return None
 
     def run(self):
-        errors = 0
-        while True:
+        run_many([self], sleep=self.sleep)
+
+
+def run_many(bots: list[TopstepBot], sleep=time.sleep, rounds: int | None = None):
+    """Bucle de varios mercados con una sola sesión de la API: cada ronda da un paso a cada bot y
+    actualiza su panel. Un error de un mercado no para a los demás."""
+    errors = 0
+    poll = min(float(b.cfg["poll_seconds"]) for b in bots)
+    done = 0
+    while rounds is None or done < rounds:
+        failed = False
+        for b in bots:
             try:
-                self.step()
-                self.write_panel()
-                errors = 0
+                b.step()
+                b.write_panel()
             except ProjectXError as e:
-                errors += 1
-                self.log(f"Error de la API ({errors}): {e}")
-                self.journal("ERROR", detail=str(e))
-                self.sleep(min(300, 15 * errors))
-            self.sleep(float(self.cfg["poll_seconds"]))
+                failed = True
+                b.log(f"Error de la API ({errors + 1}): {e}")
+                b.journal("ERROR", detail=str(e))
+        errors = errors + 1 if failed else 0
+        if errors:
+            sleep(min(300, 15 * errors))
+        sleep(poll)
+        done += 1
+
+
+def check_configs(cfgs: list[dict]) -> None:
+    """Varias configuraciones a la vez: cada una con su carpeta, y como mucho una que EJECUTE por cuenta
+    (el riesgo de dos estrategias ejecutando en la misma cuenta no está coordinado)."""
+    dirs = [str(Path(c["state_dir"]).resolve()) for c in cfgs]
+    if len(set(dirs)) != len(dirs):
+        raise ValueError("cada configuración necesita su propio state_dir (p. ej. topstep_state_mnq)")
+    seen = {}
+    for c in cfgs:
+        if c["execute"]:
+            for acc in c["account_ids"]:
+                if acc in seen:
+                    raise ValueError(f"la cuenta {acc} tiene dos configuraciones en EJECUCION ({seen[acc]} y "
+                                     f"{c['symbol_search']}): solo una puede ejecutar; pon la otra en \"execute\": false")
+                seen[acc] = c["symbol_search"]
 
 
 # ---------------------------------------------------------------------- utilidades de línea de órdenes
@@ -809,13 +863,16 @@ def ask_credentials(env=None, input_fn=input, getpass_fn=None, key_file: str | P
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Bot KatheQuant para TopstepX (ProjectX API)")
-    ap.add_argument("--config", required=True)
+    ap.add_argument("--config", required=True, action="append",
+                    help="archivo de configuración; repítelo para varios mercados (p. ej. oro y Nasdaq)")
     ap.add_argument("--once", action="store_true", help="un solo paso y termina")
     ap.add_argument("--export-bars", type=int, default=None, help="descargar N días de velas M1 y terminar")
     ap.add_argument("--out", default="KQ_MGC_M1.csv")
     ap.add_argument("--test-login", action="store_true", help="solo comprobar el inicio de sesión y listar las cuentas")
     a = ap.parse_args(argv)
-    cfg = load_config(a.config)
+    cfgs = [load_config(c) for c in a.config]
+    check_configs(cfgs)
+    cfg = cfgs[0]
     user, key = ask_credentials()
     client = ProjectXClient(username=user, api_key=key, base_url=cfg["base_url"])
     if a.test_login:
@@ -833,24 +890,37 @@ def main(argv=None) -> int:
     notifier = load_notifier()
     print("Avisos por Telegram: activados." if notifier else
           "Avisos por Telegram: no configurados (opcional: python -m kq.live.notify --setup).")
-    bot = TopstepBot(cfg, client, notifier=notifier)
+    bots = [TopstepBot(c, client, notifier=notifier) for c in cfgs]
+    bot = bots[0]
     if a.export_bars:
         export_bars(bot, a.export_bars, Path(a.out))
         return 0
-    InstanceLock(Path(cfg["state_dir"]) / "bot.lock").acquire()
-    bot.startup()
+    for b in bots:
+        InstanceLock(Path(b.cfg["state_dir"]) / "bot.lock").acquire()
+    started = []
+    for b in bots:
+        try:
+            b.startup()
+            started.append(b)
+        except (ValueError, ProjectXError) as e:
+            if b.cfg["execute"] or len(bots) == 1:
+                raise
+            print(f"[{b.cfg['symbol_search']}] no se pudo arrancar ({e}); los demás mercados siguen.")
+    bots, bot = started, started[0]
     if a.once:
-        print(json.dumps(bot.step(), default=str))
-        bot.write_panel()
+        for b in bots:
+            print(json.dumps(b.step(), default=str))
+            b.write_panel()
         return 0
-    path = bot.write_panel()
-    if path:
-        bot.log(f"Panel: {path.resolve()} (ábrelo con doble clic; se actualiza solo)")
-        if cfg["open_panel"]:
-            import webbrowser
-            webbrowser.open(path.resolve().as_uri())
+    for b in bots:
+        path = b.write_panel()
+        if path:
+            b.log(f"Panel {b.cfg['symbol_search']}: {path.resolve()} (ábrelo con doble clic; se actualiza solo)")
+            if b.cfg["open_panel"]:
+                import webbrowser
+                webbrowser.open(path.resolve().as_uri())
     try:
-        bot.run()
+        run_many(bots)
     except KeyboardInterrupt:
         bot.log("Detenido por el usuario. Las órdenes y posiciones abiertas NO se tocan al salir.")
         bot.notify("⏹️ Bot detenido por el usuario. Si había una posición abierta, conserva su stop en Topstep.")
