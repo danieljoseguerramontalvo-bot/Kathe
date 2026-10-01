@@ -182,12 +182,48 @@ def test_signal_mode_never_places_orders(tmp_path, market):
 
 
 def test_execute_refused_unless_allowlisted_and_simulated(tmp_path, market):
-    bot, _ = _bot(tmp_path, FakeGateway(market, simulated=False), market)
+    bot, _ = _bot(tmp_path, FakeGateway(market, simulated=False), market, fallback_signals=False)
     with pytest.raises(ValueError, match="simulada"):
         bot.startup()
-    bot, _ = _bot(tmp_path / "b", FakeGateway(market), market, account_ids=[])
+    bot, _ = _bot(tmp_path / "b", FakeGateway(market), market, account_ids=[], fallback_signals=False)
     with pytest.raises(ValueError, match="account_ids"):
         bot.startup()
+    fake = FakeGateway(market, simulated=False)                    # por defecto: solo señales, nunca ejecuta
+    bot, _ = _bot(tmp_path / "c", fake, market)
+    bot.startup()
+    bot.step()
+    assert bot.execute is False and fake.placed() == [] and "simulada" in bot._exec_blocked
+    fake.account["canTrade"] = True
+    bot._set_position()
+    bot.last_eval_bar = None
+    bot.step()
+    assert bot.execute is False                                     # una cuenta no simulada no ejecuta nunca
+
+
+def test_blocked_account_sends_signals_and_executes_when_unblocked(tmp_path, market):
+    from kq.live import notify
+    tg = FakeTelegram()
+    fake = FakeGateway(market)
+    fake.account["canTrade"] = False
+    bot, _ = _bot(tmp_path, fake, market)
+    bot.notifier = notify.TelegramNotifier("T", 1, transport=tg, background=False)
+    bot.startup()
+    assert bot.execute is False and "canTrade" in tg.sent[0]
+    bot.step()
+    assert fake.placed() == [] and any("SEÑAL COMPRA" in m and "Entrada ~" in m for m in tg.sent)
+    fake.account["canTrade"] = True
+    bot.last_eval_bar = None
+    bot.step()
+    assert bot.execute is False                                     # espera a que termine la señal virtual
+    bot._set_position()
+    bot.last_eval_bar = None
+    bot.step()
+    assert bot.execute is True and any("pasa a EJECUCIÓN" in m for m in tg.sent)
+    assert fake.placed() == []                                      # no persigue la señal ya avisada
+    fake.account["canTrade"] = False                                # Topstep vuelve a bloquear: pausa
+    bot.last_eval_bar = None
+    bot.step()
+    assert bot.execute is False and any("Ejecución en pausa" in m for m in tg.sent)
 
 
 def test_execute_enters_with_brackets_sized_by_risk(tmp_path, market):

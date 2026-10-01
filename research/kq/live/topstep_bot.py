@@ -72,6 +72,7 @@ DEFAULTS = {
     "display_tz": "America/Aruba",     # hora local en pantalla y en el panel (Aruba = Venezuela = UTC-4)
     "open_panel": True,                # abrir topstep_state/panel.html en el navegador al arrancar
     "label": None,                     # nombre en pantalla y en Telegram (p. ej. «ORO DÍA»); por defecto, el símbolo
+    "fallback_signals": True,          # si la cuenta no puede ejecutar (p. ej. bloqueada), seguir con señales
     "heartbeat_url": None,             # opcional: URL de un vigilante externo (p. ej. healthchecks.io) que avisa si el PC se apaga
     "trades_days": 60,                 # días de ejecuciones de la cuenta que muestra el panel
     "profit_target_usd": 3000.0,       # objetivo de beneficio del Combine (50K); compruébalo en TopstepX
@@ -189,6 +190,7 @@ class TopstepBot:
         self._bt_trades = None
         self._foreign_pos = None
         self._last_panel: dict | None = None
+        self._exec_blocked: str | None = None
         self.daily_summary = True              # con varios turnos en ejecución, solo uno manda el resumen diario
         self._risk_now: tuple[bool | None, str] = (None, "")
         self._trades: list[dict] = []
@@ -308,16 +310,14 @@ class TopstepBot:
         simulated = self.account.get("simulated") is True
         self.execute = bool(self.cfg["execute"])
         if self.execute:
-            problems = []
-            if int(self.account["id"]) not in allowed:
-                problems.append("la cuenta no está en account_ids")
-            if not simulated:
-                problems.append("la API no la marca como simulada (Topstep no admite bots en la Live Funded "
-                                "Account y el proyecto solo automatiza cuentas simuladas)")
-            if not self.account.get("canTrade", False):
-                problems.append("la cuenta no puede operar (canTrade = false)")
+            problems = self._execution_problems(self.account)
             if problems:
-                raise ValueError("no se permite ejecutar: " + "; ".join(problems))
+                if not self.cfg.get("fallback_signals", True):
+                    raise ValueError("no se permite ejecutar: " + "; ".join(problems))
+                # nunca se ejecuta sin cumplir todo; mientras tanto, señales con entrada, stop y objetivo
+                self.execute = False
+                self._exec_blocked = "; ".join(problems)
+                self.log(f"No se puede ejecutar ({self._exec_blocked}): funciona en MODO SEÑALES hasta que se pueda.")
         self.contract = self._pick_contract()
         self.spec = futures_spec(self.contract, int(self.cfg["max_contracts"]))
         self.log(f"Cuenta {self.account['id']} ({self.account.get('name')}), saldo {self.account.get('balance')}, "
@@ -335,8 +335,10 @@ class TopstepBot:
         recap = self._history_recap()
         if recap:
             self.log(recap)
+        blocked = (f"\n⚠️ No puede ejecutar ({self._exec_blocked}): te mando las señales con entrada, stop y "
+                   "objetivo, y pasa solo a EJECUCIÓN cuando se pueda.") if self._exec_blocked else ""
         self.notify(f"🤖 KatheBot arrancado en {'EJECUCIÓN' if self.execute else 'SOLO SEÑALES'} · cuenta "
-                    f"{self.account['id']}\n{self._progress_text(bal)}\n{self._next_entry_text()}\n{recap}".strip())
+                    f"{self.account['id']}{blocked}\n{self._progress_text(bal)}\n{self._next_entry_text()}\n{recap}".strip())
 
     def _history_recap(self) -> str:
         """Cómo le habría ido a la estrategia en el historial cargado (1 contrato, con costes). Son pocos días:
@@ -353,6 +355,35 @@ class TopstepBot:
                     f"ganadoras, neto {net:+,.0f} USD. Son pocos días: orienta, no demuestra.")
         except Exception as e:  # noqa: BLE001 - es solo informativo
             return f"(no se pudo calcular el historial: {e})"
+
+    def _execution_problems(self, account: dict) -> list[str]:
+        problems = []
+        if int(account["id"]) not in set(int(a) for a in self.cfg["account_ids"]):
+            problems.append("la cuenta no está en account_ids")
+        if account.get("simulated") is not True:
+            problems.append("la API no la marca como simulada (Topstep no admite bots en la Live Funded "
+                            "Account y el proyecto solo automatiza cuentas simuladas)")
+        if not account.get("canTrade", False):
+            problems.append("la cuenta no puede operar (canTrade = false)")
+        return problems
+
+    def _review_execution(self, acct: dict | None):
+        """Pasa a ejecución cuando la cuenta vuelve a poder operar (y no hay una señal virtual abierta), y a
+        señales si deja de poder operar sin posición propia abierta."""
+        if acct is None or not self.cfg["execute"]:
+            return
+        if not self.execute and self._exec_blocked and not self.state.position_key:
+            if not self._execution_problems(acct):
+                self.execute, self._exec_blocked, self.account = True, None, acct
+                self.log("La cuenta ya puede operar: este turno pasa a EJECUCIÓN.")
+                self.notify("✅ La cuenta vuelve a poder operar: este turno pasa a EJECUCIÓN.")
+        elif self.execute and not self.state.position_key:
+            problems = self._execution_problems(acct)
+            if problems:
+                self.execute, self._exec_blocked = False, "; ".join(problems)
+                self.log(f"Ejecución en pausa ({self._exec_blocked}): solo señales hasta que se pueda.")
+                self.notify(f"⏸️ Ejecución en pausa ({self._exec_blocked}). Mientras tanto te mando las señales "
+                            "con entrada, stop y objetivo.")
 
     def _pick_contract(self) -> dict:
         found = self.client.contracts(self.cfg["symbol_search"], live=False)
@@ -646,6 +677,7 @@ class TopstepBot:
         out = {"new_bar": False}
         acct = next((a for a in self.client.accounts(only_active=True) if int(a["id"]) == int(self.account["id"])), None)
         balance = float(acct["balance"]) if acct else float(self.state.last_balance or self.cfg["initial_balance"])
+        self._review_execution(acct)
         st = self.state
         prev_day, prev_hard, prev_locked = st.day_key, st.hard_lock, st.locked_day
         prev_pnl = (st.last_balance - st.day_start_balance) if st.last_balance is not None and st.day_start_balance is not None else None
@@ -792,6 +824,8 @@ class TopstepBot:
                                              self.cfg.get("display_tz"), "%d/%m %H:%M")
         pos = self._position_snapshot(last_price)
         alerts = []
+        if self._exec_blocked:
+            alerts.append(f"Ejecución en pausa: {self._exec_blocked}. Mientras tanto, solo señales.")
         if pos and self.execute and not pos.get("mine"):
             alerts.append("Hay una posición en este contrato que no abrió este turno (otro turno o a mano): "
                           "este turno no opera mientras exista.")

@@ -70,7 +70,10 @@ Vuelve a arrancarlo.
 - Guarda como UTF-8 (el bot también acepta UTF-8 con BOM).
 - H3a **no está validada**. Es la mejor hipótesis del análisis previo, no una ventaja demostrada.
 
-- El bot se niega a ejecutar si la cuenta no está en `account_ids`, si la API no la marca como simulada o si la cuenta no puede operar.
+- El bot no ejecuta nunca si la cuenta no está en `account_ids`, si la API no la marca como simulada o si la cuenta no puede operar (`canTrade = false`, por ejemplo cuando Topstep la bloquea al pasar la pérdida diaria).
+  - En esos casos, el turno sigue en **modo señales** y te manda entrada, stop y objetivo por Telegram.
+  - Pasa solo a ejecución cuando se cumplen las tres condiciones y no hay una señal abierta. Si deja de cumplirlas sin una posición propia abierta, vuelve a señales.
+  - Con `"fallback_signals": false`, en lugar de eso se niega a arrancar.
 - **Para pararlo:** Ctrl+C. Las posiciones abiertas se quedan con su stop en el servidor de Topstep.
 
 ## Panel general
