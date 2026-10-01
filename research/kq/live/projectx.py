@@ -31,10 +31,11 @@ UNIT_SECOND, UNIT_MINUTE, UNIT_HOUR, UNIT_DAY = 1, 2, 3, 4
 class ProjectXError(RuntimeError):
     """La API respondió con success = false o con un error HTTP definitivo."""
 
-    def __init__(self, message: str, code: int | None = None, retryable: bool = False):
+    def __init__(self, message: str, code: int | None = None, retryable: bool = False, uncertain: bool = False):
         super().__init__(message)
         self.code = code
         self.retryable = retryable
+        self.uncertain = uncertain      # no se sabe si el servidor ejecutó la petición (red caída, HTTP 5xx)
 
 
 class RateLimiter:
@@ -88,7 +89,10 @@ class ProjectXClient:
         return f"ProjectXClient(user={self.username!r}, base_url={self.base_url!r}, token={'sí' if self.token else 'no'})"
 
     # ------------------------------------------------------------------ transporte
-    def _post(self, path: str, body: dict, bucket: str = "default", auth: bool = True) -> dict:
+    def _post(self, path: str, body: dict, bucket: str = "default", auth: bool = True, idempotent: bool = True) -> dict:
+        """POST con reintentos. Con ``idempotent=False`` (enviar órdenes) solo se reintenta lo que seguro no se
+        ejecutó (429 y 401); un fallo de red o un HTTP 5xx se devuelve como error «incierto», sin reenviar, para
+        no duplicar una orden que el servidor quizá sí ejecutó."""
         if auth:
             self.ensure_token()
         payload = json.dumps(body).encode("utf-8")
@@ -102,14 +106,18 @@ class ProjectXClient:
             try:
                 status, raw = self.transport("POST", self.base_url + path, headers, payload, self.timeout)
             except (urllib.error.URLError, TimeoutError, ConnectionError, OSError) as e:
-                last_err = ProjectXError(f"{path}: error de red {e}", retryable=True)
+                last_err = ProjectXError(f"{path}: error de red {e}", retryable=True, uncertain=True)
+                if not idempotent:
+                    raise last_err
             else:
                 if status == 401 and auth and attempt < self.retries:
                     self.token = None                      # token caducado: nuevo login y reintento
                     self.ensure_token()
                     continue
+                if status >= 500 and not idempotent:
+                    raise ProjectXError(f"{path}: HTTP {status}", code=status, uncertain=True)
                 if status == 429 or status >= 500:
-                    last_err = ProjectXError(f"{path}: HTTP {status}", code=status, retryable=True)
+                    last_err = ProjectXError(f"{path}: HTTP {status}", code=status, retryable=True, uncertain=status >= 500)
                 elif status != 200:
                     raise ProjectXError(f"{path}: HTTP {status} {raw[:200]!r}", code=status)
                 else:
@@ -183,7 +191,7 @@ class ProjectXClient:
             body["stopLossBracket"] = {"ticks": int(stop_loss_ticks), "type": TYPE_STOP}
         if take_profit_ticks:
             body["takeProfitBracket"] = {"ticks": int(take_profit_ticks), "type": TYPE_LIMIT}
-        return int(self._post("/api/Order/place", body)["orderId"])
+        return int(self._post("/api/Order/place", body, idempotent=False)["orderId"])
 
     def cancel_order(self, account_id: int, order_id: int) -> None:
         self._post("/api/Order/cancel", {"accountId": account_id, "orderId": order_id})

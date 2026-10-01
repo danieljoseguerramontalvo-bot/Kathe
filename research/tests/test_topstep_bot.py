@@ -60,6 +60,11 @@ class FakeGateway:
             bars = [b for b in self.all_bars[:self.visible] if s <= pd.Timestamp(b["t"]) < e]
             return 200, json.dumps({**ok, "bars": bars[-d["limit"]:]}).encode()
         if path == "/api/Order/place":
+            if getattr(self, "fail_after_place", False) and d["type"] == 2:
+                self.fail_after_place = False                       # ejecuta la orden pero la respuesta se pierde
+                self.__call__(method, url, headers, body, timeout)
+                self.calls.pop()
+                return 502, b"Bad Gateway"
             if self.reject_brackets and "stopLossBracket" in d:
                 return 200, json.dumps({"success": False, "errorCode": 2, "errorMessage": "brackets"}).encode()
             oid = self._id()
@@ -740,3 +745,17 @@ def test_signals_mode_sends_the_signal_even_above_the_risk_cap(tmp_path, market)
     sig = [m for m in tg.sent if "SEÑAL COMPRA 1" in m]
     assert sig and "Entrada ~" in sig[0] and "Stop " in sig[0]
     assert "solo informativo" in _journal(bot) and bot.state.position_key and fake.placed() == []
+
+
+
+def test_uncertain_order_response_is_never_resent(tmp_path, market):
+    fake = FakeGateway(market)
+    fake.fail_after_place = True                                       # el servidor abrió la posición pero respondió 502
+    bot, _ = _bot(tmp_path, fake, market)
+    bot.startup()
+    bot.step()
+    assert len(fake.placed(order_type=2)) == 1                          # una sola orden de entrada, sin reintentos
+    assert len(fake.positions) == 1 and fake.positions[0]["size"] == 3
+    j = _journal(bot)
+    assert "respuesta incierta" in j and "FILL" in j
+    assert [o for o in fake.orders if o["type"] == 4]                   # y la posición queda con stop
