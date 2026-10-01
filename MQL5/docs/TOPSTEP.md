@@ -129,9 +129,10 @@ Si Telegram falla, el bot sigue operando igual.
 | `topstep.json` | `live/topstep.oro_dia_ejecucion.json` | **ORO DIA, ejecuta:** vende 1 MGC; stop de 2×ATR(H1) | de 6:00 a. m. a 1:00 p. m., de lunes a viernes |
 | `topstep_oro_noche.json` | `live/topstep.h3a_ejecucion.json` | **ORO NOCHE, ejecuta:** compra 1 MGC (H3a); stop de 2×ATR(H1) | de 8:00 p. m. a 4:00 a. m., de domingo a jueves |
 | `topstep_mnq.json` | `live/topstep.mnq_senales.json` | **NASDAQ, solo señales:** compra de micro Nasdaq nocturna | de 7:00 p. m. a 9:00 a. m., de lunes a jueves |
+| `topstep_ob.json` | `live/topstep.order_block_senales.json` | **ORDER BLOCKS, solo señales:** order blocks en M15 sobre MGC (enmienda 5) | a cualquier hora, con señal |
 
 ```powershell
-python -m kq.live.topstep_bot --config topstep.json --config topstep_oro_noche.json --config topstep_mnq.json
+python -m kq.live.topstep_bot --config topstep.json --config topstep_oro_noche.json --config topstep_mnq.json --config topstep_ob.json
 ```
 
 - **Varios turnos en la misma cuenta:** el bot solo acepta que ejecuten a la vez turnos SESSION_DRIFT cuyos horarios no coincidan (se cuenta también la hora de salida). Así nunca hay dos posiciones abiertas.

@@ -11,13 +11,14 @@ from .random_entry import RandomEntry
 from .ref_rsi2 import RefRsi2
 from .ref_t0 import RefT0
 from .regime import RegimeGate, regime_series
+from .order_block import OrderBlock
 from .scripted import Scripted
 from .session_breakout import SessionBreakout
 from .session_drift import SessionDrift, scan_session_windows
 from .trend_donchian import TrendDonchian
 
 STRATEGIES = {cls.name: cls for cls in (RefT0, RefRsi2, TrendDonchian, SessionBreakout,
-                                        SessionDrift, RandomEntry, Scripted)}
+                                        SessionDrift, OrderBlock, RandomEntry, Scripted)}
 BENCHMARKS = ("BUY_HOLD", "BUY_HOLD_VOLSCALED")
 
 
@@ -36,5 +37,5 @@ def make_strategy(name: str, params: dict | None = None) -> Strategy:
 
 __all__ = ["STRATEGIES", "BENCHMARKS", "make_strategy", "Strategy", "BarContext", "Enter", "Exit",
            "SetStop", "Skip", "PositionView", "RefT0", "RefRsi2", "TrendDonchian", "SessionBreakout",
-           "SessionDrift", "RandomEntry", "RegimeGate", "Scripted", "scan_session_windows",
+           "SessionDrift", "OrderBlock", "RandomEntry", "RegimeGate", "Scripted", "scan_session_windows",
            "regime_series"]

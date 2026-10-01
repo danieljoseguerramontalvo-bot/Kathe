@@ -425,3 +425,19 @@ No hay datos de futuros ejecutados todavía, así que ninguna de estas hipótesi
   - Se aplica también a H3-día por simetría.
   - No se ha visto ningún resultado: la señal descartada no aporta información sobre el retorno.
 
+## 14. Enmienda 5 (01-10-2026, antes de ningún resultado): order blocks en modo señales
+
+- **Origen:** el titular de la cuenta propone los *order blocks*, que usa a mano y dice que le funcionan. No hay evidencia publicada que los respalde y la definición varía según quien la explique.
+- **Definición mecánica fijada hoy** en `kq/strategies/order_block.py` (ORDER_BLOCK, M15):
+  - fractales de 3 velas;
+  - ruptura de estructura con desplazamiento ≥ 1.5×ATR14;
+  - zona = última vela contraria de las 10 anteriores;
+  - entrada en la primera vuelta a la zona, a ≤ 0.5×ATR de ella;
+  - stop al otro lado de la zona + 0.1×ATR (mínimo 0.25×ATR);
+  - objetivo 2R; salida por tiempo a las 32 velas;
+  - sin entradas el viernes desde las 16 UTC ni si el mercado no abre en 2 min.
+- **Comprobaciones:** no mira datos futuros (prueba que compara la señal con el historial cortado en cada vela). Sobre datos aleatorios toca el objetivo en torno a un tercio de las veces, como corresponde a 2R sin ventaja.
+- **Modo:** solo señales (MGC). Cada salida registra su resultado teórico con costes.
+- **Regla de decisión:** la misma de la enmienda 4. No se ajustan parámetros con los resultados en vivo; un cambio de parámetros sería otra hipótesis con su propio registro.
+- Al arrancar, cada turno informa del resultado que habría tenido en el historial cargado (30 días). Es orientativo; no cuenta como validación.
+

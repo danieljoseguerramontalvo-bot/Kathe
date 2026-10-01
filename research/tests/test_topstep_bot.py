@@ -759,3 +759,21 @@ def test_uncertain_order_response_is_never_resent(tmp_path, market):
     j = _journal(bot)
     assert "respuesta incierta" in j and "FILL" in j
     assert [o for o in fake.orders if o["type"] == 4]                   # y la posición queda con stop
+
+
+
+def test_order_block_strategy_runs_in_the_bot_in_signals_mode(tmp_path, market):
+    from kq.live import notify
+    tg = FakeTelegram()
+    fake = FakeGateway(market)
+    cfg = dict(tb.DEFAULTS)
+    cfg.update({"account_ids": [], "execute": False, "strategy": "ORDER_BLOCK", "params": {}, "warmup_days": 6,
+                "state_dir": str(tmp_path / "ob"), "label": "ORDER BLOCKS"})
+    client = ProjectXClient(username="u", api_key="k", transport=fake, sleep=lambda s: None)
+    bot = tb.TopstepBot(cfg, client, now_fn=lambda: datetime(2026, 9, 24, 11, 5, tzinfo=timezone.utc),
+                        log=lambda *_: None, sleep=lambda s: None,
+                        notifier=notify.TelegramNotifier("T", 1, transport=tg, background=False))
+    bot.startup()
+    bot.step()
+    assert fake.placed() == []
+    assert tg.sent and tg.sent[0].startswith("[ORDER BLOCKS] 🤖") and "Historial de 6 días" in tg.sent[0]

@@ -332,8 +332,27 @@ class TopstepBot:
         self.bars = self._load_bars(now - timedelta(days=int(self.cfg["warmup_days"])), now)
         self.log(f"Historial cargado: {len(self.bars)} velas M1 desde {self.bars.index[0] if len(self.bars) else '-'}")
         bal = float(self.account.get("balance") or self.cfg["initial_balance"])
+        recap = self._history_recap()
+        if recap:
+            self.log(recap)
         self.notify(f"🤖 KatheBot arrancado en {'EJECUCIÓN' if self.execute else 'SOLO SEÑALES'} · cuenta "
-                    f"{self.account['id']}\n{self._progress_text(bal)}\n{self._next_entry_text()}".strip())
+                    f"{self.account['id']}\n{self._progress_text(bal)}\n{self._next_entry_text()}\n{recap}".strip())
+
+    def _history_recap(self) -> str:
+        """Cómo le habría ido a la estrategia en el historial cargado (1 contrato, con costes). Son pocos días:
+        sirve de orientación, no demuestra nada."""
+        try:
+            self.target()
+            tr = self._bt_trades
+            closed = tr[tr["exit_reason"] != "end_of_test"] if tr is not None and len(tr) else []
+            days = int(self.cfg["warmup_days"])
+            if not len(closed):
+                return f"Historial de {days} días: la estrategia no habría hecho ninguna operación."
+            n, wins, net = len(closed), int((closed["net_pnl"] > 0).sum()), float(closed["net_pnl"].sum())
+            return (f"Historial de {days} días (1 contrato, con costes): {n} operaciones, {wins / n * 100:.0f} % "
+                    f"ganadoras, neto {net:+,.0f} USD. Son pocos días: orienta, no demuestra.")
+        except Exception as e:  # noqa: BLE001 - es solo informativo
+            return f"(no se pudo calcular el historial: {e})"
 
     def _pick_contract(self) -> dict:
         found = self.client.contracts(self.cfg["symbol_search"], live=False)

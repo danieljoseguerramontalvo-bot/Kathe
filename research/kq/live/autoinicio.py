@@ -25,7 +25,7 @@ from pathlib import Path
 
 from .topstep_bot import KEY_FILE, USER_FILE
 
-CONFIGS = ["topstep.json", "topstep_oro_noche.json", "topstep_mnq.json"]
+CONFIGS = ["topstep.json", "topstep_oro_noche.json", "topstep_mnq.json", "topstep_ob.json"]
 LAUNCHER = "iniciar_bot.cmd"
 STARTUP_NAME = "KatheBot.cmd"
 
