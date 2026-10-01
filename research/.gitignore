@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+runs/
+data/
+topstep_state*/
+topstep.json
+KQ_*_M1.csv
+clave_topstepx.txt
+telegram.txt
+usuario_topstepx.txt
+iniciar_bot.cmd
+panel_general.html

@@ -1,0 +1,15 @@
+{
+  "symbol_search": "MGC",
+  "account_ids": [],
+  "execute": false,
+  "strategy": "REF_T0",
+  "params": {},
+  "risk_usd_per_trade": 200,
+  "max_contracts": 5,
+  "daily_loss_limit_usd": 500,
+  "initial_balance": 50000,
+  "mll_usd": 2000,
+  "mll_buffer_usd": 500,
+  "commission_per_contract_rt": 1.0,
+  "state_dir": "topstep_state"
+}

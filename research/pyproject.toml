@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kq-research"
+version = "0.1.0"
+description = "Reproducible XAUUSD backtesting/research engine for MT5 M1 exports (HF Markets)"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24", "pandas>=2.0", "scipy>=1.10", "tzdata"]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[tool.setuptools.packages.find]
+include = ["kq*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

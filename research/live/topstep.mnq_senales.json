@@ -1,0 +1,25 @@
+{
+  "symbol_search": "MNQ",
+  "label": "NASDAQ",
+  "account_ids": [],
+  "execute": false,
+  "strategy": "SESSION_DRIFT",
+  "params": {
+    "h_in": 23,
+    "h_out": 13,
+    "side": 1,
+    "sl_atr": 3.0,
+    "atr_period": 14
+  },
+  "warmup_days": 30,
+  "risk_usd_per_trade": 350,
+  "max_contracts": 1,
+  "daily_loss_limit_usd": 500,
+  "initial_balance": 50000,
+  "mll_usd": 2000,
+  "mll_buffer_usd": 500,
+  "commission_per_contract_rt": 1.0,
+  "entry_max_age_min": 10,
+  "state_dir": "topstep_state_mnq",
+  "open_panel": false
+}
