@@ -1,12 +1,11 @@
 # Silver House Barber · Estudio — sitio web
 
 Sitio estático de una sola página (`index.html`), sin build ni dependencias externas obligatorias.
-Las animaciones (GSAP) y las tipografías están incluidas en el propio sitio, así que funciona aunque falle un CDN.
+Las animaciones son CSS livianas (sin librerías) y las tipografías están incluidas en el propio sitio, así que no depende de ningún CDN.
 
 ```
 silverhouse-barber/
 ├── index.html              ← todo el sitio (HTML + CSS + JS)
-├── js/                     ← GSAP 3.12.5 + ScrollTrigger (animaciones)
 ├── fonts/                  ← Cinzel, Cormorant Garamond, Hanken Grotesk, Space Mono (auto-alojadas)
 ├── img/
 │   ├── estudio/            ← fotos reales del local (hero y sección "El Estudio")

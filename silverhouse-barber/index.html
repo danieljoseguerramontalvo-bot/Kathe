@@ -23,15 +23,11 @@
 <link rel="preload" as="image" href="img/estudio/estudio-1.webp" fetchpriority="high">
 
 <script>
-  // Marca el documento para animaciones (si JS no corre, todo queda visible).
+  // Marca el documento para las animaciones (sin JS, todo queda visible y sin animar).
   (function(){
     var d=document.documentElement;
     d.classList.add('js');
-    var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    var seen=false;
-    try{seen=sessionStorage.getItem('sh-intro')==='1';}catch(e){}
-    if(!reduce){d.classList.add('pre-anim');}
-    if(!reduce&&!seen){d.classList.add('show-intro');}
+    if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches){d.classList.add('reduced');}
   })();
 </script>
 
@@ -116,27 +112,19 @@ button{font:inherit;color:inherit;}
 .eyebrow .line{width:30px;height:1px;background:rgba(255,255,255,0.2);}
 .eyebrow .label{font-family:var(--font-mono);font-size:12px;letter-spacing:0.28em;color:var(--text-mute);text-transform:uppercase;}
 
-.gradient-text,.gradient-text .wi{
-  background:var(--silver-grad);background-size:200% auto;
+.gradient-text{
+  background:var(--silver-grad);background-size:100% auto;
   -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;
 }
-.gold-text,.gold-text .wi{
-  background:var(--gold-grad);background-size:200% auto;
+.gold-text{
+  background:var(--gold-grad);background-size:100% auto;
   -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;
-  animation:sheen 7s linear infinite;
 }
 .silver-text{
-  background:var(--silver-grad);background-size:200% auto;
+  background:var(--silver-grad);background-size:100% auto;
   -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;
-  animation:sheen 7s linear infinite;
 }
-@keyframes sheen{to{background-position:200% center;}}
 .serif-italic{font-family:var(--font-serif);font-style:italic;font-weight:500;}
-
-/* split-text words */
-.is-split{background:none !important;animation:none !important;}
-.w{display:inline-block;overflow:hidden;vertical-align:top;padding-bottom:0.08em;margin-bottom:-0.08em;}
-.wi{display:inline-block;will-change:transform;}
 
 /* ============ BUTTONS ============ */
 .btn{
@@ -147,15 +135,8 @@ button{font:inherit;color:inherit;}
 }
 .btn svg{width:16px;height:16px;flex-shrink:0;}
 .btn-gold{background:var(--btn-gold);color:#1B1307;font-weight:700;box-shadow:0 8px 28px rgba(212,175,106,0.22);}
-.btn-gold::after{
-  content:'';position:absolute;top:0;left:-60%;width:40%;height:100%;
-  background:linear-gradient(100deg,transparent,rgba(255,255,255,0.55),transparent);transform:skewX(-20deg);
-  animation:btnShine 4.5s ease-in-out infinite;
-}
-@keyframes btnShine{0%,70%{left:-60%;}100%{left:130%;}}
 .btn-gold:hover{transform:translateY(-2px);box-shadow:0 14px 40px rgba(212,175,106,0.42);}
 .btn-gold:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:none;}
-.btn-gold:disabled::after{display:none;}
 .btn-ghost{border:1px solid rgba(255,255,255,0.2);color:var(--white-ish);background:rgba(13,13,13,0.25);}
 .btn-ghost:hover{border-color:var(--gold);color:var(--gold-bright);background:rgba(212,175,106,0.07);}
 .btn-wa{background:#25D366;color:#06180B;font-weight:700;}
@@ -174,27 +155,6 @@ button{font:inherit;color:inherit;}
 .status-badge.open{border-color:rgba(37,211,102,0.45);color:#7BE3A0;}
 .status-badge.open .dot{background:#25D366;box-shadow:0 0 8px rgba(37,211,102,0.8);animation:dotPulse 2.2s ease-in-out infinite;}
 @keyframes dotPulse{0%,100%{opacity:1}50%{opacity:0.35}}
-
-/* ============ INTRO (motion graphic) ============ */
-.intro{display:none;}
-.show-intro .intro{
-  position:fixed;inset:0;z-index:3000;background:#070708;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
-  animation:introFailsafe .6s ease 3.4s forwards;
-}
-@keyframes introFailsafe{to{opacity:0;visibility:hidden;}}
-.intro-crown{width:84px;height:84px;}
-.intro-crown path,.intro-crown circle{fill:none;stroke:url(#gGold);stroke-width:1.2;stroke-linejoin:round;}
-.intro-title{font-family:var(--font-display);font-weight:700;font-size:clamp(34px,7vw,72px);letter-spacing:0.04em;line-height:1;text-align:center;}
-.intro-title .ch{display:inline-block;}
-.intro-sub{font-family:var(--font-display);font-size:clamp(12px,1.8vw,16px);letter-spacing:0.7em;color:var(--white-ish);padding-left:0.7em;display:flex;align-items:center;gap:18px;}
-.intro-sub::before,.intro-sub::after{content:'';width:46px;height:1px;background:var(--gold);opacity:0.7;}
-.intro-line{width:min(420px,70vw);height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);transform:scaleX(0);}
-.intro-skip{position:absolute;bottom:28px;font-family:var(--font-mono);font-size:10px;letter-spacing:0.3em;color:var(--text-faint);background:none;border:none;cursor:pointer;text-transform:uppercase;}
-
-/* evita el parpadeo del hero antes de animar (con failsafe si JS falla) */
-.pre-anim .hero-text,.pre-anim .hero-media{opacity:0;animation:preFailsafe .4s ease 3.6s forwards;}
-@keyframes preFailsafe{to{opacity:1;}}
 
 /* ============ SCROLL PROGRESS ============ */
 .progress{position:fixed;top:0;left:0;right:0;height:2px;z-index:1100;pointer-events:none;}
@@ -307,13 +267,13 @@ nav a:hover::after,nav a.active::after{transform:scaleX(1);transform-origin:left
   border:1px solid var(--border-gold);
   box-shadow:0 40px 90px rgba(0,0,0,0.6),0 0 0 8px rgba(212,175,106,0.04);
 }
-.hero-frame .slide{position:absolute;inset:0;opacity:0;animation:slideFade 18s infinite;}
-.hero-frame .slide:nth-child(1){animation-delay:-1.2s;}
-.hero-frame .slide:nth-child(2){animation-delay:4.8s;}
-.hero-frame .slide:nth-child(3){animation-delay:10.8s;}
-.hero-frame .slide img{width:100%;height:100%;object-fit:cover;animation:kenburns 18s linear infinite;animation-delay:inherit;}
-@keyframes slideFade{0%{opacity:0}6%{opacity:1}33%{opacity:1}40%{opacity:0}100%{opacity:0}}
-@keyframes kenburns{0%{transform:scale(1.02) translate(0,0)}40%{transform:scale(1.14) translate(-2%,-1.5%)}100%{transform:scale(1.14) translate(-2%,-1.5%)}}
+.hero-frame .slide{position:absolute;inset:0;opacity:0;animation:slideFade 27s infinite;}
+.hero-frame .slide:nth-child(1){animation-delay:-1.5s;}
+.hero-frame .slide:nth-child(2){animation-delay:7.5s;}
+.hero-frame .slide:nth-child(3){animation-delay:16.5s;}
+.hero-frame .slide img{width:100%;height:100%;object-fit:cover;animation:kenburns 27s linear infinite;animation-delay:inherit;}
+@keyframes slideFade{0%{opacity:0}6%{opacity:1}33%{opacity:1}39%{opacity:0}100%{opacity:0}}
+@keyframes kenburns{0%{transform:scale(1.02)}39%{transform:scale(1.07)}100%{transform:scale(1.07)}}
 .hero-frame::after{
   content:'';position:absolute;inset:0;pointer-events:none;
   background:linear-gradient(180deg,rgba(0,0,0,0) 55%,rgba(0,0,0,0.65) 100%);
@@ -330,11 +290,9 @@ nav a:hover::after,nav a.active::after{transform:scaleX(1);transform-origin:left
 .corner.br{bottom:-10px;right:-10px;border-width:0 1px 1px 0;}
 .hero-seal{
   position:absolute;top:-26px;right:-26px;width:104px;height:104px;z-index:4;
-  animation:spin 22s linear infinite;
 }
 .hero-seal text{font-family:var(--font-mono);font-size:9.6px;letter-spacing:2.6px;fill:var(--gold-bright);}
 .hero-seal .seal-bg{fill:rgba(11,11,12,0.88);stroke:var(--border-gold);}
-@keyframes spin{to{transform:rotate(360deg);}}
 .hero-seal-crown{position:absolute;top:0;right:0;width:52px;height:52px;z-index:5;display:flex;align-items:center;justify-content:center;}
 .hero-seal-crown svg{width:30px;height:30px;}
 
@@ -352,7 +310,7 @@ nav a:hover::after,nav a.active::after{transform:scaleX(1);transform-origin:left
 .ticker::before,.ticker::after{content:'';position:absolute;top:0;bottom:0;width:80px;z-index:2;pointer-events:none;}
 .ticker::before{left:0;background:linear-gradient(90deg,#09090A,transparent);}
 .ticker::after{right:0;background:linear-gradient(-90deg,#09090A,transparent);}
-.ticker-track{display:flex;width:max-content;animation:marquee 38s linear infinite;}
+.ticker-track{display:flex;width:max-content;animation:marquee 70s linear infinite;}
 .ticker:hover .ticker-track{animation-play-state:paused;}
 .ticker-group{display:flex;align-items:center;}
 .ticker-item{display:flex;align-items:center;gap:22px;padding:20px 22px;font-family:var(--font-display);font-size:clamp(15px,1.6vw,20px);letter-spacing:0.12em;color:var(--white-ish);text-transform:uppercase;white-space:nowrap;}
@@ -387,29 +345,17 @@ p.section-lead{font-size:17px;line-height:1.8;color:var(--text-dim);font-weight:
 .pk-lead{font-family:var(--font-serif);font-style:italic;font-size:clamp(20px,2.2vw,27px);color:var(--white-ish);margin-bottom:64px;max-width:34ch;line-height:1.35;}
 
 .pkg-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;align-items:stretch;perspective:1200px;}
-.pkg{position:relative;--mx:50%;--my:30%;--rx:0deg;--ry:0deg;}
+.pkg{position:relative;}
 .pkg-inner{
   position:relative;height:100%;display:flex;flex-direction:column;
   border-radius:22px;background:linear-gradient(180deg,#17171A,#0F0F11);
   border:1px solid var(--border-gold);overflow:hidden;
-  transform:rotateX(var(--rx)) rotateY(var(--ry));transform-style:preserve-3d;
-  transition:transform .5s var(--ease),box-shadow .5s var(--ease),border-color .4s;
+  transition:transform .45s var(--ease),box-shadow .45s var(--ease),border-color .4s;
   box-shadow:0 24px 60px rgba(0,0,0,0.45);
 }
 .pkg.silver .pkg-inner{border-color:rgba(220,224,230,0.32);}
-.pkg-inner::before{
-  content:'';position:absolute;inset:0;border-radius:inherit;padding:1px;z-index:5;pointer-events:none;
-  background:radial-gradient(380px circle at var(--mx) var(--my),rgba(255,233,180,0.75),transparent 45%);
-  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;
-  opacity:0;transition:opacity .4s;
-}
-.pkg-inner::after{
-  content:'';position:absolute;inset:0;z-index:1;pointer-events:none;
-  background:radial-gradient(500px circle at var(--mx) var(--my),rgba(212,175,106,0.09),transparent 45%);
-  opacity:0;transition:opacity .4s;
-}
-.pkg:hover .pkg-inner{box-shadow:0 40px 90px rgba(0,0,0,0.6),0 0 50px rgba(212,175,106,0.12);}
-.pkg:hover .pkg-inner::before,.pkg:hover .pkg-inner::after{opacity:1;}
+.pkg:hover .pkg-inner{transform:translateY(-6px);border-color:rgba(212,175,106,0.6);box-shadow:0 36px 80px rgba(0,0,0,0.55),0 0 40px rgba(212,175,106,0.08);}
+.pkg.silver:hover .pkg-inner{border-color:rgba(220,224,230,0.5);}
 .pkg.featured .pkg-inner{border-color:rgba(212,175,106,0.6);}
 .pkg-ribbon{
   position:absolute;top:18px;right:-34px;z-index:6;transform:rotate(45deg);
@@ -428,8 +374,8 @@ p.section-lead{font-size:17px;line-height:1.8;color:var(--text-dim);font-weight:
   background:rgba(0,0,0,0.25);
 }
 .pkg-photo{position:relative;z-index:2;aspect-ratio:16/11;overflow:hidden;}
-.pkg-photo img{width:100%;height:100%;object-fit:cover;transform:scale(1.04);transition:transform 1.2s var(--ease);}
-.pkg:hover .pkg-photo img{transform:scale(1.12);}
+.pkg-photo img{width:100%;height:100%;object-fit:cover;transition:transform 1.2s var(--ease);}
+.pkg:hover .pkg-photo img{transform:scale(1.05);}
 .pkg-photo::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(15,15,17,0.15) 0%,rgba(15,15,17,0) 40%,rgba(15,15,17,0.95) 100%);}
 .pkg-body{position:relative;z-index:2;padding:6px 26px 28px;display:flex;flex-direction:column;flex:1;margin-top:-34px;}
 .pkg-list{display:flex;flex-direction:column;gap:12px;margin-bottom:26px;}
@@ -621,8 +567,8 @@ p.section-lead{font-size:17px;line-height:1.8;color:var(--text-dim);font-weight:
 .studio-grid{display:grid;grid-template-columns:1.25fr 1fr;grid-template-rows:1fr 1fr;gap:16px;height:min(82vh,760px);}
 .studio-item{position:relative;border-radius:20px;overflow:hidden;border:1px solid var(--border);cursor:zoom-in;background:#111;}
 .studio-item:first-child{grid-row:span 2;}
-.studio-item img{position:absolute;inset:-8% 0;width:100%;height:116%;object-fit:cover;transition:filter .5s;}
-.studio-item:hover img{filter:brightness(1.08) contrast(1.04);}
+.studio-item img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform 1.2s var(--ease),filter .5s;}
+.studio-item:hover img{transform:scale(1.04);filter:brightness(1.06);}
 .studio-item::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 55%,rgba(0,0,0,0.7));pointer-events:none;}
 .studio-cap{position:absolute;left:20px;bottom:18px;z-index:2;font-family:var(--font-mono);font-size:11px;letter-spacing:0.18em;color:var(--white-ish);text-transform:uppercase;display:flex;align-items:center;gap:10px;}
 .studio-cap::before{content:'';width:18px;height:1px;background:var(--gold);}
@@ -652,7 +598,7 @@ p.section-lead{font-size:17px;line-height:1.8;color:var(--text-dim);font-weight:
 .owners{display:grid;grid-template-columns:1fr 1fr 0.9fr;gap:20px;align-items:stretch;}
 .owner{position:relative;border-radius:22px;overflow:hidden;border:1px solid var(--border-gold);aspect-ratio:9/14;background:#111;cursor:zoom-in;}
 .owner img{width:100%;height:100%;object-fit:cover;transition:transform 1.2s var(--ease);}
-.owner:hover img{transform:scale(1.05);}
+.owner:hover img{transform:scale(1.03);}
 .owner::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 60%,rgba(0,0,0,0.85));pointer-events:none;}
 .owner-cap{position:absolute;left:22px;right:22px;bottom:20px;z-index:2;}
 .owner-cap .role{font-family:var(--font-mono);font-size:10px;letter-spacing:0.22em;color:var(--gold-bright);text-transform:uppercase;}
@@ -690,13 +636,7 @@ p.section-lead{font-size:17px;line-height:1.8;color:var(--text-dim);font-weight:
 
 /* ============ CTA BANNER ============ */
 .cta-banner{position:relative;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:#08080A;overflow:hidden;}
-.cta-banner::before{
-  content:'';position:absolute;inset:0;opacity:0.06;
-  background:repeating-linear-gradient(-45deg,#C8202F 0 18px,#FFFFFF 18px 36px,#1D3E9E 36px 54px,#FFFFFF 54px 72px);
-  background-size:204px 204px;animation:pole 6s linear infinite;
-}
-@keyframes pole{to{background-position:204px 0;}}
-.cta-banner::after{content:'';position:absolute;inset:0;background:radial-gradient(60% 120% at 50% 50%,rgba(8,8,10,0.4),#08080A 75%);}
+.cta-banner::before{content:'';position:absolute;inset:0;background:radial-gradient(50% 140% at 50% 50%,rgba(212,175,106,0.09),transparent 70%);}
 .cta-banner-inner{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:30px;flex-wrap:wrap;padding:76px 0;}
 .cta-banner-text{display:flex;align-items:center;gap:30px;}
 .cta-seal{width:92px;height:92px;border-radius:50%;flex-shrink:0;box-shadow:0 0 50px rgba(212,175,106,0.25);border:1px solid var(--border-gold);}
@@ -742,8 +682,6 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
   display:flex;align-items:center;justify-content:center;
   box-shadow:0 10px 30px rgba(37,211,102,0.4);transition:transform .25s,opacity .3s;
 }
-.wa-fab::before{content:'';position:absolute;inset:0;border-radius:50%;border:2px solid #25D366;animation:ring 2.4s ease-out infinite;}
-@keyframes ring{0%{transform:scale(1);opacity:0.8}100%{transform:scale(1.6);opacity:0}}
 .wa-fab:hover{transform:scale(1.08);}
 .wa-fab svg{width:28px;height:28px;}
 .wa-tip{position:absolute;right:72px;top:50%;transform:translateY(-50%);white-space:nowrap;background:#fff;color:#111;font-size:13px;font-weight:600;padding:8px 12px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .3s;}
@@ -762,9 +700,25 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
 .lb-next{right:16px;top:50%;transform:translateY(-50%);}
 .lb-cap{position:absolute;bottom:18px;left:0;right:0;text-align:center;font-family:var(--font-mono);font-size:11px;letter-spacing:0.18em;color:var(--text-dim);text-transform:uppercase;}
 
-/* ============ REVEAL (solo con JS + GSAP) ============ */
-.js .reveal{opacity:0;transform:translateY(36px);}
-.no-gsap .reveal,.reduced .reveal{opacity:1 !important;transform:none !important;}
+/* ============ ANIMACIONES SOBRIAS ============ */
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:none;}}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+/* entrada del hero (solo CSS, no depende del script) */
+.js .hero .eyebrow,.js #heroTitle .line,.js .hero p.lead,.js .hero-ctas,.js .next-slot,.js .trust-row{animation:fadeUp .8s var(--ease) both;}
+.js .hero .eyebrow{animation-delay:.08s;}
+.js #heroTitle .line:nth-child(1){animation-delay:.16s;}
+.js #heroTitle .line:nth-child(2){animation-delay:.26s;}
+.js #heroTitle .line:nth-child(3){animation-delay:.36s;}
+.js .hero p.lead{animation-delay:.5s;}
+.js .hero-ctas{animation-delay:.6s;}
+.js .next-slot{animation-delay:.7s;}
+.js .trust-row{animation-delay:.8s;}
+.js .hero-media{animation:fadeIn 1.2s ease-out .1s both;}
+/* aparición suave al entrar en pantalla */
+.js .reveal{opacity:0;transform:translateY(22px);}
+.js .reveal.is-in{opacity:1;transform:none;transition:opacity .8s var(--ease),transform .8s var(--ease);transition-delay:var(--rd,0s);}
+.reduced .reveal{opacity:1 !important;transform:none !important;}
+.panel-in{animation:fadeUp .45s var(--ease) both;}
 
 /* ============ RESPONSIVE ============ */
 @media (max-width:1180px){
@@ -914,15 +868,6 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
   <symbol id="i-wa" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.37 5.07L2 22l5.06-1.33A9.93 9.93 0 0 0 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm5.2 14.27c-.22.62-1.27 1.18-1.76 1.23-.45.05-1 .07-1.62-.1-.37-.1-.85-.27-1.46-.53-2.57-1.1-4.24-3.7-4.37-3.87-.13-.17-1.04-1.38-1.04-2.63 0-1.25.66-1.87.9-2.12.22-.25.49-.3.65-.3h.47c.15 0 .35-.06.55.42.22.5.74 1.75.8 1.88.07.13.11.28.02.45-.08.17-.13.28-.26.43-.13.15-.27.33-.39.45-.13.13-.26.27-.11.53.15.27.67 1.1 1.43 1.78.99.88 1.82 1.15 2.08 1.28.27.13.42.11.58-.07.15-.18.65-.76.83-1.02.17-.27.35-.22.58-.13.24.08 1.5.71 1.76.84.27.13.44.2.5.31.07.13.07.71-.15 1.33z"/></symbol>
 </svg>
 
-<!-- ============ INTRO ============ -->
-<div class="intro" id="intro" aria-hidden="true">
-  <svg class="intro-crown" viewBox="0 0 24 24"><path d="M3.2 8.6l4.6 3.9L12 4.4l4.2 8.1 4.6-3.9-1.7 9.2H4.9z"/><path d="M4.7 19.4h14.6"/><circle cx="3" cy="8.1" r="1.2"/><circle cx="12" cy="3.4" r="1.2"/><circle cx="21" cy="8.1" r="1.2"/></svg>
-  <div class="intro-title silver-text" id="introTitle">SILVER HOUSE</div>
-  <div class="intro-line"></div>
-  <div class="intro-sub">BARBER</div>
-  <button class="intro-skip" type="button" id="introSkip">Saltar intro</button>
-</div>
-
 <div class="progress" aria-hidden="true"><span id="progressBar"></span></div>
 
 <!-- ============ HEADER ============ -->
@@ -973,13 +918,6 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
   <div class="hero-grain"></div>
   <div class="hero-inner">
     <div class="hero-text">
-      <div class="hero-kicker hero-anim">
-        <img src="silverhouse-logo.png" alt="Logo Silver House Barber" width="58" height="58">
-        <div>
-          <div class="k-title">SILVER HOUSE BARBER</div>
-          <div class="k-sub">ESTUDIO · EST. 2019</div>
-        </div>
-      </div>
       <div class="eyebrow hero-anim">
         <span class="label">Av. La Plata 1185 · CABA</span>
         <span class="line"></span>
@@ -1001,9 +939,9 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
         <span class="ns-go">Reservarlo →</span>
       </button>
       <div class="trust-row hero-anim">
-        <div class="trust-item"><span class="trust-num" data-count="4.9" data-decimals="1" data-suffix="/5">4.9/5</span><span class="lbl">Valoración Promedio</span></div>
+        <div class="trust-item"><span class="trust-num">4.9/5</span><span class="lbl">Valoración Promedio</span></div>
         <div class="trust-divider"></div>
-        <div class="trust-item"><span class="trust-num" data-count="2000" data-prefix="+">+2.000</span><span class="lbl">Clientes Atendidos</span></div>
+        <div class="trust-item"><span class="trust-num">+2.000</span><span class="lbl">Clientes Atendidos</span></div>
         <div class="trust-divider"></div>
         <div class="trust-item"><span class="trust-num">2019</span><span class="lbl">Desde</span></div>
       </div>
@@ -1025,7 +963,6 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
       <div class="hero-seal-crown"><svg fill="url(#gGold)"><use href="#i-crown"/></svg></div>
     </div>
   </div>
-  <a href="#paquetes" class="scroll-cue" aria-label="Ir a paquetes">DESCUBRÍ <i></i></a>
 </section>
 
 <!-- ============ TICKER ============ -->
@@ -1058,13 +995,13 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
     <div class="section-head-center">
       <div class="eyebrow"><span class="num">01</span><span class="line"></span><span class="label">El Menú</span></div>
       <svg class="pk-crown-top reveal" fill="url(#gGold)" aria-hidden="true"><use href="#i-crown"/></svg>
-      <h2 class="pk-title gold-text" data-split>PAQUETES</h2>
+      <h2 class="pk-title gold-text reveal">PAQUETES</h2>
       <p class="pk-lead reveal">Elegí tu experiencia y disfrutá de un servicio pensado para vos.</p>
     </div>
 
     <div class="pkg-grid">
       <!-- PREMIUM -->
-      <article class="pkg featured" data-pkg="premium" data-nombre="Paquete Premium" data-precio="35000" data-duracion="75"
+      <article class="pkg featured reveal" data-pkg="premium" data-nombre="Paquete Premium" data-precio="35000" data-duracion="75"
         data-incluye="Masaje relajante de 5 min · Lavado de cabello · Corte a tu preferencia · Perfilado y arreglo de barba · Café de cortesía"
         data-img="img/paquetes/premium.webp">
         <div class="pkg-inner">
@@ -1085,7 +1022,7 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
               <li><span class="ico-ring"><svg><use href="#i-coffee"/></svg></span>Café de cortesía al finalizar</li>
             </ul>
             <div class="pkg-price-wrap">
-              <div class="pkg-price"><span class="gold-text"><span class="cur">$</span><span data-countprice="35000">35.000</span></span></div>
+              <div class="pkg-price"><span class="gold-text"><span class="cur">$</span><span>35.000</span></span></div>
               <p class="pkg-desc">Una combinación pensada para que te relajes, te veas increíble y disfrutes cada detalle.</p>
               <button class="btn btn-gold" type="button" data-reservar="premium">Reservar Premium <svg><use href="#i-arrow"/></svg></button>
             </div>
@@ -1094,7 +1031,7 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
       </article>
 
       <!-- PLATINUM -->
-      <article class="pkg silver" data-pkg="platinum" data-nombre="Paquete Platinum" data-precio="30000" data-duracion="60"
+      <article class="pkg silver reveal" data-pkg="platinum" data-nombre="Paquete Platinum" data-precio="30000" data-duracion="60"
         data-incluye="Corte a tu preferencia · Arreglo y perfilado de barba · Café de cortesía"
         data-img="img/paquetes/platinum.webp">
         <div class="pkg-inner">
@@ -1112,7 +1049,7 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
               <li><span class="ico-ring"><svg><use href="#i-coffee"/></svg></span>Café de cortesía</li>
             </ul>
             <div class="pkg-price-wrap">
-              <div class="pkg-price"><span class="silver-text"><span class="cur">$</span><span data-countprice="30000">30.000</span></span></div>
+              <div class="pkg-price"><span class="silver-text"><span class="cur">$</span><span>30.000</span></span></div>
               <p class="pkg-desc">Todo lo necesario para mantener un estilo impecable y disfrutar una pausa especial.</p>
               <button class="btn btn-gold" type="button" data-reservar="platinum">Reservar Platinum <svg><use href="#i-arrow"/></svg></button>
             </div>
@@ -1121,7 +1058,7 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
       </article>
 
       <!-- ORO -->
-      <article class="pkg" data-pkg="oro" data-nombre="Paquete Oro" data-precio="20000" data-duracion="45"
+      <article class="pkg reveal" data-pkg="oro" data-nombre="Paquete Oro" data-precio="20000" data-duracion="45"
         data-incluye="Corte a tu preferencia · Terminación con navaja"
         data-img="img/paquetes/oro.webp">
         <div class="pkg-inner">
@@ -1138,7 +1075,7 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
               <li><span class="ico-ring"><svg><use href="#i-razor"/></svg></span>Terminación con navaja</li>
             </ul>
             <div class="pkg-price-wrap">
-              <div class="pkg-price"><span class="gold-text"><span class="cur">$</span><span data-countprice="20000">20.000</span></span></div>
+              <div class="pkg-price"><span class="gold-text"><span class="cur">$</span><span>20.000</span></span></div>
               <p class="pkg-desc">Detalles precisos para un acabado prolijo, profesional y duradero.</p>
               <button class="btn btn-gold" type="button" data-reservar="oro">Reservar Oro <svg><use href="#i-arrow"/></svg></button>
             </div>
@@ -1148,7 +1085,7 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
     </div>
 
     <!-- JUBILADOS -->
-    <article class="pkg pkg-wide" data-pkg="jubilados" data-nombre="Servicio para Jubilados" data-precio="18000" data-duracion="40"
+    <article class="pkg pkg-wide reveal" data-pkg="jubilados" data-nombre="Servicio para Jubilados" data-precio="18000" data-duracion="40"
       data-incluye="Corte de cabello a su preferencia"
       data-img="img/paquetes/jubilados.webp">
       <div class="pkg-inner">
@@ -1164,7 +1101,7 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
             </ul>
           </div>
           <div class="jub-right">
-            <div class="pkg-price"><span class="gold-text"><span class="cur">$</span><span data-countprice="18000">18.000</span></span></div>
+            <div class="pkg-price"><span class="gold-text"><span class="cur">$</span><span>18.000</span></span></div>
             <p class="pkg-desc">Atención cálida, cómoda y personalizada.</p>
             <button class="btn btn-gold" type="button" data-reservar="jubilados">Reservar <svg><use href="#i-arrow"/></svg></button>
           </div>
@@ -1180,7 +1117,7 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
 <section class="section-pad section-top-border section-alt" id="reserva">
   <div class="wrap">
     <div class="eyebrow"><span class="num">02</span><span class="line"></span><span class="label">Reserva Online</span></div>
-    <h2 class="section-title gradient-text" data-split>Tu turno en menos de un minuto.</h2>
+    <h2 class="section-title gradient-text reveal">Tu turno en menos de un minuto.</h2>
     <p class="section-lead reveal">Elegí paquete, barbero, día y horario. Te armamos el mensaje de WhatsApp con todo listo y lo agendás en tu calendario con un toque.</p>
 
     <div class="booking reveal">
@@ -1306,21 +1243,21 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
 <section class="section-pad section-top-border" id="estudio">
   <div class="wrap">
     <div class="eyebrow"><span class="num">03</span><span class="line"></span><span class="label">El Estudio</span></div>
-    <h2 class="section-title gradient-text" data-split>Así se vive Silver House.</h2>
+    <h2 class="section-title gradient-text reveal">Así se vive Silver House.</h2>
     <p class="section-lead reveal">Un espacio pensado para que te relajes: ambiente climatizado, buena música y un café mientras esperás tu turno.</p>
 
     <div class="studio-grid">
-      <figure class="studio-item" data-lightbox="estudio" data-full="img/estudio/estudio-1.webp" data-caption="El salón">
+      <figure class="studio-item reveal" data-lightbox="estudio" data-full="img/estudio/estudio-1.webp" data-caption="El salón">
         <img src="img/estudio/estudio-1.webp" alt="Salón de Silver House Barber con sillones y estaciones de trabajo" loading="lazy">
         <span class="studio-zoom"><svg><use href="#i-zoom"/></svg></span>
         <figcaption class="studio-cap">El salón</figcaption>
       </figure>
-      <figure class="studio-item" data-lightbox="estudio" data-full="img/estudio/estudio-2.webp" data-caption="La recepción">
+      <figure class="studio-item reveal" data-lightbox="estudio" data-full="img/estudio/estudio-2.webp" data-caption="La recepción">
         <img src="img/estudio/estudio-2-sm.webp" alt="Recepción con el logo de Silver House Barber y el poste de barbería" loading="lazy">
         <span class="studio-zoom"><svg><use href="#i-zoom"/></svg></span>
         <figcaption class="studio-cap">La recepción</figcaption>
       </figure>
-      <figure class="studio-item" data-lightbox="estudio" data-full="img/estudio/estudio-3.webp" data-caption="Sala de espera">
+      <figure class="studio-item reveal" data-lightbox="estudio" data-full="img/estudio/estudio-3.webp" data-caption="Sala de espera">
         <img src="img/estudio/estudio-3-sm.webp" alt="Sala de espera con espejo iluminado y sillones" loading="lazy">
         <span class="studio-zoom"><svg><use href="#i-zoom"/></svg></span>
         <figcaption class="studio-cap">Sala de espera</figcaption>
@@ -1346,7 +1283,7 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
 <section class="section-pad section-top-border section-alt" id="esencia">
   <div class="wrap">
     <div class="eyebrow"><span class="num">04</span><span class="line"></span><span class="label">La Esencia</span></div>
-    <h2 class="section-title gradient-text" data-split>No es un corte. Es una declaración.</h2>
+    <h2 class="section-title gradient-text reveal">No es un corte. Es una declaración.</h2>
     <p class="section-lead reveal">Silver House Barber existe para el hombre que entiende su imagen como una inversión. Un estudio de barbería donde la tradición del oficio se encuentra con el lujo contemporáneo — cromo, penumbra y precisión.</p>
     <div class="essence-grid reveal">
       <div class="essence-card">
@@ -1369,7 +1306,7 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
 <section class="section-pad section-top-border" id="duenos">
   <div class="wrap">
     <div class="eyebrow"><span class="num">05</span><span class="line"></span><span class="label">La Casa</span></div>
-    <h2 class="section-title gradient-text" data-split>Los dueños detrás de la silla.</h2>
+    <h2 class="section-title gradient-text reveal">Los dueños detrás de la silla.</h2>
     <p class="section-lead reveal">Detrás de cada corte están sus dueños. Construyen confianza, imagen y personalidad con la misma regla de siempre: precisión en cada pasada.</p>
 
     <div class="owners">
@@ -1401,7 +1338,7 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
 <section class="section-pad section-top-border section-alt" id="galeria">
   <div class="wrap">
     <div class="eyebrow"><span class="num">06</span><span class="line"></span><span class="label">El Trabajo</span></div>
-    <h2 class="section-title gradient-text" data-split>Cada corte, una firma.</h2>
+    <h2 class="section-title gradient-text reveal">Cada corte, una firma.</h2>
     <p class="section-lead reveal">Un vistazo al detalle, la técnica y el resultado que define a Silver House Barber.</p>
 
     <div class="gallery-grid">
@@ -1436,7 +1373,7 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
 <section class="section-pad section-top-border" id="resenas">
   <div class="wrap">
     <div class="eyebrow"><span class="num">07</span><span class="line"></span><span class="label">Lo Que Dicen</span></div>
-    <h2 class="section-title gradient-text" data-split>La confianza se nota en el resultado.</h2>
+    <h2 class="section-title gradient-text reveal">La confianza se nota en el resultado.</h2>
     <p class="section-lead reveal">Más de 1.000 personas siguen de cerca el trabajo de Silver House Barber en Instagram.</p>
 
     <div class="reviews-grid">
@@ -1481,7 +1418,7 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
 <section class="section-pad section-top-border section-alt" id="ubicacion">
   <div class="wrap">
     <div class="eyebrow"><span class="num">08</span><span class="line"></span><span class="label">Visitanos</span></div>
-    <h2 class="section-title gradient-text" data-split>La casa te espera.</h2>
+    <h2 class="section-title gradient-text reveal">La casa te espera.</h2>
     <p class="section-lead reveal">En el corazón de CABA. Reservá online o escribinos por WhatsApp.</p>
 
     <div class="location-grid">
@@ -1573,8 +1510,6 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
   <div class="lb-cap" id="lbCap"></div>
 </div>
 
-<script src="js/gsap.min.js"></script>
-<script src="js/ScrollTrigger.min.js"></script>
 <script>
 (function(){
 'use strict';
@@ -1602,11 +1537,6 @@ var MESES_CORTOS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct',
 
 var root = document.documentElement;
 var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-var hasGsap = typeof window.gsap !== 'undefined' && typeof window.ScrollTrigger !== 'undefined';
-if (!hasGsap) root.classList.add('no-gsap');
-if (reduceMotion) root.classList.add('reduced');
-if (hasGsap) gsap.registerPlugin(ScrollTrigger);
-var animOn = hasGsap && !reduceMotion;
 
 function $(sel, ctx){ return (ctx||document).querySelector(sel); }
 function $all(sel, ctx){ return Array.prototype.slice.call((ctx||document).querySelectorAll(sel)); }
@@ -1758,8 +1688,8 @@ function goToStep(n, opts){
   if (n === 5) fillForm();
   updateSummary();
   var panel = panels.filter(function(p){ return Number(p.dataset.panel) === n; })[0];
-  if (animOn && panel && !opts.instant){
-    gsap.fromTo(panel, { opacity:0, y:14 }, { opacity:1, y:0, duration:0.45, ease:'power2.out', clearProps:'transform' });
+  if (!reduceMotion && panel && !opts.instant){
+    panel.classList.remove('panel-in'); void panel.offsetWidth; panel.classList.add('panel-in');
   }
   if (opts.scroll){
     var top = $('#stepper').getBoundingClientRect().top;
@@ -2118,146 +2048,26 @@ lb.addEventListener('touchend', function(e){
 });
 
 /* =========================================================
-   MOTION GRAPHICS
+   ANIMACIONES: aparición suave de cada bloque al entrar en pantalla
    ========================================================= */
-// Tilt + brillo que sigue al mouse en los paquetes
-if (window.matchMedia('(hover: hover) and (pointer: fine)').matches){
-  $all('.pkg').forEach(function(card){
-    var inner = card.querySelector('.pkg-inner');
-    card.addEventListener('pointermove', function(e){
-      var r = inner.getBoundingClientRect();
-      var x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
-      card.style.setProperty('--mx', (x * 100) + '%');
-      card.style.setProperty('--my', (y * 100) + '%');
-      if (!reduceMotion && !card.classList.contains('pkg-wide')){
-        card.style.setProperty('--rx', ((0.5 - y) * 6).toFixed(2) + 'deg');
-        card.style.setProperty('--ry', ((x - 0.5) * 7).toFixed(2) + 'deg');
-      }
+(function(){
+  var items = $all('.reveal');
+  function done(el){ el.classList.remove('reveal','is-in'); el.style.removeProperty('--rd'); }
+  if (reduceMotion || !('IntersectionObserver' in window)){ items.forEach(done); return; }
+  var io = new IntersectionObserver(function(entries){
+    var vis = entries.filter(function(e){ return e.isIntersecting; })
+      .sort(function(a,b){ return a.boundingClientRect.top - b.boundingClientRect.top || a.boundingClientRect.left - b.boundingClientRect.left; });
+    vis.forEach(function(e, i){
+      var el = e.target;
+      io.unobserve(el);
+      el.style.setProperty('--rd', Math.min(i * 0.08, 0.4) + 's');
+      el.classList.add('is-in');
+      // al terminar, el bloque vuelve a sus estilos normales (hover, etc.)
+      setTimeout(function(){ done(el); }, 1300 + Math.min(i * 80, 400));
     });
-    card.addEventListener('pointerleave', function(){ card.style.setProperty('--rx','0deg'); card.style.setProperty('--ry','0deg'); });
-  });
-}
-
-function splitWords(el){
-  var frag = document.createDocumentFragment();
-  Array.prototype.slice.call(el.childNodes).forEach(function(node){
-    if (node.nodeType === 3){
-      node.textContent.split(/(\s+)/).forEach(function(part){
-        if (!part) return;
-        if (/^\s+$/.test(part)){ frag.appendChild(document.createTextNode(' ')); return; }
-        var w = document.createElement('span'); w.className = 'w';
-        var wi = document.createElement('span'); wi.className = 'wi'; wi.textContent = part;
-        w.appendChild(wi); frag.appendChild(w);
-      });
-    } else frag.appendChild(node.cloneNode(true));
-  });
-  el.innerHTML = ''; el.appendChild(frag);
-  el.classList.add('is-split');
-  return $all('.wi', el);
-}
-
-function runIntro(done){
-  var intro = $('#intro');
-  if (!root.classList.contains('show-intro') || !animOn){ if (intro) intro.remove(); root.classList.remove('show-intro'); heroIn(); done(); return; }
-  try{ sessionStorage.setItem('sh-intro','1'); }catch(e){}
-  var title = $('#introTitle');
-  title.innerHTML = title.textContent.split('').map(function(c){ return c === ' ' ? ' ' : '<span class="ch">' + c + '</span>'; }).join('');
-  intro.style.animation = 'none';
-  var crownParts = $all('.intro-crown path, .intro-crown circle');
-  crownParts.forEach(function(p){ var L = p.getTotalLength ? p.getTotalLength() : 60; p.style.strokeDasharray = L; p.style.strokeDashoffset = L; });
-  var finished = false;
-  function finish(){ if (finished) return; finished = true; intro.remove(); root.classList.remove('show-intro'); done(); }
-  var tl = gsap.timeline({ onComplete: finish });
-  tl.to(crownParts, { strokeDashoffset:0, duration:0.7, ease:'power2.inOut', stagger:0.04 })
-    .fromTo('#introTitle .ch', { yPercent:120, opacity:0 }, { yPercent:0, opacity:1, duration:0.5, ease:'power3.out', stagger:0.025 }, 0.3)
-    .to('.intro-line', { scaleX:1, duration:0.5, ease:'power2.out' }, 0.7)
-    .fromTo('.intro-sub', { opacity:0, letterSpacing:'1.4em' }, { opacity:1, letterSpacing:'0.7em', duration:0.5, ease:'power2.out' }, 0.75)
-    .add(function(){ heroIn(); }, 1.45)
-    .to(intro, { yPercent:-100, duration:0.7, ease:'power4.inOut' }, 1.5);
-  $('#introSkip').addEventListener('click', function(){ heroIn(); tl.progress(1); });
-}
-
-var heroDone = false;
-function heroIn(){
-  if (heroDone) return; heroDone = true;
-  if (!animOn){ root.classList.remove('pre-anim'); return; }
-  var h1lines = $all('#heroTitle .line');
-  var words = [];
-  h1lines.forEach(function(l){ words = words.concat(splitWords(l)); });
-  var tl = gsap.timeline({ defaults:{ ease:'power3.out' } });
-  var up = function(y){ return [{ opacity:0, y:y }, { opacity:1, y:0 }]; };
-  function seq(sel, from, to, pos){ tl.fromTo(sel, from, to, pos); }
-  seq('.hero-kicker', up(20)[0], Object.assign(up(20)[1], { duration:0.55 }), 0);
-  seq('.hero .eyebrow', up(16)[0], Object.assign(up(16)[1], { duration:0.5 }), 0.12);
-  seq(words, { yPercent:110 }, { yPercent:0, duration:0.8, stagger:0.06 }, 0.2);
-  seq('.hero p.lead', up(22)[0], Object.assign(up(22)[1], { duration:0.6 }), 0.65);
-  seq('.hero-ctas', up(22)[0], Object.assign(up(22)[1], { duration:0.6 }), 0.78);
-  seq('#nextSlotBtn', up(14)[0], Object.assign(up(14)[1], { duration:0.55 }), 0.9);
-  seq('.trust-row', up(14)[0], Object.assign(up(14)[1], { duration:0.55 }), 1.0);
-  seq('.hero-frame', { opacity:0, scale:0.93, y:30 }, { opacity:1, scale:1, y:0, duration:1.1, ease:'expo.out' }, 0.1);
-  seq('.corner', { opacity:0, scale:0.4 }, { opacity:1, scale:1, duration:0.5, stagger:0.07 }, 0.6);
-  seq('.hero-seal, .hero-seal-crown', { opacity:0, scale:0.5 }, { opacity:1, scale:1, duration:0.7, ease:'back.out(1.7)' }, 0.75);
-  root.classList.remove('pre-anim');
-  // contadores
-  $all('[data-count]').forEach(function(el){
-    var end = parseFloat(el.dataset.count), dec = Number(el.dataset.decimals || 0);
-    var o = { v: 0 };
-    gsap.to(o, { v:end, duration:1.6, delay:0.8, ease:'power2.out', onUpdate:function(){
-      var v = dec ? o.v.toFixed(dec) : Math.round(o.v).toLocaleString('es-AR');
-      el.textContent = (el.dataset.prefix || '') + v + (el.dataset.suffix || '');
-    }});
-  });
-  // parallax suave del marco
-  if (window.matchMedia('(min-width: 901px)').matches){
-    gsap.to('.hero-media', { yPercent:-8, ease:'none', scrollTrigger:{ trigger:'.hero', start:'top top', end:'bottom top', scrub:true } });
-  }
-  gsap.to('.hero-text', { opacity:0.15, y:-40, ease:'none', scrollTrigger:{ trigger:'.hero', start:'center top+=20%', end:'bottom top', scrub:true } });
-}
-
-function scrollAnims(){
-  if (!animOn) return;
-  // Títulos palabra por palabra
-  $all('[data-split]').forEach(function(t){
-    var words = splitWords(t);
-    gsap.fromTo(words, { yPercent:110 }, { yPercent:0, duration:0.9, ease:'power3.out', stagger:0.06, scrollTrigger:{ trigger:t, start:'top 88%' } });
-  });
-  // Reveal genérico
-  ScrollTrigger.batch('.reveal', {
-    start:'top 90%',
-    onEnter:function(batch){ gsap.to(batch, { opacity:1, y:0, duration:0.9, ease:'power2.out', stagger:0.1, overwrite:true }); }
-  });
-  // Paquetes: entrada 3D escalonada + corona
-  gsap.fromTo('.pkg-grid .pkg', { opacity:0, y:80, rotateX:10 }, { opacity:1, y:0, rotateX:0, duration:1.1, ease:'power3.out', stagger:0.15,
-    scrollTrigger:{ trigger:'.pkg-grid', start:'top 85%' } });
-  gsap.fromTo('.pkg-grid .crown', { y:-26, rotate:-14, opacity:0 }, { y:0, rotate:0, opacity:1, duration:0.9, ease:'back.out(2.2)', stagger:0.15,
-    scrollTrigger:{ trigger:'.pkg-grid', start:'top 80%' } });
-  gsap.fromTo('.pkg-wide', { opacity:0, y:60 }, { opacity:1, y:0, duration:1, ease:'power3.out', scrollTrigger:{ trigger:'.pkg-wide', start:'top 88%' } });
-  // Precios que cuentan
-  $all('[data-countprice]').forEach(function(el){
-    var end = Number(el.dataset.countprice), o = { v: end * 0.4 };
-    ScrollTrigger.create({ trigger:el, start:'top 92%', once:true, onEnter:function(){
-      gsap.fromTo(o, { v:end * 0.4 }, { v:end, duration:1.4, ease:'power2.out', onUpdate:function(){ el.textContent = (Math.round(o.v / 100) * 100).toLocaleString('es-AR'); } });
-    }});
-  });
-  // Estudio: cortina + parallax
-  $all('.studio-item').forEach(function(it, i){
-    gsap.fromTo(it, { clipPath:'inset(100% 0% 0% 0%)' }, { clipPath:'inset(0% 0% 0% 0%)', duration:1.3, ease:'expo.out', delay:i * 0.12, scrollTrigger:{ trigger:'.studio-grid', start:'top 82%' } });
-    gsap.fromTo(it.querySelector('img'), { yPercent:-6 }, { yPercent:6, ease:'none', scrollTrigger:{ trigger:it, start:'top bottom', end:'bottom top', scrub:true } });
-  });
-  gsap.fromTo('.amenity', { opacity:0, y:30 }, { opacity:1, y:0, duration:0.8, ease:'power2.out', stagger:0.1, scrollTrigger:{ trigger:'.amenities', start:'top 88%' } });
-  gsap.fromTo('.amenity svg', { scale:0.4, rotate:-30 }, { scale:1, rotate:0, duration:0.9, ease:'back.out(2)', stagger:0.1, scrollTrigger:{ trigger:'.amenities', start:'top 88%' } });
-  // Dueños
-  $all('.owner img').forEach(function(img){
-    gsap.fromTo(img, { scale:1.18 }, { scale:1.02, ease:'none', scrollTrigger:{ trigger:img.parentNode, start:'top bottom', end:'bottom top', scrub:true } });
-  });
-  // Sello del banner
-  gsap.to('.cta-seal', { rotate:360, ease:'none', scrollTrigger:{ trigger:'.cta-banner', start:'top bottom', end:'bottom top', scrub:true } });
-}
-
-runIntro(function(){
-  scrollAnims();
-  if (hasGsap) ScrollTrigger.refresh();
-});
+  }, { threshold:0.08, rootMargin:'0px 0px -6% 0px' });
+  items.forEach(function(el){ io.observe(el); });
+})();
 })();
 </script>
 </body>

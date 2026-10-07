@@ -6,18 +6,17 @@ Una sola página (`index.html`). Para encontrar cada parte, buscá el comentario
 
 | # | Sección | `id` | Contenido |
 |---|---|---|---|
-| — | Intro animada | `#intro` | Corona dorada que se dibuja + "SILVER HOUSE" + "BARBER". Se ve una vez por visita, se puede saltar. |
 | — | Header fijo | `#siteHeader` | Logo, menú, botón "Reservar Turno", menú móvil. Barra dorada de progreso de scroll arriba. |
-| — | Hero | `#inicio` | "Tu estilo, tu momento, tu mejor versión." + "Construimos confianza, imagen y personalidad". Estado **Abierto/Cerrado** automático (hora de Buenos Aires), botón **Próximo turno disponible** (calculado en vivo), estadísticas, slideshow con efecto Ken Burns de las fotos reales del local. |
+| — | Hero | `#inicio` | "Tu estilo, tu momento, tu mejor versión." + "Construimos confianza, imagen y personalidad". Estado **Abierto/Cerrado** automático (hora de Buenos Aires), botón **Próximo turno disponible** (calculado en vivo), estadísticas, slideshow lento de las fotos reales del local. |
 | — | Cinta animada | `.ticker` | Servicios y frases del flyer en movimiento continuo. |
-| 01 | **Paquetes** | `#paquetes` | Premium, Platinum, Oro (tarjetas con foto, ícono por servicio, precio animado) + tarjeta ancha **Servicio para Jubilados**. |
+| 01 | **Paquetes** | `#paquetes` | Premium, Platinum, Oro (tarjetas con foto, ícono por servicio y precio) + tarjeta ancha **Servicio para Jubilados**. |
 | 02 | **Reserva online** | `#reserva` | Asistente de 5 pasos: Paquete → Barbero → Día → Horario → Datos y confirmación. Resumen lateral "Tu reserva" (en celular, barra fija abajo). |
 | 03 | El Estudio | `#estudio` | 3 fotos reales del local (visor ampliable), 5 comodidades del flyer, frase "Cuidá tu imagen. Cuidá tu bienestar." |
 | 04 | La Esencia | `#esencia` | Misión / Visión / Valores. |
 | 05 | Los Dueños | `#duenos` | Fotos de los dueños + cita y firma de Omar Silvera. |
 | 06 | Galería | `#galeria` | 5 fotos de trabajos (visor ampliable) + botón a Instagram. |
 | 07 | Reseñas | `#resenas` | 3 reseñas **de muestra** (el sitio lo aclara) — reemplazar por reseñas reales. |
-| — | Banner | `.cta-banner` | "Cuidá tu imagen. Cuidá tu bienestar." sobre franjas de poste de barbería animadas. |
+| — | Banner | `.cta-banner` | "Cuidá tu imagen. Cuidá tu bienestar." con el sello de la barbería. |
 | 08 | Ubicación | `#ubicacion` | Dirección (link a Google Maps), WhatsApp, horario, Instagram, botón "Cómo llegar" y mapa. |
 | — | Footer + WhatsApp flotante | `footer`, `#waFab` | |
 
@@ -74,4 +73,4 @@ No hay base de datos: la barbería confirma cada turno por WhatsApp (el sitio lo
 
 - Colores: negro (`--bg #0B0B0C`), dorado (`--gold #D4AF6A`, degradados `--gold-grad`), plateado (`--silver-grad`). Variables en `:root`.
 - Tipografías: Cinzel (títulos), Cormorant Garamond itálica (frases), Hanken Grotesk (texto), Space Mono (etiquetas).
-- Animaciones: GSAP + ScrollTrigger (`js/`). Respetan "reducir movimiento" del sistema; sin JavaScript todo el contenido queda visible.
+- Animaciones sobrias en CSS: entrada suave del hero, aparición de cada bloque al entrar en pantalla, slideshow lento de fotos del local y la cinta de servicios. Respetan "reducir movimiento" del sistema; sin JavaScript todo el contenido queda visible.
