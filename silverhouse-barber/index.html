@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Silverhouse Barber — Barbería Premium en CABA | Reservá Online</title>
+<meta name="description" content="Silverhouse Barber, Av. La Plata 1185, CABA. Cortes clásicos, fades de precisión, arreglo de barba y experiencia de grooming premium. Reservá tu turno online en minutos.">
+<meta name="theme-color" content="#111111">
+
+<meta property="og:type" content="business.business">
+<meta property="og:title" content="Silverhouse Barber — Precisión. Estilo. Distinción.">
+<meta property="og:description" content="Barbería premium en Av. La Plata 1185, CABA. Reservá tu turno online en minutos.">
+<meta property="og:locale" content="es_AR">
+
+<link rel="icon" type="image/png" href="silverhouse-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Cinzel+Decorative:wght@400;700;900&family=Hanken+Grotesk:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --obsidian:#111111;
+  --obsidian-2:#0D0D0D;
+  --carbon:#171717;
+  --carbon-2:#161616;
+  --ink:#171717;
+  --text:#C7CACF;
+  --text-dim:#9CA0A7;
+  --text-mute:#7E838B;
+  --text-faint:#5C6168;
+  --white-ish:#E6E8EC;
+  --cyan:#4FD1E5;
+  --cyan-bright:#7BE0EE;
+  --cyan-glow:rgba(79,209,229,0.65);
+  --border:rgba(255,255,255,0.08);
+  --border-soft:rgba(255,255,255,0.07);
+  --font-display:'Cinzel',serif;
+  --font-deco:'Cinzel Decorative',serif;
+  --font-body:'Hanken Grotesk',sans-serif;
+  --font-mono:'Space Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{
+  background:var(--obsidian);
+  color:var(--text);
+  font-family:var(--font-body);
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+img{max-width:100%;display:block;}
+a{color:inherit;text-decoration:none;}
+ul{list-style:none;}
+::selection{background:rgba(79,209,229,0.26);color:#fff;}
+
+.bg-texture{
+  background-image:
+    radial-gradient(120% 80% at 15% 8%,rgba(255,255,255,0.02),transparent 42%),
+    radial-gradient(100% 70% at 85% 95%,rgba(79,209,229,0.035),transparent 50%);
+}
+
+.wrap{max-width:1180px;margin:0 auto;padding-left:24px;padding-right:24px;}
+
+.eyebrow{
+  display:flex;align-items:center;gap:14px;margin-bottom:28px;flex-wrap:wrap;
+}
+.eyebrow .num{font-family:var(--font-mono);font-size:12px;letter-spacing:0.22em;color:var(--cyan);}
+.eyebrow .line{width:30px;height:1px;background:rgba(255,255,255,0.2);}
+.eyebrow .label{font-family:var(--font-mono);font-size:12px;letter-spacing:0.28em;color:var(--text-mute);text-transform:uppercase;}
+
+.gradient-text{
+  background:linear-gradient(176deg,#FFFFFF 0%,#E6E8EC 22%,#9DA0A6 52%,#F4F5F7 72%,#B6B9BF 100%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;
+}
+
+.btn{
+  display:inline-flex;align-items:center;gap:10px;
+  font-family:var(--font-mono);font-size:13px;letter-spacing:0.12em;text-transform:uppercase;
+  padding:16px 30px;border-radius:6px;cursor:pointer;transition:all .3s ease;white-space:nowrap;
+  border:none;
+}
+.btn-primary{background:var(--cyan);color:#06181B;border:1px solid var(--cyan);}
+.btn-primary:hover{background:var(--cyan-bright);box-shadow:0 0 30px rgba(79,209,229,0.45);transform:translateY(-2px);}
+.btn-primary:disabled{opacity:0.35;cursor:not-allowed;transform:none;box-shadow:none;}
+.btn-ghost{border:1px solid rgba(255,255,255,0.18);color:var(--white-ish);background:transparent;}
+.btn-ghost:hover{border-color:var(--cyan);color:var(--cyan);background:rgba(79,209,229,0.06);}
+
+
+.status-badge{
+  display:inline-flex;align-items:center;gap:9px;
+  font-family:var(--font-mono);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;
+  padding:8px 16px;border-radius:30px;border:1px solid rgba(255,255,255,0.14);color:var(--text-dim);
+}
+.status-badge .dot{width:7px;height:7px;border-radius:50%;background:var(--text-faint);}
+.status-badge.open{border-color:rgba(79,209,229,0.4);color:var(--cyan);}
+.status-badge.open .dot{background:var(--cyan);box-shadow:0 0 8px var(--cyan-glow);animation:dotPulse 2.2s ease-in-out infinite;}
+@keyframes dotPulse{0%,100%{opacity:1}50%{opacity:0.35}}
+
+/* ============ HEADER ============ */
+header{
+  position:fixed;top:0;left:0;right:0;z-index:1000;
+  padding:18px 0;transition:all .35s ease;
+  border-bottom:1px solid transparent;
+}
+header.scrolled{
+  background:rgba(17,17,17,0.88);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--border);padding:13px 0;
+}
+header .wrap{max-width:100%;padding-left:clamp(24px,5vw,72px);padding-right:clamp(24px,5vw,72px);}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;}
+.brand{display:flex;align-items:center;gap:12px;}
+.brand img{width:48px;height:48px;}
+.brand-text{font-family:var(--font-display);font-weight:700;font-size:18px;letter-spacing:0.04em;color:var(--white-ish);line-height:1.1;}
+.brand-text span{display:block;font-family:var(--font-mono);font-size:9px;letter-spacing:0.3em;color:var(--cyan);margin-top:3px;}
+nav ul{display:flex;gap:34px;}
+nav a{font-size:13px;letter-spacing:0.04em;color:var(--text-dim);font-weight:500;transition:color .25s;position:relative;}
+nav a:hover{color:var(--white-ish);}
+.nav-cta{display:flex;align-items:center;gap:18px;}
+.hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;background:none;border:none;padding:6px;}
+.hamburger span{width:24px;height:2px;background:var(--white-ish);transition:all .3s;}
+
+.mobile-nav{
+  position:fixed;inset:0;background:var(--obsidian-2);z-index:999;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;
+  transform:translateY(-100%);transition:transform .4s ease;
+}
+.mobile-nav.open{transform:translateY(0);}
+.mobile-nav a{font-family:var(--font-display);font-size:24px;color:var(--white-ish);}
+
+/* ============ HERO ============ */
+.hero{
+  position:relative;width:100%;min-height:100vh;
+  display:flex;align-items:center;padding-top:84px;padding-bottom:40px;
+}
+.hero-bg{
+  position:absolute;inset:0;z-index:0;
+  background-image:url('https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=1920&q=80');
+  background-size:cover;background-position:center;background-repeat:no-repeat;
+}
+.hero-content{position:relative;z-index:3;width:100%;padding-left:clamp(24px,5vw,72px);padding-right:clamp(24px,5vw,72px);}
+.hero-block{display:flex;align-items:flex-start;gap:36px;max-width:1320px;}
+.hero-logo{width:207px;height:207px;flex-shrink:0;filter:drop-shadow(0 4px 18px rgba(0,0,0,0.55));}
+.hero-text-col{flex:1;min-width:0;max-width:900px;padding-top:8px;}
+.hero .eyebrow .num,.hero .eyebrow .label{text-shadow:0 1px 4px rgba(0,0,0,0.85),0 4px 16px rgba(0,0,0,0.5);}
+.hero .eyebrow .line{background:rgba(255,255,255,0.4);}
+.hero .status-badge{border-color:rgba(255,255,255,0.35);background:rgba(13,13,13,0.32);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}
+.hero .btn-ghost{border-color:rgba(255,255,255,0.55);background:rgba(13,13,13,0.22);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}
+.hero h1{
+  font-family:var(--font-display);font-weight:700;
+  font-size:clamp(26px,2.7vw,40px);line-height:1.32;letter-spacing:0.01em;
+  margin-bottom:22px;text-shadow:0 2px 6px rgba(0,0,0,0.85),0 8px 28px rgba(0,0,0,0.55);
+}
+.hero p.lead{font-size:17px;line-height:1.75;color:var(--white-ish);font-weight:300;max-width:560px;margin-bottom:32px;text-shadow:0 1px 4px rgba(0,0,0,0.85),0 4px 18px rgba(0,0,0,0.5);}
+.hero-ctas{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:38px;}
+
+.trust-row{
+  display:flex;align-items:center;gap:30px;flex-wrap:wrap;
+  border-top:1px solid rgba(255,255,255,0.28);padding-top:26px;
+}
+.trust-item{display:flex;flex-direction:column;gap:6px;}
+.trust-item .trust-num{font-family:var(--font-display);font-size:22px;font-weight:600;color:var(--white-ish);text-shadow:0 1px 4px rgba(0,0,0,0.85),0 4px 16px rgba(0,0,0,0.5);}
+.trust-item span.lbl{font-family:var(--font-mono);font-size:11px;letter-spacing:0.12em;color:#E8EAED;text-transform:uppercase;text-shadow:0 1px 4px rgba(0,0,0,0.85),0 4px 16px rgba(0,0,0,0.5);}
+.trust-divider{width:1px;height:34px;background:rgba(255,255,255,0.3);}
+
+.scroll-cue{
+  position:absolute;bottom:28px;left:50%;transform:translateX(-50%);
+  font-family:var(--font-mono);font-size:11px;letter-spacing:0.3em;color:var(--white-ish);z-index:2;
+  text-shadow:0 1px 4px rgba(0,0,0,0.85),0 4px 16px rgba(0,0,0,0.5);
+}
+@media (max-height:760px){
+  .scroll-cue{display:none;}
+}
+
+/* ============ SECTION GENERIC ============ */
+section{position:relative;}
+.section-pad{padding:110px 0;}
+.section-top-border{border-top:1px solid var(--border);}
+.section-alt{background:linear-gradient(180deg,#141414,#111111);}
+
+h2.section-title{
+  font-family:var(--font-display);font-weight:600;
+  font-size:clamp(32px,4.6vw,58px);line-height:1.1;letter-spacing:0.01em;
+  margin-bottom:26px;max-width:18ch;
+}
+p.section-lead{font-size:17px;line-height:1.8;color:var(--text-dim);font-weight:300;max-width:620px;margin-bottom:60px;}
+
+/* ============ ESENCIA ============ */
+.essence-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:1px;
+  background:var(--border-soft);border:1px solid var(--border-soft);border-radius:16px;overflow:hidden;
+}
+.essence-card{background:var(--carbon-2);padding:40px 32px;}
+.essence-card .tag{font-family:var(--font-mono);font-size:11px;letter-spacing:0.22em;color:var(--cyan);margin-bottom:18px;}
+.essence-card p{font-size:15px;line-height:1.75;color:#B6BAC0;font-weight:300;}
+
+/* ============ SERVICIOS ============ */
+.services-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:24px;
+}
+.service-card{
+  border:1px solid var(--border);border-radius:16px;background:var(--carbon);padding:34px 30px;
+  transition:all .35s ease;position:relative;
+}
+.service-card:hover{border-color:rgba(79,209,229,0.35);transform:translateY(-4px);box-shadow:0 20px 50px rgba(0,0,0,0.4);}
+.sc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:10px;}
+.service-card h3{font-family:var(--font-display);font-size:19px;color:var(--white-ish);font-weight:600;letter-spacing:0.01em;}
+.sc-price{font-family:var(--font-mono);font-size:16px;color:var(--cyan);white-space:nowrap;}
+.service-card p{font-size:14px;line-height:1.7;color:var(--text-dim);font-weight:300;}
+.tag-popular{display:inline-block;font-family:var(--font-mono);font-size:9px;letter-spacing:0.14em;color:var(--cyan);border:1px solid rgba(79,209,229,0.4);border-radius:20px;padding:4px 11px;margin-top:14px;text-transform:uppercase;}
+.sc-bottom{display:flex;justify-content:space-between;align-items:center;margin-top:22px;padding-top:18px;border-top:1px solid var(--border);}
+.sc-duration{font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;color:var(--text-mute);text-transform:uppercase;}
+.service-card .consult{font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;color:var(--cyan);display:inline-flex;align-items:center;gap:8px;background:none;border:none;cursor:pointer;padding:0;text-transform:uppercase;}
+.service-card .consult:hover{color:var(--cyan-bright);}
+.services-note{font-family:var(--font-mono);font-size:12px;letter-spacing:0.04em;color:var(--text-mute);text-align:center;padding-top:10px;}
+
+/* ============ STEPPER / RESERVA ============ */
+.stepper{border:1px solid var(--border);border-radius:18px;background:var(--carbon);padding:48px;}
+.stepper-track{display:flex;justify-content:space-between;margin-bottom:48px;position:relative;}
+.stepper-track::before{content:'';position:absolute;top:14px;left:0;right:0;height:1px;background:var(--border);z-index:0;}
+.step-node{display:flex;flex-direction:column;align-items:center;gap:10px;position:relative;z-index:1;flex:1;}
+.step-node .step-num{
+  width:28px;height:28px;border-radius:50%;border:1px solid rgba(255,255,255,0.18);
+  display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:12px;
+  color:var(--text-mute);background:var(--carbon);transition:all .3s;
+}
+.step-node .step-label{font-family:var(--font-mono);font-size:10px;letter-spacing:0.1em;color:var(--text-faint);text-transform:uppercase;text-align:center;}
+.step-node.active .step-num{border-color:var(--cyan);color:var(--cyan);}
+.step-node.active .step-label{color:var(--white-ish);}
+.step-node.done .step-num{background:var(--cyan);border-color:var(--cyan);color:#06181B;}
+.step-node.done .step-label{color:var(--text-dim);}
+
+.panel-title{font-family:var(--font-display);font-size:22px;font-weight:600;color:var(--white-ish);margin-bottom:28px;}
+
+.step-services-grid,.pro-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;}
+.step-service-card,.pro-card{
+  border:1px solid var(--border);border-radius:12px;padding:24px 26px;cursor:pointer;transition:all .25s;
+}
+.step-service-card:hover,.pro-card:hover{border-color:rgba(79,209,229,0.35);}
+.step-service-card.selected,.pro-card.selected{border-color:var(--cyan);background:rgba(79,209,229,0.07);}
+.ssc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px;}
+.step-service-card h4{font-family:var(--font-display);font-size:17px;color:var(--white-ish);font-weight:600;}
+.step-service-card .price{font-family:var(--font-mono);font-size:15px;color:var(--cyan);}
+.step-service-card .meta{font-family:var(--font-mono);font-size:11px;color:var(--text-mute);letter-spacing:0.06em;}
+
+.pro-card .role{font-family:var(--font-mono);font-size:11px;color:var(--cyan);letter-spacing:0.1em;margin-bottom:8px;text-transform:uppercase;}
+.pro-card h4{font-family:var(--font-display);font-size:18px;color:var(--white-ish);margin-bottom:6px;font-weight:600;}
+.pro-card .years{font-size:13px;color:var(--text-mute);}
+
+.calendar{max-width:440px;}
+.cal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;}
+.cal-header button{background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:6px;width:32px;height:32px;cursor:pointer;font-size:15px;}
+.cal-header button:hover{border-color:var(--cyan);color:var(--cyan);}
+.cal-month-label{font-family:var(--font-mono);font-size:13px;letter-spacing:0.1em;color:var(--white-ish);text-transform:uppercase;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+.cal-dow{font-family:var(--font-mono);font-size:10px;color:var(--text-faint);text-align:center;padding-bottom:8px;text-transform:uppercase;}
+.cal-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:13px;color:var(--text-dim);cursor:pointer;border:1px solid transparent;}
+.cal-day.empty{cursor:default;}
+.cal-day.unavailable{color:var(--text-faint);opacity:0.3;cursor:not-allowed;}
+.cal-day.available:hover{border-color:var(--cyan);color:var(--white-ish);}
+.cal-day.selected{background:var(--cyan);color:#06181B;font-weight:600;}
+
+.time-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.time-slot{
+  border:1px solid var(--cyan);color:var(--cyan);font-family:var(--font-mono);font-size:13px;
+  text-align:center;padding:13px 0;border-radius:8px;cursor:pointer;transition:all .2s;
+}
+.time-slot:hover{background:var(--cyan);color:#06181B;}
+.time-slot.selected{background:var(--cyan);color:#06181B;}
+.time-slot.occupied{opacity:0.3;cursor:not-allowed;border-color:var(--border);color:var(--text-faint);}
+.time-slot.occupied:hover{background:none;color:var(--text-faint);}
+.meta-note{font-size:14px;color:var(--text-mute);}
+
+.confirm-summary{border:1px solid var(--border);border-radius:12px;padding:8px 30px;margin-bottom:32px;max-width:560px;}
+.confirm-row{display:flex;justify-content:space-between;align-items:center;padding:16px 0;border-bottom:1px solid var(--border);font-size:14px;gap:20px;}
+.confirm-row:last-child{border-bottom:none;}
+.confirm-row .k{font-family:var(--font-mono);font-size:11px;letter-spacing:0.12em;color:var(--text-mute);text-transform:uppercase;}
+.confirm-row .v{color:var(--white-ish);font-weight:500;text-align:right;}
+.confirm-row .v.price{color:var(--cyan);font-family:var(--font-mono);}
+
+.stepper-nav{display:flex;justify-content:flex-start;margin-top:36px;padding-top:30px;border-top:1px solid var(--border);}
+
+/* ============ GALERIA ============ */
+.gallery-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:44px;
+}
+.gallery-item{
+  position:relative;border-radius:14px;overflow:hidden;aspect-ratio:4/5;border:1px solid var(--border);
+}
+.gallery-item:first-child{grid-row:span 2;aspect-ratio:auto;}
+.gallery-item img{width:100%;height:100%;object-fit:cover;transition:transform .6s ease,filter .6s ease;filter:grayscale(0.15) contrast(1.05);}
+.gallery-item:hover img{transform:scale(1.07);filter:grayscale(0) contrast(1.1);}
+.gallery-overlay{
+  position:absolute;inset:0;background:linear-gradient(180deg,transparent 40%,rgba(13,13,13,0.92) 100%);
+  display:flex;align-items:flex-end;padding:22px;opacity:0;transition:opacity .35s ease;
+}
+.gallery-item:hover .gallery-overlay{opacity:1;}
+.gallery-overlay span{font-family:var(--font-mono);font-size:12px;letter-spacing:0.14em;color:var(--cyan);text-transform:uppercase;}
+.gallery-cta{text-align:center;}
+
+/* ============ EQUIPO ============ */
+.team-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:24px;}
+.team-card{
+  border:1px solid var(--border);border-radius:18px;background:var(--carbon);overflow:hidden;
+  display:flex;flex-direction:column;
+}
+.team-photo{aspect-ratio:4/3;overflow:hidden;position:relative;}
+.team-photo img{width:100%;height:100%;object-fit:cover;filter:grayscale(0.3) contrast(1.05);}
+.team-body{padding:30px 32px;}
+.team-body .role{font-family:var(--font-mono);font-size:11px;letter-spacing:0.2em;color:var(--cyan);margin-bottom:8px;}
+.team-body h3{font-family:var(--font-display);font-size:24px;color:var(--white-ish);margin-bottom:14px;font-weight:600;}
+.team-body p{font-size:14px;line-height:1.75;color:var(--text-dim);font-weight:300;}
+
+/* ============ RESEÑAS ============ */
+.reviews-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+.review-card{
+  border:1px solid var(--border);border-radius:16px;background:var(--carbon);padding:34px 30px;
+  display:flex;flex-direction:column;gap:18px;
+}
+.review-card .stars{color:var(--cyan);letter-spacing:3px;font-size:15px;}
+.review-card p.quote{font-size:15px;line-height:1.75;color:#C9CCD1;font-weight:300;font-style:italic;}
+.review-card .who{font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;color:var(--text-mute);text-transform:uppercase;}
+.reviews-disclaimer{text-align:center;font-family:var(--font-mono);font-size:11px;color:var(--text-faint);margin-top:36px;letter-spacing:0.04em;}
+
+/* ============ UBICACION ============ */
+.location-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:stretch;}
+.location-card{border:1px solid var(--border);border-radius:18px;background:var(--carbon);padding:44px;display:flex;flex-direction:column;justify-content:space-between;}
+.info-row{display:flex;gap:18px;align-items:flex-start;margin-bottom:26px;}
+.info-row .icon{width:38px;height:38px;border-radius:10px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.info-row .label{font-family:var(--font-mono);font-size:10px;letter-spacing:0.18em;color:var(--text-mute);margin-bottom:6px;text-transform:uppercase;}
+.info-row .val{font-size:15px;color:var(--white-ish);font-weight:400;line-height:1.5;}
+.info-row .val small{display:block;font-size:12px;color:var(--text-faint);font-family:var(--font-mono);margin-top:4px;}
+.map-frame{border-radius:18px;overflow:hidden;border:1px solid var(--border);min-height:340px;filter:grayscale(0.4) contrast(1.1) brightness(0.9);}
+.map-frame iframe{width:100%;height:100%;min-height:340px;border:0;display:block;}
+
+/* ============ CTA BANNER ============ */
+.cta-banner{
+  position:relative;border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+  background:var(--obsidian-2);
+}
+.cta-banner-inner{
+  display:flex;align-items:center;justify-content:space-between;gap:30px;flex-wrap:wrap;
+  padding:64px 0;
+}
+.cta-banner h2{font-family:var(--font-display);font-weight:700;font-size:clamp(24px,3.2vw,38px);color:var(--white-ish);max-width:16ch;letter-spacing:0.01em;}
+.cta-banner p{font-family:var(--font-mono);font-size:12px;letter-spacing:0.18em;color:var(--cyan);margin-top:14px;text-transform:uppercase;}
+.cta-banner-text{display:flex;align-items:center;gap:34px;}
+.cta-seal{width:80px;height:80px;border-radius:50%;flex-shrink:0;box-shadow:0 0 40px rgba(79,209,229,0.15);}
+.cta-actions{display:flex;gap:14px;flex-wrap:wrap;}
+
+/* ============ FOOTER ============ */
+footer{border-top:1px solid var(--border);background:var(--obsidian-2);padding:80px 0 36px;}
+.footer-top{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:50px;margin-bottom:64px;}
+.footer-brand img{width:64px;height:64px;margin-bottom:18px;}
+.footer-brand p{font-size:14px;line-height:1.7;color:var(--text-mute);font-weight:300;max-width:280px;margin-top:14px;}
+.footer-col h4{font-family:var(--font-mono);font-size:11px;letter-spacing:0.2em;color:var(--text-mute);text-transform:uppercase;margin-bottom:22px;}
+.footer-col ul li{margin-bottom:14px;}
+.footer-col a{font-size:14px;color:var(--text-dim);transition:color .25s;}
+.footer-col a:hover{color:var(--cyan);}
+.footer-bottom{
+  border-top:1px solid var(--border);padding-top:30px;
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;
+}
+.footer-bottom p{font-family:var(--font-mono);font-size:11px;color:var(--text-faint);letter-spacing:0.04em;}
+.social-row{display:flex;gap:14px;}
+.social-row a{
+  width:38px;height:38px;border-radius:50%;border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;transition:all .25s;
+}
+.social-row a:hover{border-color:var(--cyan);color:var(--cyan);}
+.nav-cta .btn-primary span.short{display:none;}
+
+/* ============ WHATSAPP FAB ============ */
+.wa-fab{
+  position:fixed;bottom:26px;right:26px;z-index:900;
+  width:60px;height:60px;border-radius:50%;background:#25D366;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 10px 30px rgba(37,211,102,0.4);transition:transform .25s;
+}
+.wa-fab:hover{transform:scale(1.08);}
+
+/* ============ REVEAL ANIM ============ */
+.reveal{opacity:0;transform:translateY(36px);}
+
+/* ============ RESPONSIVE ============ */
+@media (max-width:980px){
+  nav ul{display:none;}
+  .hamburger{display:flex;}
+  .nav-cta .btn-primary span.full{display:none;}
+  .nav-cta .btn-primary span.short{display:inline;}
+  .nav-cta .btn-primary{padding:13px 18px;}
+  .hero-block{gap:28px;}
+  .hero-logo{width:140px;height:140px;}
+  .scroll-cue{display:none;}
+  .essence-grid{grid-template-columns:1fr;}
+  .services-grid{grid-template-columns:1fr 1fr;}
+  .gallery-grid{grid-template-columns:1fr 1fr;}
+  .gallery-item:first-child{grid-row:span 1;}
+  .team-grid{grid-template-columns:1fr;}
+  .reviews-grid{grid-template-columns:1fr;}
+  .location-grid{grid-template-columns:1fr;}
+  .footer-top{grid-template-columns:1fr;gap:40px;}
+  .cta-banner-inner{flex-direction:column;text-align:center;}
+  .cta-banner-text{flex-direction:column;}
+  .stepper{padding:32px 22px;}
+  .step-services-grid,.pro-grid{grid-template-columns:1fr;}
+  .time-grid{grid-template-columns:repeat(3,1fr);}
+  .step-node .step-label{font-size:9px;}
+}
+@media (max-width:560px){
+  .services-grid{grid-template-columns:1fr;}
+  .gallery-grid{grid-template-columns:1fr 1fr;}
+  .trust-row{gap:18px;}
+  .hero{padding-top:110px;}
+  header .wrap{padding-left:20px;padding-right:20px;}
+  .hero-content{padding-left:20px;padding-right:20px;}
+  .hero-block{flex-direction:column;gap:22px;}
+  .hero-logo{width:104px;height:104px;}
+  .hero h1{margin-bottom:20px;}
+  .hero p.lead{margin-bottom:28px;}
+  .hero-ctas{margin-bottom:34px;}
+  .time-grid{grid-template-columns:repeat(2,1fr);}
+  .step-node .step-label{display:none;}
+  .stepper-track{margin-bottom:32px;}
+  .confirm-row{flex-direction:column;align-items:flex-start;gap:4px;}
+  .confirm-row .v{text-align:left;}
+}
+</style>
+</head>
+<body class="bg-texture">
+
+<!-- ============ HEADER ============ -->
+<header id="siteHeader">
+  <div class="wrap nav-inner">
+    <a href="#inicio" class="brand">
+      <img src="silverhouse-logo.png" alt="Silverhouse Barber">
+      <div class="brand-text">SILVERHOUSE<span>BARBER · EST. 2019</span></div>
+    </a>
+    <nav>
+      <ul>
+        <li><a href="#esencia">Esencia</a></li>
+        <li><a href="#servicios">Servicios</a></li>
+        <li><a href="#reserva">Reservar</a></li>
+        <li><a href="#galeria">Galería</a></li>
+        <li><a href="#equipo">Equipo</a></li>
+        <li><a href="#resenas">Reseñas</a></li>
+        <li><a href="#ubicacion">Ubicación</a></li>
+      </ul>
+    </nav>
+    <div class="nav-cta">
+      <a href="#reserva" class="btn btn-primary">
+        <span class="full">Reservar Turno</span><span class="short">Reservar</span>
+      </a>
+      <button class="hamburger" id="hamburgerBtn" aria-label="Abrir menú">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- ============ MOBILE NAV ============ -->
+<div class="mobile-nav" id="mobileNav">
+  <a href="#esencia">Esencia</a>
+  <a href="#servicios">Servicios</a>
+  <a href="#reserva">Reservar</a>
+  <a href="#galeria">Galería</a>
+  <a href="#equipo">Equipo</a>
+  <a href="#resenas">Reseñas</a>
+  <a href="#ubicacion">Ubicación</a>
+</div>
+
+<!-- ============ HERO ============ -->
+<section class="hero" id="inicio">
+  <div class="hero-bg"></div>
+  <div class="hero-content">
+    <div class="hero-block">
+      <img src="silverhouse-logo.png" alt="Silverhouse Barber" class="hero-logo">
+      <div class="hero-text-col">
+        <div class="eyebrow">
+          <span class="num">EST. 2019</span>
+          <span class="line"></span>
+          <span class="label">Av. La Plata 1185 · CABA</span>
+          <span class="line"></span>
+          <span class="status-badge" id="statusBadge"><span class="dot"></span><span class="status-text">Verificando…</span></span>
+        </div>
+        <h1 class="gradient-text">Reservá tu silla.<br>El resto lo hacemos nosotros.</h1>
+        <p class="lead">Un club de grooming donde la tradición del oficio se encuentra con la precisión moderna. Elegí tu servicio y reservá en minutos.</p>
+        <div class="hero-ctas">
+          <a href="#reserva" class="btn btn-primary">Comenzar Reserva</a>
+          <a href="#servicios" class="btn btn-ghost">Ver Servicios</a>
+        </div>
+        <div class="trust-row">
+          <div class="trust-item"><span class="trust-num">4.9/5</span><span class="lbl">Valoración Promedio</span></div>
+          <div class="trust-divider"></div>
+          <div class="trust-item"><span class="trust-num">+2.000</span><span class="lbl">Clientes Atendidos</span></div>
+          <div class="trust-divider"></div>
+          <div class="trust-item"><span class="trust-num">2019</span><span class="lbl">Desde</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-cue">DESPLAZA PARA EXPLORAR ↓</div>
+</section>
+
+<!-- ============ ESENCIA ============ -->
+<section class="section-pad section-top-border" id="esencia">
+  <div class="wrap">
+    <div class="eyebrow"><span class="num">01</span><span class="line"></span><span class="label">La Esencia</span></div>
+    <h2 class="section-title gradient-text reveal">No es un corte.<br>Es una declaración.</h2>
+    <p class="section-lead reveal">Silverhouse Barber existe para el hombre que entiende su imagen como una inversión. Un club de grooming donde la tradición del oficio se encuentra con el lujo contemporáneo — cromo, penumbra y precisión.</p>
+
+    <div class="essence-grid reveal">
+      <div class="essence-card">
+        <div class="tag">MISIÓN</div>
+        <p>Elevar el ritual del cuidado masculino a una experiencia de lujo, donde cada visita construye confianza, imagen y personalidad.</p>
+      </div>
+      <div class="essence-card">
+        <div class="tag">VISIÓN</div>
+        <p>Ser la casa de barbería más deseada de Buenos Aires — un nombre sinónimo de distinción y oficio.</p>
+      </div>
+      <div class="essence-card">
+        <div class="tag">VALORES</div>
+        <p>Oficio. Precisión. Discreción. Excelencia sin atajos. El detalle que nadie ve, pero todos sienten.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SERVICIOS ============ -->
+<section class="section-pad section-top-border section-alt" id="servicios">
+  <div class="wrap">
+    <div class="eyebrow"><span class="num">02</span><span class="line"></span><span class="label">El Menú</span></div>
+    <h2 class="section-title reveal">Servicios de Autor</h2>
+    <p class="section-lead reveal">Seis rituales de precisión — cada uno con su tiempo, su técnica y su resultado. Elegí el tuyo y reservá en segundos.</p>
+
+    <div class="services-grid">
+      <div class="service-card reveal">
+        <div class="sc-top"><h3>Corte Clásico</h3><span class="sc-price">$17.000</span></div>
+        <p>Tijera y máquina al servicio de un acabado limpio.</p>
+        <div class="sc-bottom">
+          <span class="sc-duration">40 min</span>
+          <button class="consult" type="button" onclick="scrollToReservaWithService('clasico')">Reservar este servicio →</button>
+        </div>
+      </div>
+      <div class="service-card reveal">
+        <div class="sc-top"><h3>Fade / Degradado</h3><span class="sc-price">$20.000</span></div>
+        <p>Transiciones perfectas de piel a textura con precisión milimétrica.</p>
+        <span class="tag-popular">Más Solicitado</span>
+        <div class="sc-bottom">
+          <span class="sc-duration">45 min</span>
+          <button class="consult" type="button" onclick="scrollToReservaWithService('fade')">Reservar este servicio →</button>
+        </div>
+      </div>
+      <div class="service-card reveal">
+        <div class="sc-top"><h3>Corte con Diseño</h3><span class="sc-price">$25.000</span></div>
+        <p>Líneas y detalles geométricos que firman tu estilo.</p>
+        <div class="sc-bottom">
+          <span class="sc-duration">60 min</span>
+          <button class="consult" type="button" onclick="scrollToReservaWithService('diseno')">Reservar este servicio →</button>
+        </div>
+      </div>
+      <div class="service-card reveal">
+        <div class="sc-top"><h3>Arreglo de Barba</h3><span class="sc-price">$12.000</span></div>
+        <p>Perfilado, definición y ritual con navaja.</p>
+        <div class="sc-bottom">
+          <span class="sc-duration">30 min</span>
+          <button class="consult" type="button" onclick="scrollToReservaWithService('barba')">Reservar este servicio →</button>
+        </div>
+      </div>
+      <div class="service-card reveal">
+        <div class="sc-top"><h3>Texturizado / Crop</h3><span class="sc-price">$19.000</span></div>
+        <p>Volumen con movimiento natural para el estilo contemporáneo.</p>
+        <div class="sc-bottom">
+          <span class="sc-duration">40 min</span>
+          <button class="consult" type="button" onclick="scrollToReservaWithService('crop')">Reservar este servicio →</button>
+        </div>
+      </div>
+      <div class="service-card reveal">
+        <div class="sc-top"><h3>Combo Corte + Barba</h3><span class="sc-price">$32.000</span></div>
+        <p>La experiencia completa Silverhouse.</p>
+        <span class="tag-popular">Más Solicitado</span>
+        <div class="sc-bottom">
+          <span class="sc-duration">60 min</span>
+          <button class="consult" type="button" onclick="scrollToReservaWithService('combo')">Reservar este servicio →</button>
+        </div>
+      </div>
+    </div>
+    <p class="services-note">* Duración estimada por servicio. Los precios pueden variar según complejidad.</p>
+  </div>
+</section>
+
+<!-- ============ RESERVA (STEPPER) ============ -->
+<section class="section-pad section-top-border" id="reserva">
+  <div class="wrap">
+    <div class="eyebrow"><span class="num">03</span><span class="line"></span><span class="label">Reserva Online</span></div>
+    <h2 class="section-title reveal">Tu turno, en cinco pasos.</h2>
+    <p class="section-lead reveal">Elegí servicio, profesional, fecha y hora. Confirmamos por WhatsApp al instante.</p>
+
+    <div class="stepper reveal" id="stepper">
+      <div class="stepper-track">
+        <div class="step-node" data-step="1"><span class="step-num">1</span><span class="step-label">Servicio</span></div>
+        <div class="step-node" data-step="2"><span class="step-num">2</span><span class="step-label">Profesional</span></div>
+        <div class="step-node" data-step="3"><span class="step-num">3</span><span class="step-label">Fecha</span></div>
+        <div class="step-node" data-step="4"><span class="step-num">4</span><span class="step-label">Horario</span></div>
+        <div class="step-node" data-step="5"><span class="step-num">5</span><span class="step-label">Confirmar</span></div>
+      </div>
+
+      <div class="stepper-panel" data-panel="1">
+        <h3 class="panel-title">Seleccioná tu servicio</h3>
+        <div class="step-services-grid" id="stepServices"></div>
+      </div>
+
+      <div class="stepper-panel" data-panel="2" hidden>
+        <h3 class="panel-title">Seleccioná profesional</h3>
+        <div class="pro-grid" id="stepPros"></div>
+      </div>
+
+      <div class="stepper-panel" data-panel="3" hidden>
+        <h3 class="panel-title">Seleccioná fecha</h3>
+        <div class="calendar" id="stepCalendar"></div>
+      </div>
+
+      <div class="stepper-panel" data-panel="4" hidden>
+        <h3 class="panel-title">Seleccioná horario</h3>
+        <div class="time-grid" id="stepTimes"></div>
+      </div>
+
+      <div class="stepper-panel" data-panel="5" hidden>
+        <h3 class="panel-title">Confirmá tu reserva</h3>
+        <div class="confirm-summary" id="stepConfirm"></div>
+        <button class="btn btn-primary" id="confirmBtn" type="button">Confirmar Reserva</button>
+      </div>
+
+      <div class="stepper-nav">
+        <button class="btn btn-ghost" id="stepBackBtn" type="button">← Atrás</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ GALERIA ============ -->
+<section class="section-pad section-top-border section-alt" id="galeria">
+  <div class="wrap">
+    <div class="eyebrow"><span class="num">04</span><span class="line"></span><span class="label">El Trabajo</span></div>
+    <h2 class="section-title reveal">Cada corte, una firma</h2>
+    <p class="section-lead reveal">Un vistazo al detalle, la técnica y el resultado que define a Silverhouse Barber.</p>
+
+    <div class="gallery-grid">
+      <div class="gallery-item reveal">
+        <img src="https://images.unsplash.com/photo-1517832606299-7ae9b720a186?q=80&w=1000&auto=format&fit=crop" alt="Arreglo de barba detallado">
+        <div class="gallery-overlay"><span>Arreglo de Barba</span></div>
+      </div>
+      <div class="gallery-item reveal">
+        <img src="https://images.unsplash.com/photo-1493256338651-d82f7acb2b38?q=80&w=700&auto=format&fit=crop" alt="Fade de precisión">
+        <div class="gallery-overlay"><span>Fade de Precisión</span></div>
+      </div>
+      <div class="gallery-item reveal">
+        <img src="https://images.unsplash.com/photo-1622286342621-4bd786c2447c?q=80&w=700&auto=format&fit=crop" alt="Degradado moderno">
+        <div class="gallery-overlay"><span>Degradado Moderno</span></div>
+      </div>
+      <div class="gallery-item reveal">
+        <img src="https://images.unsplash.com/photo-1599351431202-1e0f0137899a?q=80&w=700&auto=format&fit=crop" alt="Detalle de corte">
+        <div class="gallery-overlay"><span>Detalle & Textura</span></div>
+      </div>
+      <div class="gallery-item reveal">
+        <img src="https://images.unsplash.com/photo-1567894340315-735d7c361db0?q=80&w=700&auto=format&fit=crop" alt="Corte texturizado en proceso">
+        <div class="gallery-overlay"><span>Texturizado / Crop</span></div>
+      </div>
+    </div>
+    <div class="gallery-cta reveal">
+      <a href="https://instagram.com/silverhousebarber" target="_blank" rel="noopener" class="btn btn-ghost">Ver más en Instagram @silverhousebarber</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ EQUIPO ============ -->
+<section class="section-pad section-top-border" id="equipo">
+  <div class="wrap">
+    <div class="eyebrow"><span class="num">05</span><span class="line"></span><span class="label">La Casa</span></div>
+    <h2 class="section-title reveal">El oficio detrás de la silla</h2>
+    <p class="section-lead reveal">Barberos formados en técnica clásica y moderna, con un mismo estándar: precisión en cada pasada.</p>
+
+    <div class="team-grid">
+      <div class="team-card reveal">
+        <div class="team-photo"><img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=900&auto=format&fit=crop" alt="Omar Silvera, Fundador de Silverhouse Barber"></div>
+        <div class="team-body">
+          <div class="role">FUNDADOR · MASTER BARBER</div>
+          <h3>Omar Silvera</h3>
+          <p>El nombre detrás de la casa. Construye confianza, imagen y personalidad en cada corte, combinando técnica clásica con una mirada moderna del oficio.</p>
+        </div>
+      </div>
+      <div class="team-card reveal">
+        <div class="team-photo"><img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=900&auto=format&fit=crop" alt="Equipo de barberos de Silverhouse Barber"></div>
+        <div class="team-body">
+          <div class="role">EL EQUIPO</div>
+          <h3>Barberos Silverhouse</h3>
+          <p>Un equipo formado en fades, diseño y barbería tradicional — cada silla, el mismo estándar de precisión y detalle.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ RESEÑAS ============ -->
+<section class="section-pad section-top-border section-alt" id="resenas">
+  <div class="wrap">
+    <div class="eyebrow"><span class="num">06</span><span class="line"></span><span class="label">Lo Que Dicen</span></div>
+    <h2 class="section-title reveal">La confianza se nota en el resultado</h2>
+    <p class="section-lead reveal">Más de 1.000 personas siguen de cerca el trabajo de Silverhouse Barber en Instagram.</p>
+
+    <div class="reviews-grid">
+      <div class="review-card reveal">
+        <div class="stars">★★★★★</div>
+        <p class="quote">"Encontré mi barbería de cabecera. Te atienden como en una casa, pero con el nivel de un club premium."</p>
+        <div class="who">Nicolás R. · Recoleta</div>
+      </div>
+      <div class="review-card reveal">
+        <div class="stars">★★★★★</div>
+        <p class="quote">"El fade más prolijo que me hicieron en Buenos Aires. Detalle, paciencia y buena onda."</p>
+        <div class="who">Tomás L. · Palermo</div>
+      </div>
+      <div class="review-card reveal">
+        <div class="stars">★★★★★</div>
+        <p class="quote">"No es solo un corte, es una experiencia. Volví y voy a seguir volviendo."</p>
+        <div class="who">Franco D. · Almagro</div>
+      </div>
+    </div>
+    <p class="reviews-disclaimer">Testimonios ilustrativos de muestra — a reemplazar por reseñas reales de Google / Instagram.</p>
+  </div>
+</section>
+
+<!-- ============ CTA BANNER ============ -->
+<section class="cta-banner">
+  <div class="wrap cta-banner-inner">
+    <div class="cta-banner-text">
+      <img src="silverhouse-badge.jpg" alt="Sello Silverhouse Barber" class="cta-seal">
+      <div>
+        <h2>Tu lugar en la silla te espera.</h2>
+        <p>Precision · Style · Distinction</p>
+      </div>
+    </div>
+    <div class="cta-actions">
+      <a href="#reserva" class="btn btn-primary">Comenzar Reserva</a>
+      <a href="https://wa.me/541136970220?text=Hola%20Silverhouse%20Barber.%20Tengo%20una%20consulta." target="_blank" rel="noopener" class="btn btn-ghost">Escribir por WhatsApp</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ UBICACION ============ -->
+<section class="section-pad section-top-border section-alt" id="ubicacion">
+  <div class="wrap">
+    <div class="eyebrow"><span class="num">07</span><span class="line"></span><span class="label">Visitanos</span></div>
+    <h2 class="section-title reveal">La casa te espera</h2>
+    <p class="section-lead reveal">En el corazón de CABA. Reservá online o escribinos por WhatsApp.</p>
+
+    <div class="location-grid">
+      <div class="location-card reveal">
+        <div>
+          <div class="info-row">
+            <div class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4FD1E5" stroke-width="1.6"><path d="M12 22s7-7.5 7-13a7 7 0 1 0-14 0c0 5.5 7 13 7 13z"/><circle cx="12" cy="9" r="2.5"/></svg></div>
+            <div><div class="label">Dirección</div><div class="val">Av. La Plata 1185, CABA<small>Ciudad Autónoma de Buenos Aires, Argentina</small></div></div>
+          </div>
+          <div class="info-row">
+            <div class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4FD1E5" stroke-width="1.6"><path d="M3 5a2 2 0 0 1 2-2h2.5l1.8 4.5-1.7 1.7a14 14 0 0 0 6.2 6.2l1.7-1.7L20 16v2.5a2 2 0 0 1-2 2C10.5 20.5 3 13 3 5z"/></svg></div>
+            <div><div class="label">WhatsApp</div><div class="val">+54 11 3697-0220<small>Reservas y consultas</small></div></div>
+          </div>
+          <div class="info-row">
+            <div class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4FD1E5" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></div>
+            <div><div class="label">Horario</div><div class="val">Lunes a Sábado · 09:00 a 20:00<small>Domingo cerrado</small></div></div>
+          </div>
+          <div class="info-row">
+            <div class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4FD1E5" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="12" cy="12" r="4"/><circle cx="17" cy="7" r="0.8" fill="#4FD1E5"/></svg></div>
+            <div><div class="label">Instagram</div><div class="val">@silverhousebarber</div></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;">
+          <a href="#reserva" class="btn btn-primary">Comenzar Reserva</a>
+          <a href="https://instagram.com/silverhousebarber" target="_blank" rel="noopener" class="btn btn-ghost">Instagram</a>
+        </div>
+      </div>
+      <div class="map-frame reveal">
+        <iframe src="https://www.google.com/maps?q=Av.+La+Plata+1185,+CABA,+Argentina&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Ubicación Silverhouse Barber"></iframe>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="wrap">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <img src="silverhouse-logo.png" alt="Silverhouse Barber">
+        <p>Un club de grooming donde la tradición del oficio se encuentra con el lujo contemporáneo. Av. La Plata 1185, CABA.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Navegación</h4>
+        <ul>
+          <li><a href="#esencia">Esencia</a></li>
+          <li><a href="#servicios">Servicios</a></li>
+          <li><a href="#reserva">Reservar</a></li>
+          <li><a href="#galeria">Galería</a></li>
+          <li><a href="#equipo">Equipo</a></li>
+          <li><a href="#resenas">Reseñas</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Contacto</h4>
+        <ul>
+          <li><a href="https://wa.me/541136970220" target="_blank" rel="noopener">+54 11 3697-0220</a></li>
+          <li><a href="https://instagram.com/silverhousebarber" target="_blank" rel="noopener">@silverhousebarber</a></li>
+          <li><a href="#ubicacion">Av. La Plata 1185, CABA</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 Silverhouse Barber · Dirección de Omar Silvera · EST. 2019</p>
+      <div class="social-row">
+        <a href="https://instagram.com/silverhousebarber" target="_blank" rel="noopener" aria-label="Instagram">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg>
+        </a>
+        <a href="https://wa.me/541136970220" target="_blank" rel="noopener" aria-label="WhatsApp">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 5a2 2 0 0 1 2-2h2.5l1.8 4.5-1.7 1.7a14 14 0 0 0 6.2 6.2l1.7-1.7L20 16v2.5a2 2 0 0 1-2 2C10.5 20.5 3 13 3 5z"/></svg>
+        </a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- ============ WHATSAPP FAB ============ -->
+<a href="https://wa.me/541136970220?text=Hola%2C%20quiero%20reservar%20un%20turno%20en%20Silverhouse%20Barber" target="_blank" rel="noopener" class="wa-fab" aria-label="Reservar por WhatsApp">
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="#06180B"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.37 5.07L2 22l5.06-1.33A9.93 9.93 0 0 0 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm5.2 14.27c-.22.62-1.27 1.18-1.76 1.23-.45.05-1 .07-1.62-.1-.37-.1-.85-.27-1.46-.53-2.57-1.1-4.24-3.7-4.37-3.87-.13-.17-1.04-1.38-1.04-2.63 0-1.25.66-1.87.9-2.12.22-.25.49-.3.65-.3h.47c.15 0 .35-.06.55.42.22.5.74 1.75.8 1.88.07.13.11.28.02.45-.08.17-.13.28-.26.43-.13.15-.27.33-.39.45-.13.13-.26.27-.11.53.15.27.67 1.1 1.43 1.78.99.88 1.82 1.15 2.08 1.28.27.13.42.11.58-.07.15-.18.65-.76.83-1.02.17-.27.35-.22.58-.13.24.08 1.5.71 1.76.84.27.13.44.2.5.31.07.13.07.71-.15 1.33z"/></svg>
+</a>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script>
+gsap.registerPlugin(ScrollTrigger);
+
+// header scroll state
+const header = document.getElementById('siteHeader');
+window.addEventListener('scroll', () => {
+  header.classList.toggle('scrolled', window.scrollY > 30);
+});
+
+// mobile nav
+const hamburgerBtn = document.getElementById('hamburgerBtn');
+const mobileNav = document.getElementById('mobileNav');
+hamburgerBtn.addEventListener('click', () => {
+  mobileNav.classList.toggle('open');
+});
+mobileNav.querySelectorAll('a').forEach(a => a.addEventListener('click', () => mobileNav.classList.remove('open')));
+
+// hero entrance
+gsap.from('.hero-logo', {opacity:0, y:20, duration:0.8, delay:0.1});
+gsap.from('.hero .eyebrow', {opacity:0, y:20, duration:0.8, delay:0.25});
+gsap.from('.hero h1', {opacity:0, y:40, duration:1, delay:0.4});
+gsap.from('.hero p.lead', {opacity:0, y:30, duration:0.9, delay:0.6});
+gsap.from('.hero-ctas', {opacity:0, y:30, duration:0.9, delay:0.75});
+gsap.from('.trust-row', {opacity:0, y:20, duration:0.9, delay:0.95});
+
+// scroll reveals
+document.querySelectorAll('.reveal').forEach((el) => {
+  gsap.to(el, {
+    opacity:1, y:0, duration:0.9, ease:'power2.out',
+    scrollTrigger:{trigger:el, start:'top 88%'}
+  });
+});
+
+// stagger service/gallery/team/review cards
+['.services-grid .service-card','.gallery-grid .gallery-item','.team-grid .team-card','.reviews-grid .review-card'].forEach(sel=>{
+  const items = document.querySelectorAll(sel);
+  if(items.length){
+    gsap.to(items, {
+      opacity:1, y:0, duration:0.8, ease:'power2.out', stagger:0.12,
+      scrollTrigger:{trigger:items[0].closest('section'), start:'top 80%'}
+    });
+  }
+});
+
+/* ============ OPEN / CLOSED STATUS ============ */
+function updateOpenStatus(){
+  const tz = 'America/Argentina/Buenos_Aires';
+  const parts = new Intl.DateTimeFormat('en-US', {timeZone:tz, weekday:'short', hour:'numeric', minute:'numeric', hour12:false}).formatToParts(new Date());
+  const map = {};
+  parts.forEach(p => map[p.type] = p.value);
+  const weekday = map.weekday;
+  let hour = Number(map.hour);
+  if(hour === 24) hour = 0;
+  const minute = Number(map.minute);
+  const totalMin = hour * 60 + minute;
+  const isOpen = weekday !== 'Sun' && totalMin >= 9*60 && totalMin < 20*60;
+  const badge = document.getElementById('statusBadge');
+  badge.classList.toggle('open', isOpen);
+  badge.querySelector('.status-text').textContent = isOpen ? 'Abierto Ahora' : 'Cerrado';
+}
+updateOpenStatus();
+setInterval(updateOpenStatus, 60000);
+
+/* ============ BOOKING STEPPER ============ */
+const SERVICES = [
+  {id:'clasico', name:'Corte Clásico', duration:40, price:17000, tag:false},
+  {id:'fade', name:'Fade / Degradado', duration:45, price:20000, tag:true},
+  {id:'diseno', name:'Corte con Diseño', duration:60, price:25000, tag:false},
+  {id:'barba', name:'Arreglo de Barba', duration:30, price:12000, tag:false},
+  {id:'crop', name:'Texturizado / Crop', duration:40, price:19000, tag:false},
+  {id:'combo', name:'Combo Corte + Barba', duration:60, price:32000, tag:true},
+];
+const PROFESSIONALS = [
+  {id:'omar', name:'Omar Silvera', specialty:'Fundador · Master Barber', years:'17 años de experiencia'},
+  {id:'equipo', name:'Equipo Silverhouse', specialty:'Barberos Senior', years:'Disponibilidad general'},
+];
+const WEEKDAYS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+const MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+const state = {service:null, professional:null, date:null, time:null};
+let currentStep = 1;
+let calViewDate = new Date();
+
+function formatPrice(n){ return '$' + n.toLocaleString('es-AR'); }
+function formatDateLabel(d){ return `${WEEKDAYS[d.getDay()]} ${d.getDate()} de ${MONTHS[d.getMonth()]}`; }
+
+function renderStepServices(){
+  const grid = document.getElementById('stepServices');
+  grid.innerHTML = SERVICES.map(s => `
+    <div class="step-service-card ${state.service && state.service.id===s.id ? 'selected' : ''}" data-id="${s.id}">
+      <div class="ssc-top"><h4>${s.name}</h4><span class="price">${formatPrice(s.price)}</span></div>
+      <div class="meta">${s.duration} MIN</div>
+      ${s.tag ? '<span class="tag-popular">Más Solicitado</span>' : ''}
+    </div>
+  `).join('');
+  grid.querySelectorAll('.step-service-card').forEach(card => {
+    card.addEventListener('click', () => selectService(card.dataset.id));
+  });
+}
+
+function renderPros(){
+  const grid = document.getElementById('stepPros');
+  grid.innerHTML = PROFESSIONALS.map(p => `
+    <div class="pro-card ${state.professional && state.professional.id===p.id ? 'selected' : ''}" data-id="${p.id}">
+      <div class="role">${p.specialty}</div>
+      <h4>${p.name}</h4>
+      <div class="years">${p.years}</div>
+    </div>
+  `).join('');
+  grid.querySelectorAll('.pro-card').forEach(card => {
+    card.addEventListener('click', () => selectPro(card.dataset.id));
+  });
+}
+
+function isPastDate(d){
+  const today = new Date(); today.setHours(0,0,0,0);
+  return d < today;
+}
+
+function renderCalendar(){
+  const container = document.getElementById('stepCalendar');
+  const year = calViewDate.getFullYear();
+  const month = calViewDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const startOffset = (firstDay.getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const monthName = MONTHS[month];
+  const monthLabel = `${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${year}`;
+
+  let html = `<div class="cal-header">
+    <button type="button" id="calPrev">‹</button>
+    <span class="cal-month-label">${monthLabel}</span>
+    <button type="button" id="calNext">›</button>
+  </div><div class="cal-grid">`;
+  ['L','M','X','J','V','S','D'].forEach(d => html += `<div class="cal-dow">${d}</div>`);
+  for(let i=0;i<startOffset;i++) html += `<div class="cal-day empty"></div>`;
+  for(let day=1; day<=daysInMonth; day++){
+    const d = new Date(year, month, day);
+    const sun = d.getDay() === 0;
+    const past = isPastDate(d);
+    const unavailable = sun || past;
+    const sel = state.date && d.toDateString() === state.date.toDateString();
+    html += `<div class="cal-day ${unavailable ? 'unavailable' : 'available'} ${sel ? 'selected' : ''}" data-date="${d.toISOString()}">${day}</div>`;
+  }
+  html += `</div>`;
+  container.innerHTML = html;
+
+  document.getElementById('calPrev').addEventListener('click', () => { calViewDate = new Date(year, month-1, 1); renderCalendar(); });
+  document.getElementById('calNext').addEventListener('click', () => { calViewDate = new Date(year, month+1, 1); renderCalendar(); });
+  container.querySelectorAll('.cal-day.available').forEach(el => {
+    el.addEventListener('click', () => {
+      state.date = new Date(el.dataset.date);
+      state.time = null;
+      goToStep(4);
+    });
+  });
+}
+
+function generateTimes(){
+  const times = [];
+  for(let h=9; h<20; h++){
+    times.push(`${String(h).padStart(2,'0')}:00`);
+    times.push(`${String(h).padStart(2,'0')}:30`);
+  }
+  return times;
+}
+
+function pseudoOccupied(dateStr, time){
+  let hash = 0;
+  const s = dateStr + time;
+  for(let i=0;i<s.length;i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
+  return hash % 4 === 0;
+}
+
+function renderTimes(){
+  const container = document.getElementById('stepTimes');
+  if(!state.date){ container.innerHTML = '<p class="meta-note">Elegí primero una fecha.</p>'; return; }
+  const dateStr = state.date.toDateString();
+  const now = new Date();
+  const isToday = state.date.toDateString() === now.toDateString();
+  let html = '';
+  generateTimes().forEach(t => {
+    const [hh, mm] = t.split(':').map(Number);
+    const slotDate = new Date(state.date); slotDate.setHours(hh, mm, 0, 0);
+    const pastSlot = isToday && slotDate <= now;
+    const occupied = !pastSlot && pseudoOccupied(dateStr, t);
+    const unavailable = pastSlot || occupied;
+    const sel = state.time === t;
+    html += `<div class="time-slot ${unavailable ? 'occupied' : ''} ${sel ? 'selected' : ''}" data-time="${t}">${t}</div>`;
+  });
+  container.innerHTML = html;
+  container.querySelectorAll('.time-slot:not(.occupied)').forEach(el => {
+    el.addEventListener('click', () => {
+      state.time = el.dataset.time;
+      goToStep(5);
+    });
+  });
+}
+
+function renderConfirm(){
+  const c = document.getElementById('stepConfirm');
+  c.innerHTML = `
+    <div class="confirm-row"><span class="k">Servicio</span><span class="v">${state.service.name}</span></div>
+    <div class="confirm-row"><span class="k">Profesional</span><span class="v">${state.professional.name}</span></div>
+    <div class="confirm-row"><span class="k">Fecha</span><span class="v">${formatDateLabel(state.date)}</span></div>
+    <div class="confirm-row"><span class="k">Hora</span><span class="v">${state.time}</span></div>
+    <div class="confirm-row"><span class="k">Precio</span><span class="v price">${formatPrice(state.service.price)}</span></div>
+  `;
+}
+
+function selectService(id){
+  state.service = SERVICES.find(s => s.id === id);
+  goToStep(2);
+}
+function selectPro(id){
+  state.professional = PROFESSIONALS.find(p => p.id === id);
+  goToStep(3);
+}
+function scrollToReservaWithService(id){
+  state.service = SERVICES.find(s => s.id === id);
+  goToStep(2);
+  document.getElementById('reserva').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function goToStep(n){
+  currentStep = n;
+  document.querySelectorAll('.stepper-panel').forEach(p => { p.hidden = Number(p.dataset.panel) !== n; });
+  document.querySelectorAll('.step-node').forEach(node => {
+    const s = Number(node.dataset.step);
+    node.classList.toggle('active', s === n);
+    node.classList.toggle('done', s < n);
+  });
+  if(n === 1) renderStepServices();
+  if(n === 2) renderPros();
+  if(n === 3) renderCalendar();
+  if(n === 4) renderTimes();
+  if(n === 5) renderConfirm();
+  document.getElementById('stepBackBtn').style.visibility = n === 1 ? 'hidden' : 'visible';
+}
+
+document.getElementById('stepBackBtn').addEventListener('click', () => {
+  if(currentStep > 1) goToStep(currentStep - 1);
+});
+
+document.getElementById('confirmBtn').addEventListener('click', () => {
+  const msg = `Hola Silverhouse Barber.\nQuiero confirmar una reserva.\n\nServicio: ${state.service.name}\nProfesional: ${state.professional.name}\nFecha: ${formatDateLabel(state.date)}\nHora: ${state.time}`;
+  const url = `https://wa.me/541136970220?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank', 'noopener');
+});
+
+goToStep(1);
+</script>
+
+</body>
+</html>
