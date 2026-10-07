@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Reservar — Apart Hotel</title>
+<meta name="description" content="Consulta disponibilidad en un minuto. Reserva directa por WhatsApp, sin plataformas." />
+<meta name="robots" content="noindex,nofollow" />
+<link rel="canonical" href="https://aparthotel-site.vercel.app/reservar" />
+<link rel="alternate" hreflang="es" href="https://aparthotel-site.vercel.app/reservar" />
+<link rel="alternate" hreflang="en" href="https://aparthotel-site.vercel.app/en/reservar" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/styles.css?v=96" />
+<link rel="icon" href="favicon.ico" sizes="any" />
+<link rel="icon" type="image/png" sizes="48x48" href="favicon-48.png" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<meta name="theme-color" content="#0B0C0C" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Apart Hotel" />
+<meta property="og:title" content="Reservar — Apart Hotel" />
+<meta property="og:description" content="Consulta disponibilidad en un minuto. Reserva directa por WhatsApp, sin plataformas." />
+<meta property="og:image" content="assets/img/hero-3.jpg" />
+</head>
+<body data-base="" data-wa="573045530927">
+
+<header id="hdr" class="static">
+  <div class="bar">
+    <a href="/" class="brand" aria-label="Apart Hotel — inicio"><img class="lw" src="assets/img/brand/logo-white.png" alt="Apart Hotel" /><img class="ld" src="assets/img/brand/logo-dark.png" alt="Apart Hotel" /></a>
+    <ul class="nav">
+      <li><a href="/">Inicio</a></li>
+      <li><a href="/apartamentos">Apartamentos</a></li>
+      <li><a href="/ubicacion">Ubicación</a></li>
+      <li><a href="/experiencias">Experiencias</a></li>
+      <li><a href="/reservar" class="on">Reservar</a></li>
+      <li><a href="/contacto">Contacto</a></li>
+    </ul>
+    <div class="tools">
+      <a href="/en/reservar" class="lang" aria-label="View in English">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M2.5 12h19M12 2.5c2.6 2.8 4 6 4 9.5s-1.4 6.7-4 9.5c-2.6-2.8-4-6-4-9.5s1.4-6.7 4-9.5Z"/></svg>EN</a>
+      <a href="/reservar" class="btn btn--gold hd-cta">Reservar</a>
+      <button class="burger" id="burger" aria-label="Abrir menú" aria-expanded="false"><i></i><i></i><i></i></button>
+    </div>
+  </div>
+</header>
+
+<div class="drawer" id="drawer">
+  <div class="drawer-top"><button class="drawer-x" id="drawerX" aria-label="Cerrar menú"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+  <nav>
+    <a href="/">Inicio</a>
+    <a href="/apartamentos">Apartamentos</a>
+    <a href="/ubicacion">Ubicación</a>
+    <a href="/experiencias">Experiencias</a>
+    <a href="/reservar">Reservar</a>
+    <a href="/contacto">Contacto</a>
+    <a href="/en/reservar">English</a>
+  </nav>
+  <div class="dfoot">
+    <span>Reservas</span>
+    <a href="https://wa.me/573045530927">+57 304 553 0927</a>
+    <a href="mailto:apartahotel7@gmail.com">apartahotel7@gmail.com</a>
+  </div>
+</div>
+
+<section class="phero">
+  <img src="assets/img/hero-3.jpg" alt="" aria-hidden="true" />
+  <div class="wrap">
+    <span class="eyebrow eyebrow--light">Reserva directa</span>
+    <h1>Consulta disponibilidad</h1>
+    <p>Sin plataformas de por medio. Escribes, confirmamos y listo.</p>
+  </div>
+</section>
+
+<section class="pad">
+  <div class="wrap">
+    <div class="bkx-grid rv">
+  <form class="bkx" id="bk" novalidate>
+    <ol class="bprog" id="bkProg" aria-hidden="true">
+      <li class="bpg is-on" data-step="01"><span class="bpg-n">01</span><span class="bpg-l">Apartamento</span></li>
+      <li class="bpg" data-step="02"><span class="bpg-n">02</span><span class="bpg-l">Fechas</span></li>
+      <li class="bpg" data-step="03"><span class="bpg-n">03</span><span class="bpg-l">Huéspedes</span></li>
+      <li class="bpg" data-step="04"><span class="bpg-n">04</span><span class="bpg-l">Extras</span></li>
+      <li class="bpg" data-step="05"><span class="bpg-n">05</span><span class="bpg-l">Pago</span></li>
+    </ol>
+    <ol class="bkx-steps">
+      <li class="bstep" id="bs01">
+        <div class="bstep-h">
+          <span class="bstep-n">01</span>
+          <h3>Elige el apartamento</h3>
+        </div>
+      <div class="ucards" role="radiogroup" aria-label="Apartamento">
+        <button type="button" class="ucard is-on" role="radio" aria-checked="true" data-unit="Apartamento 401 A" data-badge="Piso 4" data-cover="assets/img/c/c-06@480.jpg" data-slug="apartamento-401a">
+          <img src="assets/img/c/c-06@480.jpg" alt="" loading="lazy" />
+          <span class="ucard-t">Apartamento 401 A</span>
+          <span class="ucard-s">Piso 4</span>
+        </button>
+        <button type="button" class="ucard" role="radio" aria-checked="false" data-unit="Apartamento 502" data-badge="Piso 5 · Sombra" data-cover="assets/img/a/a-03@480.jpg" data-slug="apartamento-502">
+          <img src="assets/img/a/a-03@480.jpg" alt="" loading="lazy" />
+          <span class="ucard-t">Apartamento 502</span>
+          <span class="ucard-s">Piso 5 · Sombra</span>
+        </button>
+        <button type="button" class="ucard" role="radio" aria-checked="false" data-unit="Apartamento 702" data-badge="Piso 7 · Sombra" data-cover="assets/img/cover-702-v2@480.jpg" data-slug="apartamento-702">
+          <img src="assets/img/cover-702-v2@480.jpg" alt="" loading="lazy" />
+          <span class="ucard-t">Apartamento 702</span>
+          <span class="ucard-s">Piso 7 · Sombra</span>
+        </button>
+      </div>
+      </li>
+      <li class="bstep" id="bs02">
+        <div class="bstep-h">
+          <span class="bstep-n">02</span>
+          <h3>Elige las fechas</h3>
+          <span class="bstep-v" id="bkDatesV">Sin fechas</span>
+        </div>
+      <div class="cal" id="bkCal"></div>
+      </li>
+      <li class="bstep" id="bs03">
+        <div class="bstep-h">
+          <span class="bstep-n">03</span>
+          <h3>¿Cuántos huéspedes?</h3>
+        </div>
+      <div class="stepper stepper--lg" id="bkPaxUI">
+        <button type="button" data-d="-1" aria-label="&#8722;">&#8722;</button>
+        <span class="stepper-v" id="bkPaxV">2</span>
+        <button type="button" data-d="1" aria-label="+">+</button>
+      </div>
+      </li>
+      <li class="bstep" id="bs04">
+        <div class="bstep-h">
+          <span class="bstep-n">04</span>
+          <h3>¿Necesitas algo más?</h3>
+        </div>
+      <div class="bk-extra">
+        <p class="bk-extra-l">Opcional, y puedes pedir lo que sea. Un carro de alquiler, un chef, un masaje, un guía, el traslado del aeropuerto, mercado al llegar, entradas de Carnaval &mdash; lo que se te ocurra. Escríbelo aquí y te pasamos las opciones y el costo aparte.</p>
+        <label class="conc-f">
+          <span>Pide lo que quieras, con tus palabras</span>
+          <textarea id="bkExtra" rows="4" placeholder="Queremos un carro por los cinco días y un guía que hable inglés..."></textarea>
+        </label>
+      </div>
+      </li>
+      <li class="bstep" id="bs05">
+        <div class="bstep-h">
+          <span class="bstep-n">05</span>
+          <h3>Pago</h3>
+          <span class="dbadge">Demostración</span>
+        </div>
+      <div class="paybox">
+        <p class="paybox-l">Así se verá el pago en línea cuando lo activemos: escoges el método, pagas el anticipo y recibes el comprobante al instante. <b>Hoy la reserva se confirma por WhatsApp</b> y el pago se acuerda contigo.</p>
+        <ul class="pms">
+        <li class="pm"><span class="pm-i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19M6 15h3"/></svg></span><span class="pm-t"><strong>Tarjeta de crédito o débito</strong><em>Visa · Mastercard · American Express</em></span></li>
+        <li class="pm"><span class="pm-w">PSE</span><span class="pm-t"><strong>PSE</strong><em>Débito directo desde tu banco</em></span></li>
+        <li class="pm"><span class="pm-w">Nequi</span><span class="pm-t"><strong>Nequi</strong><em>Apruebas el pago en la app</em></span></li>
+        <li class="pm"><span class="pm-w">Daviplata</span><span class="pm-t"><strong>Daviplata</strong><em>Apruebas el pago en la app</em></span></li>
+        <li class="pm"><span class="pm-w">Bancolombia</span><span class="pm-t"><strong>Bancolombia</strong><em>Botón de pago o transferencia</em></span></li>
+        <li class="pm"><span class="pm-i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 12h.01M18 12h.01"/></svg></span><span class="pm-t"><strong>Efectivo</strong><em>Efecty · Baloto · Su Red</em></span></li>
+        <li class="pm"><span class="pm-w">PayPal</span><span class="pm-t"><strong>PayPal</strong><em>Para huéspedes fuera de Colombia</em></span></li>
+        </ul>
+        <p class="paybox-f"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="9.5" rx="1.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>Procesado por una pasarela colombiana (Wompi o ePayco). Los datos de la tarjeta nunca pasan por este sitio.</p>
+        <button type="button" class="btn paybox-go" data-chk-open>Ver la pasarela de pago<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      </div>
+      </li>
+    </ol>
+  </form>
+
+  <aside class="bsum">
+    <div class="bsum-in">
+      <div class="bsum-hd">
+        <img id="bsImg" src="assets/img/c/c-06@480.jpg" alt="" />
+        <div>
+          <span class="bsum-k">Tu reserva</span>
+          <strong id="bsUnit">Apartamento 401 A</strong>
+          <span class="bsum-b" id="bsBadge">Piso 4</span>
+        </div>
+      </div>
+      <dl class="bsum-l">
+        <div><dt>Llegada</dt><dd id="bsIn">&mdash;</dd></div>
+        <div><dt>Salida</dt><dd id="bsOut">&mdash;</dd></div>
+        <div><dt>Noches</dt><dd id="bsN">&mdash;</dd></div>
+        <div><dt>Huéspedes</dt><dd id="bsG">2</dd></div>
+      </dl>
+      <div class="bsum-demo" id="bsDemo">
+        <div class="bsum-demo-h"><span class="dbadge">Demostración</span><span>Tarifa de ejemplo</span></div>
+        <dl class="bsum-rate">
+          <div><dt id="bsRateL">Noches</dt><dd id="bsRate">&mdash;</dd></div>
+          <div class="is-tot"><dt>Total de ejemplo</dt><dd id="bsTot">&mdash;</dd></div>
+          <div><dt>Anticipo 30% para confirmar</dt><dd id="bsDep">&mdash;</dd></div>
+        </dl>
+        <p>Cifras de ejemplo para mostrar el funcionamiento. La tarifa real, los impuestos y las condiciones te los confirma el anfitrión.</p>
+      </div>
+      <div class="bsum-go">
+        <button type="submit" form="bk" class="btn btn--fill">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.4A10 10 0 1 0 12 2Zm5.5 14.1c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .1-1.7-.1-.4-.1-.9-.3-1.5-.6-2.7-1.2-4.4-3.9-4.6-4.1-.1-.2-1-1.4-1-2.6 0-1.2.6-1.8.9-2.1.2-.2.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.3 0 .5l-.4.5-.3.3c-.1.1-.2.3 0 .5.2.3.8 1.3 1.7 2.1 1.1 1 2 1.3 2.3 1.4.2.1.4.1.5-.1l.8-.9c.2-.2.3-.2.5-.1l2 .9c.2.1.4.2.4.3.1.2.1.7-.1 1.3Z"/></svg>
+          Enviar la consulta
+        </button>
+        <button type="button" class="btn btn--ghost" data-chk-open>Pagar el anticipo</button>
+        <p class="bk-note" id="bkNote">Se abrirá WhatsApp con el mensaje ya escrito. Nada se envía sin que lo confirmes.</p>
+      </div>
+    </div>
+  </aside>
+</div>
+
+    <div class="chk" id="chk" role="dialog" aria-modal="true" aria-label="Pasarela de pago, demostración" hidden>
+  <div class="chk-box" role="document">
+    <div class="chk-hd">
+      <span class="dbadge">Demostración</span>
+      <strong>Pago del anticipo</strong>
+      <button type="button" class="chk-x" data-chk-close aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="chk-body">
+      <div class="chk-main">
+        <div class="chk-tabs" role="tablist" aria-label="Método de pago">
+          <button type="button" class="chk-tab is-on" role="tab" aria-selected="true" data-m="card" data-label="Tarjeta de crédito o débito"><span class="pm-i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19M6 15h3"/></svg></span><span>Tarjeta de crédito o débito</span></button>
+          <button type="button" class="chk-tab" role="tab" aria-selected="false" data-m="pse" data-label="PSE"><span class="pm-w">PSE</span><span>PSE</span></button>
+          <button type="button" class="chk-tab" role="tab" aria-selected="false" data-m="nequi" data-label="Nequi"><span class="pm-w">Nequi</span><span>Nequi</span></button>
+          <button type="button" class="chk-tab" role="tab" aria-selected="false" data-m="davi" data-label="Daviplata"><span class="pm-w">Daviplata</span><span>Daviplata</span></button>
+          <button type="button" class="chk-tab" role="tab" aria-selected="false" data-m="banco" data-label="Bancolombia"><span class="pm-w">Bancolombia</span><span>Bancolombia</span></button>
+          <button type="button" class="chk-tab" role="tab" aria-selected="false" data-m="cash" data-label="Efectivo"><span class="pm-i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 12h.01M18 12h.01"/></svg></span><span>Efectivo</span></button>
+          <button type="button" class="chk-tab" role="tab" aria-selected="false" data-m="paypal" data-label="PayPal"><span class="pm-w">PayPal</span><span>PayPal</span></button>
+        </div>
+        <div class="chk-pane" data-pane="card" hidden>
+          <div class="chk-grid">
+            <label class="chk-f is-wide"><span>Número de la tarjeta</span><input type="text" value="4242 4242 4242 4242" readonly tabindex="-1" /></label>
+            <label class="chk-f"><span>Vence</span><input type="text" value="12 / 29" readonly tabindex="-1" /></label>
+            <label class="chk-f"><span>CVC</span><input type="text" value="123" readonly tabindex="-1" /></label>
+            <label class="chk-f is-wide"><span>Nombre en la tarjeta</span><input type="text" value="JOSE D MARTINEZ" readonly tabindex="-1" /></label>
+            <label class="chk-f is-wide"><span>Cuotas</span><input type="text" value="1 cuota" readonly tabindex="-1" /></label>
+          </div>
+          <p class="chk-lock">Campos bloqueados a propósito: son datos de prueba. Nunca escribas una tarjeta real en una demostración.</p>
+        </div>
+        <div class="chk-pane" data-pane="pse" hidden>
+          <div class="chk-grid">
+            <label class="chk-f is-wide"><span>Tipo de persona</span><input type="text" value="Persona natural" readonly tabindex="-1" /></label>
+            <label class="chk-f is-wide"><span>Banco</span><input type="text" value="Bancolombia" readonly tabindex="-1" /></label>
+          </div>
+          <div class="chk-redir">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M14 4h6v6M20 4l-8.5 8.5M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
+            <p><strong>Te llevamos a tu banco. </strong>Apruebas el débito en la sucursal virtual y vuelves aquí con el comprobante.</p>
+          </div>
+        </div>
+        <div class="chk-pane" data-pane="nequi" hidden>
+          <div class="chk-grid">
+            <label class="chk-f is-wide"><span>Celular Nequi</span><input type="text" value="300 000 0000" readonly tabindex="-1" /></label>
+          </div>
+          <div class="chk-redir">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M14 4h6v6M20 4l-8.5 8.5M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
+            <p><strong>Te llega una notificación. </strong>Abres Nequi, apruebas el pago y el comprobante aparece aquí solo.</p>
+          </div>
+        </div>
+        <div class="chk-pane" data-pane="davi" hidden>
+          <div class="chk-grid">
+            <label class="chk-f is-wide"><span>Celular Daviplata</span><input type="text" value="300 000 0000" readonly tabindex="-1" /></label>
+          </div>
+          <div class="chk-redir">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M14 4h6v6M20 4l-8.5 8.5M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
+            <p><strong>Te llega una notificación. </strong>Abres Daviplata, apruebas el pago y vuelves a esta pantalla.</p>
+          </div>
+        </div>
+        <div class="chk-pane" data-pane="banco" hidden>
+          <div class="chk-redir">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M14 4h6v6M20 4l-8.5 8.5M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
+            <p><strong>Botón Bancolombia. </strong>Entras a la Sucursal Virtual Personas, apruebas y el pago queda conciliado automáticamente.</p>
+          </div>
+        </div>
+        <div class="chk-pane" data-pane="cash" hidden>
+          <div class="chk-redir">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M14 4h6v6M20 4l-8.5 8.5M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
+            <p><strong>Generamos un código. </strong>Lo pagas en Efecty, Baloto o Su Red dentro de las siguientes 24 horas y la reserva queda confirmada al recibirlo.</p>
+          </div>
+        </div>
+        <div class="chk-pane" data-pane="paypal" hidden>
+          <div class="chk-redir">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M14 4h6v6M20 4l-8.5 8.5M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
+            <p><strong>PayPal. </strong>Para huéspedes que pagan desde fuera de Colombia, con la protección al comprador de PayPal.</p>
+          </div>
+        </div>
+      </div>
+      <aside class="chk-ord">
+        <span class="chk-ord-k">Resumen</span>
+        <strong id="chkUnit">&mdash;</strong>
+        <p id="chkWhen">&mdash;</p>
+        <dl>
+          <div><dt id="chkRateL">Noches</dt><dd id="chkRate">&mdash;</dd></div>
+          <div><dt>Total de ejemplo</dt><dd id="chkTot">&mdash;</dd></div>
+          <div class="is-tot"><dt>Anticipo a pagar hoy</dt><dd id="chkDep">&mdash;</dd></div>
+          <div><dt>Saldo al llegar</dt><dd id="chkBal">&mdash;</dd></div>
+        </dl>
+        <p class="chk-ord-n">Cifras de ejemplo. La tarifa real la confirma el anfitrión.</p>
+      </aside>
+    </div>
+    <div class="chk-ft">
+      <p class="chk-secure"><svg class="chk-secure-i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="9.5" rx="1.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg><span><b>Pago seguro.</b> Demostración &mdash; no se procesa ningún cobro y no se envía ningún dato.</span></p>
+      <button type="button" class="btn btn--fill" id="chkGo">Pagar <span id="chkGoAmt"></span></button>
+    </div>
+    <div class="chk-done" id="chkDone" hidden>
+      <div class="chk-tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 12.5 9.5 18 20 7"/></svg></div>
+      <h3>Pago aprobado</h3>
+      <p class="chk-done-s">Referencia <code id="chkRef">&mdash;</code></p>
+      <dl class="chk-done-l">
+        <div><dt>Apartamento</dt><dd id="chkDUnit">&mdash;</dd></div>
+        <div><dt>Fechas</dt><dd id="chkDWhen">&mdash;</dd></div>
+        <div><dt>Método</dt><dd id="chkDHow">&mdash;</dd></div>
+        <div class="is-tot"><dt>Anticipo pagado</dt><dd id="chkDAmt">&mdash;</dd></div>
+      </dl>
+      <p class="chk-done-n">Esto fue una demostración: no se cobró nada, no se guardó nada y no se envió ningún correo. Así funcionaría con la pasarela activa.</p>
+      <div class="chk-done-go">
+        <button type="button" class="btn" data-chk-close>Cerrar</button>
+        <button type="button" class="btn btn--fill" id="chkWa">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.4A10 10 0 1 0 12 2Zm5.5 14.1c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .1-1.7-.1-.4-.1-.9-.3-1.5-.6-2.7-1.2-4.4-3.9-4.6-4.1-.1-.2-1-1.4-1-2.6 0-1.2.6-1.8.9-2.1.2-.2.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.3 0 .5l-.4.5-.3.3c-.1.1-.2.3 0 .5.2.3.8 1.3 1.7 2.1 1.1 1 2 1.3 2.3 1.4.2.1.4.1.5-.1l.8-.9c.2-.2.3-.2.5-.1l2 .9c.2.1.4.2.4.3.1.2.1.7-.1 1.3Z"/></svg>
+          Escribir por WhatsApp
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+    <div class="steps rv">
+      <div class="step"><span class="sn">1</span><h3>Cuéntanos</h3><p>Elige el apartamento y las fechas y envía la consulta.</p></div>
+      <div class="step"><span class="sn">2</span><h3>Confirmamos</h3><p>Te respondemos con disponibilidad, tarifa y fotos del apartamento.</p></div>
+      <div class="step"><span class="sn">3</span><h3>Te esperamos</h3><p>Acordamos la entrega de llaves y la hora de llegada.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="pad alt">
+  <div class="wrap">
+    <div class="head rv">
+      <span class="eyebrow">Reservas</span>
+      <h2>O escríbenos directamente</h2>
+    </div>
+    <div class="ct rv">
+      <div class="col">
+        <h3>Reservas</h3>
+        <ul class="rows">
+          <li><a href="https://wa.me/573045530927">+57 304 553 0927</a></li>
+          <li class="em"><a href="mailto:apartahotel7@gmail.com">apartahotel7@gmail.com</a></li>
+        </ul>
+        <p class="adr">José Daniel Martínez<br />Gerente General</p>
+      </div>
+      <div class="col">
+        <h3>Colombia</h3>
+        <ul class="rows">
+          <li><a href="tel:+573147074390">+57 314 707 4390</a></li>
+          <li><a href="tel:+573022988674">+57 302 298 8674</a></li>
+          <li><a href="tel:+573107031880">+57 310 703 1880</a></li>
+        </ul>
+        <p class="adr">Carrera 58 # 82-41<br />Edificio K58, Altos de Riomar<br />Barranquilla, Atlántico</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="cta">
+  <img src="assets/img/c/c-09.jpg" alt="" aria-hidden="true" />
+  <div class="inner">
+    <span class="eyebrow eyebrow--light">Apart Hotel</span>
+    <h2>Tu apartamento está listo</h2>
+    <p>Dinos las fechas y te confirmamos disponibilidad el mismo día.</p>
+    <div class="acts">
+      <a href="/reservar" class="btn btn--gold">Consultar disponibilidad</a>
+      <a href="mailto:apartahotel7@gmail.com" class="btn btn--light">Enviar un correo</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <div class="fbrand"><img src="assets/img/brand/logo-white.png" alt="Apart Hotel" /></div>
+        <p style="max-width:34ch">Apartamentos amoblados en el Edificio K58, Altos de Riomar, Barranquilla.</p>
+      </div>
+      <div>
+        <h4>Barranquilla</h4>
+        <ul>
+          <li>Carrera 58 # 82-41</li>
+          <li>Edificio K58, Altos de Riomar</li>
+          <li><a href="tel:+573147074390">+57 314 707 4390</a></li>
+          <li><a href="mailto:apartahotel7@gmail.com">apartahotel7@gmail.com</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Navegar</h4>
+        <ul>
+          <li><a href="/apartamentos">Apartamentos</a></li>
+          <li><a href="/ubicacion">Ubicación</a></li>
+          <li><a href="/experiencias">Experiencias</a></li>
+          <li><a href="/reservar">Reservar</a></li>
+          <li><a href="/contacto">Contacto</a></li>
+          <li><a href="/politicas">Políticas</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="fb">
+      <span>&copy; 2026 Apart Hotel</span>
+      <span>Sitio por Tap Aruba</span>
+    </div>
+  </div>
+</footer>
+
+<div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Galería de fotos">
+  <div class="lb-top">
+    <span class="lb-title" id="lbTitle"></span>
+    <button class="lb-x" id="lbX" aria-label="Cerrar galería"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>
+  <div class="lb-stage">
+    <button class="lb-nav lb-prev" id="lbPrev" aria-label="Foto anterior"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg></button>
+    <img id="lbImg" alt="" />
+    <button class="lb-nav lb-next" id="lbNext" aria-label="Foto siguiente"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></button>
+  </div>
+  <div class="lb-strip" id="lbStrip"></div>
+</div>
+
+<script src="assets/app.js?v=96"></script>
+<script src="assets/booking.js?v=96"></script>
+</body>
+</html>
