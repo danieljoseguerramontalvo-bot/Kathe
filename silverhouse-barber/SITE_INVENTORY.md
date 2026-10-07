@@ -1,137 +1,77 @@
-# Silverhouse Barber — Inventario del sitio
+# Silver House Barber · Estudio — inventario del sitio
 
-Copia de https://silverhousebarber.vercel.app/ tomada el 2026-10-07.
-El sitio es **una sola página estática** (`index.html`) con todo el CSS y el JavaScript embebidos. No hay framework ni build.
+Una sola página (`index.html`). Para encontrar cada parte, buscá el comentario `<!-- ============ NOMBRE ============ -->` o el `id` indicado.
 
-## Archivos
+## Secciones (en orden)
 
-| Archivo | Qué es |
-|---|---|
-| `index.html` | Toda la página: HTML, CSS (`<style>`, líneas 20–427) y JS (`<script>`, líneas 836–1087) |
-| `silverhouse-logo.png` | Logo (480×480). Se usa en header, hero, footer y como favicon |
-| `silverhouse-badge.jpg` | Sello circular (800×800) del banner "Tu lugar en la silla te espera" |
-| `_screenshots/` | Capturas de la copia local (desktop 1440×900 y móvil 390×844) |
-
-No existen en el sitio original: `robots.txt`, `sitemap.xml`, `favicon.ico`, `apple-touch-icon.png`, `manifest.json` / `site.webmanifest` (todos devuelven 404 en vivo).
-
-## Páginas y secciones (en orden)
-
-Única página: `/` (`index.html`). Secciones:
-
-1. **Header** fijo (`#siteHeader`, línea 432) — logo, menú (Esencia, Servicios, Reservar, Galería, Equipo, Reseñas, Ubicación), botón "Reservar Turno", hamburguesa en móvil (menú móvil línea 461).
-2. **Hero** (`#inicio`, línea 472) — "Reservá tu silla. El resto lo hacemos nosotros.", indicador Abierto/Cerrado automático, botones, estadísticas: 4.9/5 valoración, +2.000 clientes, desde 2019.
-3. **01 La Esencia** (`#esencia`, línea 505) — "No es un corte. Es una declaración." + tarjetas Misión / Visión / Valores.
-4. **02 El Menú — Servicios de Autor** (`#servicios`, línea 529) — 6 tarjetas de servicios.
-5. **03 Reserva Online** (`#reserva`, línea 592) — asistente de 5 pasos: Servicio → Profesional → Fecha → Horario → Confirmar.
-6. **04 El Trabajo — Galería** (`#galeria`, línea 641) — 5 fotos + botón a Instagram.
-7. **05 La Casa — Equipo** (`#equipo`, línea 676) — 2 tarjetas.
-8. **06 Lo Que Dicen — Reseñas** (`#resenas`, línea 704) — 3 reseñas (el propio sitio aclara que son *ilustrativas de muestra*).
-9. **Banner CTA** (línea 732) — "Tu lugar en la silla te espera." + sello + botones Reserva / WhatsApp.
-10. **07 Visitanos — Ubicación** (`#ubicacion`, línea 749) — dirección, WhatsApp, horario, Instagram + mapa de Google embebido.
-11. **Footer** (línea 788) — logo, navegación, contacto, © 2026 · "Dirección de Omar Silvera · EST. 2019".
-12. **Botón flotante de WhatsApp** (línea 830).
-
-## Servicios, precios y duraciones
-
-| Servicio | Precio | Duración | Etiqueta |
+| # | Sección | `id` | Contenido |
 |---|---|---|---|
-| Corte Clásico | $17.000 | 40 min | |
-| Fade / Degradado | $20.000 | 45 min | Más Solicitado |
-| Corte con Diseño | $25.000 | 60 min | |
-| Arreglo de Barba | $12.000 | 30 min | |
-| Texturizado / Crop | $19.000 | 40 min | |
-| Combo Corte + Barba | $32.000 | 60 min | Más Solicitado |
+| — | Intro animada | `#intro` | Corona dorada que se dibuja + "SILVER HOUSE" + "BARBER". Se ve una vez por visita, se puede saltar. |
+| — | Header fijo | `#siteHeader` | Logo, menú, botón "Reservar Turno", menú móvil. Barra dorada de progreso de scroll arriba. |
+| — | Hero | `#inicio` | "Tu estilo, tu momento, tu mejor versión." + "Construimos confianza, imagen y personalidad". Estado **Abierto/Cerrado** automático (hora de Buenos Aires), botón **Próximo turno disponible** (calculado en vivo), estadísticas, slideshow con efecto Ken Burns de las fotos reales del local. |
+| — | Cinta animada | `.ticker` | Servicios y frases del flyer en movimiento continuo. |
+| 01 | **Paquetes** | `#paquetes` | Premium, Platinum, Oro (tarjetas con foto, ícono por servicio, precio animado) + tarjeta ancha **Servicio para Jubilados**. |
+| 02 | **Reserva online** | `#reserva` | Asistente de 5 pasos: Paquete → Barbero → Día → Horario → Datos y confirmación. Resumen lateral "Tu reserva" (en celular, barra fija abajo). |
+| 03 | El Estudio | `#estudio` | 3 fotos reales del local (visor ampliable), 5 comodidades del flyer, frase "Cuidá tu imagen. Cuidá tu bienestar." |
+| 04 | La Esencia | `#esencia` | Misión / Visión / Valores. |
+| 05 | Los Dueños | `#duenos` | Fotos de los dueños + cita y firma de Omar Silvera. |
+| 06 | Galería | `#galeria` | 5 fotos de trabajos (visor ampliable) + botón a Instagram. |
+| 07 | Reseñas | `#resenas` | 3 reseñas **de muestra** (el sitio lo aclara) — reemplazar por reseñas reales. |
+| — | Banner | `.cta-banner` | "Cuidá tu imagen. Cuidá tu bienestar." sobre franjas de poste de barbería animadas. |
+| 08 | Ubicación | `#ubicacion` | Dirección (link a Google Maps), WhatsApp, horario, Instagram, botón "Cómo llegar" y mapa. |
+| — | Footer + WhatsApp flotante | `footer`, `#waFab` | |
 
-Nota en el sitio: "* Duración estimada por servicio. Los precios pueden variar según complejidad."
+## Paquetes y precios
 
-## Equipo
-
-- **Omar Silvera** — Fundador · Master Barber (en el reservador: "17 años de experiencia").
-- **Barberos Silverhouse / Equipo Silverhouse** — equipo genérico, sin nombres individuales ("Barberos Senior").
-
-## Horario
-
-Lunes a Sábado · 09:00 a 20:00 — Domingo cerrado.
-(El indicador "Abierto Ahora / Cerrado" del hero lo calcula el JS con zona horaria America/Argentina/Buenos_Aires.)
-
-## Contacto
-
-- **Dirección:** Av. La Plata 1185, CABA — Ciudad Autónoma de Buenos Aires, Argentina
-- **WhatsApp / teléfono:** +54 11 3697-0220 → `https://wa.me/541136970220`
-- **Email:** el sitio **no publica ningún email**.
-- **Instagram:** @silverhousebarber → `https://instagram.com/silverhousebarber`
-- No hay otras redes (Facebook, TikTok, etc.).
-
-## Cómo funciona la reserva
-
-No hay backend ni widget externo. El asistente de 5 pasos (JS en `index.html`) arma un mensaje y, al tocar **"Confirmar Reserva"**, abre WhatsApp (`wa.me/541136970220`) con el texto: servicio, profesional, fecha y hora. El turno lo confirma la barbería por WhatsApp.
-- Domingos y fechas pasadas aparecen deshabilitados.
-- Horarios: cada 30 min de 09:00 a 19:30.
-- **Ojo:** los horarios "ocupados" son **simulados** (función `pseudoOccupied`, línea 1003, marca ~1 de cada 4 al azar de forma fija). No reflejan la agenda real.
-- Los botones "Reservar este servicio →" de cada tarjeta preseleccionan el servicio y saltan al paso 2.
-
-## Colores y tipografías
-
-Variables CSS en `:root` (`index.html` líneas 21–41):
-
-| Variable | Valor | Uso |
+| Paquete | Precio | Incluye |
 |---|---|---|
-| `--obsidian` | `#111111` | Fondo principal (también `theme-color`) |
-| `--obsidian-2` | `#0D0D0D` | Fondo alternativo |
-| `--carbon` / `--carbon-2` | `#171717` / `#161616` | Tarjetas |
-| `--text` | `#C7CACF` | Texto |
-| `--text-dim` / `--text-mute` / `--text-faint` | `#9CA0A7` / `#7E838B` / `#5C6168` | Textos secundarios |
-| `--white-ish` | `#E6E8EC` | Títulos |
-| `--cyan` | `#4FD1E5` | Color de acento |
-| `--cyan-bright` | `#7BE0EE` | Acento claro |
-| Títulos | degradado plateado `#FFFFFF → #9DA0A6 → #F4F5F7` (`.gradient-text`) |
-| WhatsApp FAB | verde WhatsApp |
+| Premium | $35.000 | Masaje relajante de 5 minutos · Lavado de cabello · Corte a tu preferencia · Perfilado y arreglo de barba · Café de cortesía al finalizar |
+| Platinum | $30.000 | Corte a tu preferencia · Arreglo y perfilado de barba · Café de cortesía |
+| Oro | $20.000 | Corte a tu preferencia · Terminación con navaja |
+| Servicio para Jubilados | $18.000 | Corte de cabello a su preferencia |
 
-Tipografías (Google Fonts, línea 18):
-- **Cinzel** — títulos (`--font-display`)
-- **Cinzel Decorative** — decorativa (`--font-deco`)
-- **Hanken Grotesk** — texto (`--font-body`)
-- **Space Mono** — etiquetas/números (`--font-mono`)
+**Para cambiar un precio o un paquete** editá la tarjeta `<article class="pkg" data-pkg="…">`:
+- los atributos `data-nombre`, `data-precio`, `data-incluye`, `data-img` y `data-duracion` alimentan el reservador (no hay que tocar el JavaScript);
+- el texto visible de la tarjeta (lista, precio `data-countprice="35000"` y su número) está dentro del mismo `<article>`;
+- actualizá también el bloque JSON-LD (`makesOffer`) del `<head>` para Google.
 
-## Recursos externos (no descargados, quedan como links)
+`data-duracion` (minutos) solo se usa para el recordatorio de calendario (Premium 75, Platinum 60, Oro 45, Jubilados 40 — estimados, confirmar con la barbería). No se muestra en la página.
 
-- Google Fonts (tipografías).
-- GSAP 3.12.5 + ScrollTrigger desde cdnjs (animaciones).
-- Google Maps embebido (mapa de ubicación).
-- **Fotos de Unsplash** (stock, no propias): fondo del hero, 5 fotos de galería y 2 de equipo. Si se quiere reemplazarlas por fotos reales, ver tabla de abajo.
-- Links a WhatsApp e Instagram.
+## Reservas: cómo funcionan
 
-## Qué archivo/línea editar
+1. El cliente elige paquete, barbero, día (próximos 28 días; domingos cerrados) y horario (cada 30 min de 09:00 a 19:30; los horarios pasados o a menos de 30 min se deshabilitan).
+2. Escribe su nombre (obligatorio), celular y comentario (opcionales). Puede "recordar sus datos" en su dispositivo.
+3. Al confirmar se abre **WhatsApp** al +54 11 3697-0220 con el mensaje ya escrito (paquete, precio, barbero, día, hora, nombre, nota y un **código de reserva**, ej. `SH-1210-1530`).
+4. Pantalla final con botones **Google Calendar** y **Recordatorio .ics** (alarma 2 h antes) para que el cliente agende el turno.
 
-Todo está en `silverhouse-barber/index.html`:
+Atajos automáticos: botón "Próximo turno disponible" en el hero, chip "Primer turno libre" y "Este sábado" en el paso de fecha, botones "Reservar" en cada paquete, y links directos `?paquete=premium` o `#reservar-oro`.
 
-| Qué cambiar | Dónde |
-|---|---|
-| Título de la pestaña / descripción SEO / Open Graph | líneas 6–14 |
-| Colores | variables `:root`, líneas 21–41 |
-| Tipografías | línea 18 (Google Fonts) y líneas 37–40 |
-| Foto de fondo del hero | línea 137 (`background-image:url(...)`) |
-| Texto del hero y estadísticas (4.9/5, +2.000, 2019) | líneas 478–497 |
-| Misión / Visión / Valores | líneas 507–523 |
-| **Precios y duraciones (tarjetas visibles)** | líneas 536–585 |
-| **Precios y duraciones (reservador)** | array `SERVICES`, líneas 900–907 — **cambiar en los dos lugares** |
-| Profesionales del reservador | array `PROFESSIONALS`, líneas 908–911 |
-| Horario de atención (texto) | línea 768 |
-| Horario (indicador Abierto/Cerrado) | línea 891 (`9*60` y `20*60`, domingo cerrado) |
-| Horarios de turnos del reservador | `generateTimes()`, líneas 994–1001 |
-| Horarios "ocupados" simulados | `pseudoOccupied()`, líneas 1003–1008 |
-| Fotos de galería | líneas 647–667 |
-| Equipo (fotos, nombres, textos) | líneas 682–699 |
-| Reseñas | líneas 710–727 |
-| Banner CTA | líneas 732–746 |
-| Dirección / WhatsApp / horario / Instagram (sección Ubicación) | líneas 758–773 |
-| Mapa | línea 781 |
-| Footer | líneas 788–827 |
-| Número de WhatsApp | buscar `541136970220` (líneas 743, 809, 821, 830 y 1082) |
-| Usuario de Instagram | buscar `silverhousebarber` (líneas 670, 772, 777, 810, 818) |
-| Logo / sello | reemplazar `silverhouse-logo.png` / `silverhouse-badge.jpg` (mismo nombre) |
+No hay base de datos: la barbería confirma cada turno por WhatsApp (el sitio lo aclara). Ya no se muestran horarios "ocupados" inventados.
 
-## Observaciones
+**Configuración** (al principio del `<script>` principal, bloque "CONFIGURACIÓN"):
+- `WA_NUMBER` — número de WhatsApp.
+- `HORARIO` — apertura/cierre en minutos, intervalo de turnos, anticipación mínima, días cerrados (0 = domingo).
+- `BARBEROS` — lista de profesionales del paso 2 (agregar acá a los dueños / barberos con su nombre).
+- `DIAS_A_MOSTRAR` — cuántos días se pueden reservar.
 
-- En móvil (390 px) el documento mide ~457 px de ancho (algún elemento desborda); ocurre igual en el sitio original, no es un problema de la copia.
-- Las reseñas son de muestra (lo dice el propio sitio, línea 727).
+## Fotos
+
+| Carpeta | Uso | Notas |
+|---|---|---|
+| `img/estudio/estudio-1/2/3.webp` (+ `-sm`) | Hero y sección El Estudio | Fotos reales del local, con ajuste de color/contraste. |
+| `img/equipo/dueno-1.webp`, `dueno-2.webp` | Los Dueños | Para poner nombres, editar los `<figcaption class="owner-cap">`. |
+| `img/paquetes/*.webp` | Tarjetas de paquetes y una foto de la galería | Unsplash (uso comercial gratuito), ver `img/paquetes/CREDITS.md`. |
+| Galería (4 fotos) | `#galeria` | Fotos de stock de Unsplash del sitio original. Ideal: reemplazar por trabajos reales. |
+
+## Contacto y datos
+
+- Dirección: Av. La Plata 1185, CABA, Argentina
+- WhatsApp: +54 11 3697-0220 (`wa.me/541136970220`) — buscar `541136970220` para cambiarlo en todos lados.
+- Instagram: @silverhousebarber
+- Horario: lunes a sábado 09:00–20:00, domingo cerrado.
+
+## Estilo
+
+- Colores: negro (`--bg #0B0B0C`), dorado (`--gold #D4AF6A`, degradados `--gold-grad`), plateado (`--silver-grad`). Variables en `:root`.
+- Tipografías: Cinzel (títulos), Cormorant Garamond itálica (frases), Hanken Grotesk (texto), Space Mono (etiquetas).
+- Animaciones: GSAP + ScrollTrigger (`js/`). Respetan "reducir movimiento" del sistema; sin JavaScript todo el contenido queda visible.

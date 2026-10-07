@@ -1,9 +1,22 @@
-# Silverhouse Barber — sitio web
+# Silver House Barber · Estudio — sitio web
 
-Copia completa de https://silverhousebarber.vercel.app/ (fuente oficial a partir de ahora).
-Sitio estático: `index.html` + 2 imágenes. Sin build, sin dependencias.
+Sitio estático de una sola página (`index.html`), sin build ni dependencias externas obligatorias.
+Las animaciones (GSAP) y las tipografías están incluidas en el propio sitio, así que funciona aunque falle un CDN.
 
-Ver `SITE_INVENTORY.md` para el contenido y qué línea editar para cada cosa.
+```
+silverhouse-barber/
+├── index.html              ← todo el sitio (HTML + CSS + JS)
+├── js/                     ← GSAP 3.12.5 + ScrollTrigger (animaciones)
+├── fonts/                  ← Cinzel, Cormorant Garamond, Hanken Grotesk, Space Mono (auto-alojadas)
+├── img/
+│   ├── estudio/            ← fotos reales del local (hero y sección "El Estudio")
+│   ├── equipo/             ← fotos de los dueños
+│   ├── paquetes/           ← fotos de cada paquete (Unsplash, ver CREDITS.md)
+│   └── og-silverhouse.jpg  ← imagen para compartir en WhatsApp / redes
+├── silverhouse-logo.png    ← logo (también favicon)
+├── silverhouse-badge.jpg   ← sello circular del banner
+└── SITE_INVENTORY.md       ← qué hay en el sitio y dónde se edita cada cosa
+```
 
 ## Ver en local
 
@@ -14,13 +27,13 @@ python3 -m http.server 8000   # abrir http://localhost:8000
 
 ## Publicar en Vercel
 
-1. En Vercel: **Add New… → Project** e importar este repositorio de GitHub (o, en el proyecto existente `silverhousebarber`, ir a **Settings → Git** y conectarlo a este repo).
-2. En **Settings → Build & Deployment** (o al importar):
+1. En vercel.com → **Add New… → Project** → importar el repo de GitHub `danieljoseguerramontalvo-bot/Kathe`
+   (o, en el proyecto existente `silverhousebarber`, **Settings → Git** → conectar este repo).
+2. Configuración del proyecto:
    - **Root Directory:** `silverhouse-barber`
    - **Framework Preset:** `Other`
-   - **Build Command:** vacío (desactivado)
-   - **Output Directory:** vacío / `.`
-   - **Install Command:** vacío
+   - **Build Command / Output Directory / Install Command:** vacíos
 3. **Deploy.** Cada push a la rama de producción vuelve a publicar el sitio.
 
-La carpeta `_screenshots/` y los `.md` también se publican pero no molestan; si se prefiere excluirlos, agregar un `.vercelignore` con `_screenshots/` y `*.md`.
+Alternativa sin Git: arrastrar la carpeta `silverhouse-barber/` a vercel.com/new (o `npx vercel --prod` dentro de la carpeta).
+El archivo `.vercelignore` evita publicar las capturas y los `.md`.
