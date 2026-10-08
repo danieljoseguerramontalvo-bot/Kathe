@@ -7,7 +7,7 @@ Una sola página (`index.html`). Para encontrar cada parte, buscá el comentario
 | # | Sección | `id` | Contenido |
 |---|---|---|---|
 | — | Header fijo | `#siteHeader` | Logo, menú, botón "Reservar Turno", menú móvil. Barra dorada de progreso de scroll arriba. |
-| — | Hero | `#inicio` | "Tu estilo, tu momento, tu mejor versión." + "Construimos confianza, imagen y personalidad". Estado **Abierto/Cerrado** automático (hora de Buenos Aires), botón **Próximo turno disponible** (calculado en vivo), estadísticas, slideshow lento de las fotos reales del local. |
+| — | Hero | `#inicio` | "Tu estilo, tu momento, tu mejor versión." + "Construimos confianza, imagen y personalidad". Estado **Abierto/Cerrado** automático (hora de Buenos Aires), botón **Próximo horario para reservar** (calculado en vivo), estadísticas, slideshow lento de las fotos reales del local. |
 | — | Cinta animada | `.ticker` | Servicios y frases del flyer en movimiento continuo. |
 | 01 | **Paquetes** | `#paquetes` | Premium, Platinum, Oro (tarjetas con foto, ícono por servicio y precio) + tarjeta ancha **Servicio para Jubilados**. |
 | 02 | **Reserva online** | `#reserva` | Asistente de 5 pasos: Paquete → Barbero → Día → Horario → Datos y confirmación. Resumen lateral "Tu reserva" (en celular, barra fija abajo). |
@@ -31,25 +31,25 @@ Una sola página (`index.html`). Para encontrar cada parte, buscá el comentario
 
 **Para cambiar un precio o un paquete** editá la tarjeta `<article class="pkg" data-pkg="…">`:
 - los atributos `data-nombre`, `data-precio`, `data-incluye`, `data-img` y `data-duracion` alimentan el reservador (no hay que tocar el JavaScript);
-- el texto visible de la tarjeta (lista, precio `data-countprice="35000"` y su número) está dentro del mismo `<article>`;
+- el texto visible de la tarjeta (lista y precio `<span>35.000</span>` dentro de `.pkg-price`) está dentro del mismo `<article>`;
 - actualizá también el bloque JSON-LD (`makesOffer`) del `<head>` para Google.
 
 `data-duracion` (minutos) solo se usa para el recordatorio de calendario (Premium 75, Platinum 60, Oro 45, Jubilados 40 — estimados, confirmar con la barbería). No se muestra en la página.
 
 ## Reservas: cómo funcionan
 
-1. El cliente elige paquete, barbero, día (próximos 28 días; domingos cerrados) y horario (cada 30 min de 09:00 a 19:30; los horarios pasados o a menos de 30 min se deshabilitan).
+1. El cliente elige paquete, barbero, día (próximos 28 días; domingos cerrados) y horario (cada 30 min de 09:00 a 19:30, agrupados en "Por la mañana" y "Por la tarde"; los horarios pasados o a menos de 30 min se deshabilitan). Si a un día ya no le quedan horarios, el sitio lo avisa y ofrece elegir otro día.
 2. Escribe su nombre (obligatorio), celular y comentario (opcionales). Puede "recordar sus datos" en su dispositivo.
 3. Al confirmar se abre **WhatsApp** al +54 11 3697-0220 con el mensaje ya escrito (paquete, precio, barbero, día, hora, nombre, nota y un **código de reserva**, ej. `SH-1210-1530`).
 4. Pantalla final con botones **Google Calendar** y **Recordatorio .ics** (alarma 2 h antes) para que el cliente agende el turno.
 
-Atajos automáticos: botón "Próximo turno disponible" en el hero, chip "Primer turno libre" y "Este sábado" en el paso de fecha, botones "Reservar" en cada paquete, y links directos `?paquete=premium` o `#reservar-oro`.
+Atajos automáticos: botón "Próximo horario para reservar" en el hero, chips "Primer horario" y "Este sábado" en el paso de fecha, botones "Reservar" en cada paquete, y links directos `?paquete=premium` o `#reservar-oro`.
 
 No hay base de datos: la barbería confirma cada turno por WhatsApp (el sitio lo aclara). Ya no se muestran horarios "ocupados" inventados.
 
 **Configuración** (al principio del `<script>` principal, bloque "CONFIGURACIÓN"):
 - `WA_NUMBER` — número de WhatsApp.
-- `HORARIO` — apertura/cierre en minutos, intervalo de turnos, anticipación mínima, días cerrados (0 = domingo).
+- `HORARIO` — apertura/cierre en minutos, `ultimoTurno` (último horario en que puede empezar un turno, hoy 19:30), intervalo de turnos, anticipación mínima, días cerrados (0 = domingo).
 - `BARBEROS` — lista de profesionales del paso 2 (agregar acá a los dueños / barberos con su nombre).
 - `DIAS_A_MOSTRAR` — cuántos días se pueden reservar.
 

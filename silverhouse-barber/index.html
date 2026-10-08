@@ -9,7 +9,7 @@
 
 <meta property="og:type" content="business.business">
 <meta property="og:title" content="Silver House Barber · Estudio — Tu estilo, tu momento, tu mejor versión.">
-<meta property="og:description" content="Barbería premium en Av. La Plata 1185, CABA. Paquetes desde $18.000. Reservá tu turno online en menos de un minuto.">
+<meta property="og:description" content="Barbería premium en Av. La Plata 1185, CABA. Paquetes desde $20.000 · Jubilados $18.000. Reservá tu turno online en menos de un minuto.">
 <meta property="og:url" content="https://silverhousebarber.vercel.app/">
 <meta property="og:image" content="https://silverhousebarber.vercel.app/img/og-silverhouse.jpg">
 <meta property="og:locale" content="es_AR">
@@ -935,7 +935,7 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
       </div>
       <button class="next-slot hero-anim" id="nextSlotBtn" type="button" hidden>
         <span class="ns-ico"><svg><use href="#i-bolt"/></svg></span>
-        <span><span class="ns-k">Próximo turno disponible</span><span class="ns-v" id="nextSlotText">—</span></span>
+        <span><span class="ns-k">Próximo horario para reservar</span><span class="ns-v" id="nextSlotText">—</span></span>
         <span class="ns-go">Reservarlo →</span>
       </button>
       <div class="trust-row hero-anim">
@@ -1068,7 +1068,7 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
             <h3 class="pkg-name gold-text">ORO</h3>
             <span class="pkg-tag">Clásico, limpio<br>y elegante</span>
           </div>
-          <div class="pkg-photo"><img src="img/paquetes/oro.webp" alt="Terminación con navaja en la nuca" loading="lazy"></div>
+          <div class="pkg-photo"><img src="img/paquetes/oro.webp" alt="Terminación con navaja en el contorno sobre la oreja" loading="lazy"></div>
           <div class="pkg-body">
             <ul class="pkg-list">
               <li><span class="ico-ring"><svg><use href="#i-scissors"/></svg></span>Corte de cabello a tu preferencia</li>
@@ -1172,7 +1172,7 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
             <div class="form-grid">
               <div class="field">
                 <label for="fNombre">Nombre y apellido</label>
-                <input id="fNombre" name="nombre" type="text" autocomplete="name" maxlength="60" required placeholder="Ej: Juan Pérez">
+                <input id="fNombre" name="nombre" type="text" autocomplete="name" maxlength="60" required aria-describedby="errNombre" placeholder="Ej: Juan Pérez">
                 <span class="err" id="errNombre"></span>
               </div>
               <div class="field">
@@ -1188,7 +1188,7 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
             <div class="confirm-actions">
               <button class="btn btn-wa" type="submit" id="confirmBtn"><svg><use href="#i-wa"/></svg>Confirmar por WhatsApp</button>
             </div>
-            <p class="confirm-hint"><svg><use href="#i-wa"/></svg>Se abre WhatsApp con tu reserva ya escrita. Solo tenés que tocar “Enviar”.</p>
+            <p class="confirm-hint"><svg><use href="#i-wa"/></svg>Se abre WhatsApp con tu reserva ya escrita. Solo tenés que tocar “Enviar”; la barbería te confirma la disponibilidad.</p>
           </form>
         </div>
 
@@ -1434,7 +1434,7 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
           </div>
           <div class="info-row">
             <div class="icon"><svg><use href="#i-clock"/></svg></div>
-            <div><div class="label">Horario</div><div class="val">Lunes a Sábado · 09:00 a 20:00<small>Domingo cerrado</small></div></div>
+            <div><div class="label">Horario</div><div class="val">Lunes a sábado · 09:00 a 20:00<small>Domingo cerrado</small></div></div>
           </div>
           <div class="info-row">
             <div class="icon"><svg><use href="#i-insta"/></svg></div>
@@ -1520,7 +1520,8 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
 var WA_NUMBER = '541136970220';
 var BA_TZ = 'America/Argentina/Buenos_Aires';
 // Horario de atención (minutos desde 00:00). diasCerrados: 0 = domingo.
-var HORARIO = { abre: 9*60, cierra: 20*60, intervalo: 30, anticipacion: 30, diasCerrados: [0] };
+// ultimoTurno: último horario en que puede empezar un turno (con 20:00 de cierre, 19:30).
+var HORARIO = { abre: 9*60, cierra: 20*60, ultimoTurno: 19*60 + 30, intervalo: 30, anticipacion: 30, diasCerrados: [0] };
 var DIAS_A_MOSTRAR = 28;
 // Barberos para el paso 2 del reservador.
 var BARBEROS = [
@@ -1565,7 +1566,7 @@ function diaCerrado(ymd){ return HORARIO.diasCerrados.indexOf(dow(ymd)) !== -1; 
 function slotsDelDia(ymd){
   if (diaCerrado(ymd)) return [];
   var now = baNow(), out = [];
-  for (var m = HORARIO.abre; m < HORARIO.cierra; m += HORARIO.intervalo){
+  for (var m = HORARIO.abre; m <= HORARIO.ultimoTurno && m < HORARIO.cierra; m += HORARIO.intervalo){
     var pasado = ymd < now.ymd || (ymd === now.ymd && m < now.min + HORARIO.anticipacion);
     out.push({ t: hhmm(m), min: m, ok: !pasado });
   }
@@ -1703,7 +1704,7 @@ function optCheck(){ return '<span class="check"><svg><use href="#i-check"/></sv
 function renderPkgs(){
   var grid = $('#stepPkgs');
   grid.innerHTML = PAQUETES.map(function(p){
-    var sel = state.pkg && state.pkg.id === p.id;
+    var sel = !!(state.pkg && state.pkg.id === p.id);
     return '<button type="button" class="opt' + (sel ? ' selected' : '') + '" data-id="' + p.id + '" aria-pressed="' + sel + '">' +
       '<span class="opt-thumb">' + (p.img ? '<img src="' + esc(p.img) + '" alt="" loading="lazy">' : '') + '</span>' +
       '<span class="opt-main"><span class="opt-title">' + esc(p.nombre) + '</span><span class="opt-meta">' + esc(p.incluye) + '</span></span>' +
@@ -1720,7 +1721,7 @@ function renderPkgs(){
 function renderPros(){
   var grid = $('#stepPros');
   grid.innerHTML = BARBEROS.map(function(p){
-    var sel = state.pro && state.pro.id === p.id;
+    var sel = !!(state.pro && state.pro.id === p.id);
     var av = p.iniciales ? esc(p.iniciales) : '<svg><use href="#i-users"/></svg>';
     return '<button type="button" class="opt' + (sel ? ' selected' : '') + '" data-id="' + p.id + '" aria-pressed="' + sel + '">' +
       '<span class="opt-avatar">' + av + '</span>' +
@@ -1740,7 +1741,7 @@ function renderDays(){
     var dis = cerrado || sinTurnos;
     var tag = cerrado ? 'Cerrado' : sinTurnos ? 'Sin turnos' : (relDia(d) || '');
     var sel = state.date === d;
-    html += '<button type="button" class="day' + (sel ? ' selected' : '') + '" data-date="' + d + '"' + (dis ? ' disabled' : '') + ' aria-label="' + fmtFecha(d) + (dis ? ' (' + tag + ')' : '') + '">' +
+    html += '<button type="button" class="day' + (sel ? ' selected' : '') + '" data-date="' + d + '"' + (dis ? ' disabled' : '') + ' aria-pressed="' + sel + '" aria-label="' + fmtFecha(d) + (tag ? ', ' + tag.toLowerCase() : '') + '">' +
       '<span class="d-dow">' + DIAS_CORTOS[dd.getUTCDay()] + '</span><span class="d-num">' + dd.getUTCDate() + '</span><span class="d-mon">' + MESES_CORTOS[dd.getUTCMonth()] + '</span><span class="d-tag">' + tag + '</span></button>';
   }
   strip.innerHTML = html;
@@ -1751,7 +1752,7 @@ function renderDays(){
   // atajos
   var q = $('#quickRow'), chips = '';
   var nt = proximoTurno();
-  if (nt) chips += '<button type="button" class="chip" data-quick="next"><svg><use href="#i-bolt"/></svg>Primer turno libre: ' + (relDia(nt.ymd) || fmtFechaCorta(nt.ymd)) + ' ' + nt.t + '</button>';
+  if (nt) chips += '<button type="button" class="chip" data-quick="next"><svg><use href="#i-bolt"/></svg>Primer horario: ' + (relDia(nt.ymd) || fmtFechaCorta(nt.ymd)) + ' ' + nt.t + '</button>';
   var sab = hoy; for (var k = 0; k < 7; k++){ if (dow(sab) === 6) break; sab = addDays(sab, 1); }
   if (slotsDelDia(sab).some(function(s){ return s.ok; })) chips += '<button type="button" class="chip" data-quick="sab"><svg><use href="#i-calendar"/></svg>' + (relDia(sab) || 'Este sábado') + '</button>';
   q.innerHTML = chips;
@@ -1782,17 +1783,21 @@ function renderTimes(){
   if (!state.date){ c.innerHTML = '<p class="meta-note">Elegí primero un día.</p>'; return; }
   $('#timeSub').textContent = fmtFechaRel(state.date) + ' · turnos cada ' + HORARIO.intervalo + ' minutos.';
   var slots = slotsDelDia(state.date);
+  if (!slots.some(function(s){ return s.ok; })){
+    c.innerHTML = '<p class="meta-note">Ya no quedan horarios para ' + esc(fmtFechaRel(state.date)) + '. <button type="button" class="link-btn" id="otroDia">Elegí otro día</button></p>';
+    $('#otroDia').addEventListener('click', function(){ state.date = null; state.time = null; goToStep(3, { focus:true }); });
+    return;
+  }
   var grupos = [
-    { n:'Mañana', f:function(m){ return m < 12*60; } },
-    { n:'Tarde', f:function(m){ return m >= 12*60 && m < 17*60; } },
-    { n:'Noche', f:function(m){ return m >= 17*60; } }
+    { n:'Por la mañana', f:function(m){ return m < 12*60; } },
+    { n:'Por la tarde', f:function(m){ return m >= 12*60; } }
   ];
   var html = '';
   grupos.forEach(function(g){
     var gs = slots.filter(function(s){ return g.f(s.min); });
     if (!gs.length) return;
     html += '<div class="time-group"><h5>' + g.n + '</h5><div class="time-grid">' + gs.map(function(s){
-      return '<button type="button" class="time-slot' + (state.time === s.t ? ' selected' : '') + '" data-time="' + s.t + '"' + (s.ok ? '' : ' disabled aria-label="' + s.t + ' no disponible"') + '>' + s.t + '</button>';
+      return '<button type="button" class="time-slot' + (state.time === s.t ? ' selected' : '') + '" data-time="' + s.t + '" aria-pressed="' + (state.time === s.t) + '"' + (s.ok ? '' : ' disabled aria-label="' + s.t + ' no disponible"') + '>' + s.t + '</button>';
     }).join('') + '</div></div>';
   });
   c.innerHTML = html || '<p class="meta-note">No hay turnos para este día. Elegí otro.</p>';
@@ -1801,7 +1806,11 @@ function renderTimes(){
   });
 }
 
+// completa nombre y celular guardados una sola vez por visita (si el cliente los borra, no se vuelven a escribir)
+var formPrefilled = false;
 function fillForm(){
+  if (formPrefilled || !$('#fRecordar').checked) return;
+  formPrefilled = true;
   var saved = store('sh-cliente');
   if (saved){
     if (!$('#fNombre').value && saved.nombre) $('#fNombre').value = saved.nombre;
@@ -1856,12 +1865,19 @@ nodes.forEach(function(node){
 $('#stepBackBtn').addEventListener('click', function(){ if (step > 1) goToStep(step - 1, { focus:true }); });
 $('#preselClear').addEventListener('click', function(){ state.date = null; state.time = null; renderPkgs(); updateSummary(); });
 
+// lleva a la tarjeta del reservador (no al título de la sección); scroll-padding-top deja libre el header
+function scrollToBooking(smooth){
+  $('#reserva .booking').scrollIntoView({ behavior: (smooth && !reduceMotion) ? 'smooth' : 'auto', block:'start' });
+}
+
 // Botones "Reservar" de las tarjetas de paquetes
 $all('[data-reservar]').forEach(function(b){
   b.addEventListener('click', function(){
+    // después de una reserva terminada, empezar de cero (no reutilizar día y hora anteriores)
+    if (step === 6){ state = { pkg:null, pro:null, date:null, time:null }; $('#fNota').value = ''; }
     state.pkg = findPkg(b.dataset.reservar);
-    goToStep(2, { instant:true });
-    document.getElementById('reserva').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block:'start' });
+    goToStep(2, { instant:true, focus:true });
+    scrollToBooking(true);
   });
 });
 
@@ -1875,9 +1891,10 @@ function refreshNextSlot(){
 }
 $('#nextSlotBtn').addEventListener('click', function(){
   var b = $('#nextSlotBtn');
+  if (step === 6){ state = { pkg:null, pro:null, date:null, time:null }; $('#fNota').value = ''; }
   state.date = b.dataset.ymd; state.time = b.dataset.t;
-  goToStep(state.pkg ? (state.pro ? 5 : 2) : 1, { instant:true });
-  document.getElementById('reserva').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block:'start' });
+  goToStep(state.pkg ? (state.pro ? 5 : 2) : 1, { instant:true, focus:true });
+  scrollToBooking(true);
 });
 
 /* ---------- Confirmación ---------- */
@@ -1931,11 +1948,12 @@ $('#clientForm').addEventListener('submit', function(e){
   var nota = $('#fNota').value.trim();
   if (nombre.length < 2){
     $('#fNombre').classList.add('invalid');
+    $('#fNombre').setAttribute('aria-invalid', 'true');
     $('#errNombre').textContent = 'Escribí tu nombre para identificar el turno.';
     $('#fNombre').focus();
     return;
   }
-  $('#fNombre').classList.remove('invalid'); $('#errNombre').textContent = '';
+  $('#fNombre').classList.remove('invalid'); $('#fNombre').removeAttribute('aria-invalid'); $('#errNombre').textContent = '';
   if (!state.pkg || !state.pro || !state.date || !state.time){ goToStep(1); return; }
   if (!slotValido(state.date, state.time)){
     state.time = null;
@@ -1954,13 +1972,17 @@ $('#clientForm').addEventListener('submit', function(e){
   var cal = calLinks(code);
   lastIcs = cal.ics; lastCode = code;
   $('#doneTitle').textContent = '¡Listo, ' + nombre.split(' ')[0] + '!';
-  $('#doneText').textContent = 'Te abrimos WhatsApp con tu reserva escrita: ' + state.pkg.nombre + ', ' + fmtFechaRel(state.date) + ' a las ' + state.time + ' hs. Enviá el mensaje y la barbería te confirma el turno.';
+  var cuando = fmtFechaRel(state.date); cuando = cuando.charAt(0).toLowerCase() + cuando.slice(1);
+  $('#doneText').textContent = 'Te abrimos WhatsApp con tu reserva escrita: ' + state.pkg.nombre + ', ' + cuando + ' a las ' + state.time + ' hs. Enviá el mensaje y la barbería te confirma el turno.';
   $('#doneCode').textContent = 'CÓDIGO · ' + code;
   $('#doneWa').href = url;
   $('#doneGcal').href = cal.gcal;
   goToStep(6);
+  // el botón enviado queda oculto: llevar el foco al "¡Listo!" para que se anuncie
+  var dt = $('#doneTitle'); dt.setAttribute('tabindex', '-1'); dt.focus({ preventScroll:true });
 });
-$('#fNombre').addEventListener('input', function(){ this.classList.remove('invalid'); $('#errNombre').textContent = ''; });
+$('#fNombre').addEventListener('input', function(){ this.classList.remove('invalid'); this.removeAttribute('aria-invalid'); $('#errNombre').textContent = ''; });
+$('#fRecordar').addEventListener('change', function(){ if (!this.checked){ try{ localStorage.removeItem('sh-cliente'); }catch(err){} } });
 $('#doneIcs').addEventListener('click', function(){
   if (!lastIcs) return;
   var blob = new Blob([lastIcs], { type:'text/calendar;charset=utf-8' });
@@ -1982,13 +2004,22 @@ $('#doneNew').addEventListener('click', function(){
   if (m && findPkg(m[1].toLowerCase())){
     state.pkg = findPkg(m[1].toLowerCase());
     goToStep(2, { instant:true });
-    setTimeout(function(){ document.getElementById('reserva').scrollIntoView({ block:'start' }); }, 50);
+    // esperar a las tipografías para que el alto de la página ya sea el definitivo
+    (document.fonts ? document.fonts.ready : Promise.resolve()).then(function(){ requestAnimationFrame(function(){ scrollToBooking(false); }); });
   } else goToStep(1, { instant:true });
 })();
 
 updateOpenStatus();
 refreshNextSlot();
-setInterval(function(){ updateOpenStatus(); refreshNextSlot(); if (step === 4) renderTimes(); }, 60000);
+// cada minuto: estado abierto/cerrado, próximo horario y, si cambió la disponibilidad, los días del paso 3
+var lastNext = (function(){ var nt = proximoTurno(); return nt ? nt.ymd + ' ' + nt.t : ''; })();
+setInterval(function(){
+  updateOpenStatus(); refreshNextSlot();
+  var nt = proximoTurno(), sig = nt ? nt.ymd + ' ' + nt.t : '';
+  if (step === 3 && sig !== lastNext) renderDays();
+  lastNext = sig;
+  if (step === 4) renderTimes();
+}, 60000);
 $('#year').textContent = baNow().ymd.slice(0,4);
 
 if ('IntersectionObserver' in window){
