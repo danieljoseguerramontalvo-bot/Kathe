@@ -71,6 +71,6 @@ No hay base de datos: la barbería confirma cada turno por WhatsApp (el sitio lo
 
 ## Estilo
 
-- Colores: negro (`--bg #0B0B0C`), dorado (`--gold #D4AF6A`, degradados `--gold-grad`), plateado (`--silver-grad`). Variables en `:root`.
+- Colores de la marca: negro (`--bg #0B0B0C`) y plateado cromado (`--accent`, `--silver-grad`, `--chrome-grad`, botones `--btn-primary`). El dorado (`--gold`, `--gold-grad`) se usa **solo** como acento de los paquetes Premium y Oro (corona, nombre y precio), como en el flyer. Variables en `:root`.
 - Tipografías: Cinzel (títulos), Cormorant Garamond itálica (frases), Hanken Grotesk (texto), Space Mono (etiquetas).
 - Animaciones sobrias en CSS: entrada suave del hero, aparición de cada bloque al entrar en pantalla, slideshow lento de fotos del local y la cinta de servicios. Respetan "reducir movimiento" del sistema; sin JavaScript todo el contenido queda visible.
