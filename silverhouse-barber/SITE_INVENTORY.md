@@ -59,7 +59,7 @@ No hay base de datos: la barbería confirma cada turno por WhatsApp (el sitio lo
 |---|---|---|
 | `img/estudio/estudio-1/2/3.webp` (+ `-sm`) | Hero y sección El Estudio | Fotos reales del local, con ajuste de color/contraste. |
 | `img/equipo/dueno-1.webp`, `dueno-2.webp` | Los Dueños | Para poner nombres, editar los `<figcaption class="owner-cap">`. |
-| `img/paquetes/*.webp` | Tarjetas de paquetes y una foto de la galería | Unsplash (uso comercial gratuito), ver `img/paquetes/CREDITS.md`. |
+| `img/paquetes/*.webp` | Tarjetas de paquetes y una foto de la galería | Unsplash (uso comercial gratuito), ver `img/paquetes/CREDITS.md`. Las tarjetas usan recortes livianos (`premium-800.webp` / `-1200.webp`; Jubilados también `-v640`/`-v960` verticales para escritorio) y el reservador las miniaturas `*-thumb.webp` (`data-img`). Para cambiar una foto, reemplazar el original y regenerar los recortes con los comandos de abajo. |
 | Galería (4 fotos) | `#galeria` | Fotos de stock de Unsplash del sitio original. Ideal: reemplazar por trabajos reales. |
 
 ## Contacto y datos
@@ -74,3 +74,18 @@ No hay base de datos: la barbería confirma cada turno por WhatsApp (el sitio lo
 - Colores de la marca: negro (`--bg #0B0B0C`) y plateado cromado (`--accent`, `--silver-grad`, `--chrome-grad`, botones `--btn-primary`). El dorado (`--gold`, `--gold-grad`) se usa **solo** como acento de los paquetes Premium y Oro (corona, nombre y precio), como en el flyer. Variables en `:root`.
 - Tipografías: Cinzel (títulos), Cormorant Garamond itálica (frases), Hanken Grotesk (texto), Space Mono (etiquetas).
 - Animaciones sobrias en CSS: entrada suave del hero, aparición de cada bloque al entrar en pantalla, slideshow lento de fotos del local y la cinta de servicios. Respetan "reducir movimiento" del sistema; sin JavaScript todo el contenido queda visible.
+
+## Regenerar fotos livianas (ImageMagick)
+
+```bash
+cd img/paquetes
+for n in premium platinum oro; do
+  convert $n.webp -gravity center -crop 1280x880+0+0 +repage -resize 800x550  -quality 78 $n-800.webp
+  convert $n.webp -gravity center -crop 1280x880+0+0 +repage -resize 1200x825 -quality 78 $n-1200.webp
+done
+convert jubilados.webp -gravity center -crop 1280x800+0+0 +repage -resize 800x500  -quality 78 jubilados-800.webp
+convert jubilados.webp -gravity center -crop 1280x800+0+0 +repage -resize 1200x750 -quality 78 jubilados-1200.webp
+convert jubilados.webp -resize 640x800 -quality 78 jubilados-v640.webp
+convert jubilados.webp -resize 960x1200 -quality 78 jubilados-v960.webp
+for n in premium platinum oro jubilados; do convert $n.webp -gravity center -crop 1280x1280+0+0 +repage -resize 174x174 -quality 75 $n-thumb.webp; done
+```

@@ -10,10 +10,13 @@ silverhouse-barber/
 ├── img/
 │   ├── estudio/            ← fotos reales del local (hero y sección "El Estudio")
 │   ├── equipo/             ← fotos de los dueños
-│   ├── paquetes/           ← fotos de cada paquete (Unsplash, ver CREDITS.md)
+│   ├── paquetes/           ← fotos de cada paquete (Unsplash, ver CREDITS.md): originales + recortes -800/-1200 y miniaturas -thumb
 │   └── og-silverhouse.jpg  ← imagen para compartir en WhatsApp / redes
-├── silverhouse-logo.png    ← logo (también favicon)
-├── silverhouse-badge.jpg   ← sello circular del banner
+├── silverhouse-logo.png    ← logo original (lo usa Google vía JSON-LD)
+├── silverhouse-logo-192.webp ← logo liviano para header y pie
+├── favicon-32.png, apple-touch-icon.png ← íconos del navegador / celular
+├── silverhouse-badge.jpg   ← sello original
+├── silverhouse-badge-276.webp ← sello liviano del banner
 └── SITE_INVENTORY.md       ← qué hay en el sitio y dónde se edita cada cosa
 ```
 

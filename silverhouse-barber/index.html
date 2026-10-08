@@ -15,8 +15,8 @@
 <meta property="og:locale" content="es_AR">
 <meta name="twitter:card" content="summary_large_image">
 
-<link rel="icon" type="image/png" href="silverhouse-logo.png">
-<link rel="apple-touch-icon" href="silverhouse-logo.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preload" href="fonts/cinzel-normal-63551c.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/hanken-grotesk-normal-605034.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="fonts/fonts.css">
@@ -28,6 +28,8 @@
     var d=document.documentElement;
     d.classList.add('js');
     if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches){d.classList.add('reduced');}
+    // desplazamiento suave solo después de cargar: los links compartidos abren directo en su sección
+    window.addEventListener('load',function(){ requestAnimationFrame(function(){ requestAnimationFrame(function(){ d.classList.add('smooth'); }); }); });
   })();
 </script>
 
@@ -63,7 +65,7 @@
   --card-2:#18181B;
   --text:#C9CBD0;
   --text-dim:#A0A4AB;
-  --text-mute:#7D828A;
+  --text-mute:#868B93;
   --text-faint:#5A5E66;
   --white-ish:#ECEDEF;
   /* Marca: negro + plateado cromado. El dorado queda solo como acento de los paquetes Premium y Oro. */
@@ -88,7 +90,8 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 [hidden]{display:none !important;}
-html{scroll-behavior:smooth;scroll-padding-top:84px;}
+html{scroll-padding-top:84px;}
+html.smooth{scroll-behavior:smooth;}
 body{
   background:var(--bg);
   color:var(--text);
@@ -184,7 +187,7 @@ header .wrap{max-width:100%;padding-left:clamp(20px,5vw,72px);padding-right:clam
 .brand-text{font-family:var(--font-display);font-weight:700;font-size:18px;letter-spacing:0.06em;color:var(--white-ish);line-height:1.1;white-space:nowrap;}
 .brand-text span{display:block;font-family:var(--font-mono);font-size:9px;letter-spacing:0.3em;color:var(--accent);margin-top:3px;font-weight:400;}
 nav ul{display:flex;gap:30px;}
-nav a{font-size:13px;letter-spacing:0.04em;color:var(--text-dim);font-weight:500;transition:color .25s;position:relative;padding:6px 0;}
+nav a{font-size:13px;letter-spacing:0.04em;color:var(--text-dim);font-weight:500;transition:color .25s;position:relative;padding:6px 0;white-space:nowrap;}
 nav a::after{content:'';position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--accent);transform:scaleX(0);transform-origin:right;transition:transform .35s var(--ease);}
 nav a:hover,nav a.active{color:var(--white-ish);}
 nav a:hover::after,nav a.active::after{transform:scaleX(1);transform-origin:left;}
@@ -215,7 +218,7 @@ nav a:hover::after,nav a.active::after{transform:scaleX(1);transform-origin:left
 .hero-bg{position:absolute;inset:0;z-index:0;overflow:hidden;}
 .hero-bg::before{
   content:'';position:absolute;inset:-40px;
-  background:url('img/estudio/estudio-1-sm.webp') center/cover no-repeat;
+  background:url('img/estudio/estudio-1-blur.webp') center/cover no-repeat;
   filter:blur(26px) brightness(0.32) saturate(1.1);
 }
 .hero-bg::after{
@@ -646,7 +649,7 @@ p.section-lead{font-size:17px;line-height:1.8;color:var(--text-dim);font-weight:
 /* ============ CTA BANNER ============ */
 .cta-banner{position:relative;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:#08080A;overflow:hidden;}
 .cta-banner::before{content:'';position:absolute;inset:0;background:radial-gradient(50% 140% at 50% 50%,rgba(211,214,219,0.068),transparent 70%);}
-.cta-banner-inner{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:30px;flex-wrap:wrap;padding:76px 0;}
+.cta-banner-inner{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:30px;flex-wrap:wrap;padding-top:76px;padding-bottom:76px;}
 .cta-banner-text{display:flex;align-items:center;gap:30px;}
 .cta-seal{width:92px;height:92px;border-radius:50%;flex-shrink:0;box-shadow:0 0 50px rgba(211,214,219,0.188);border:1px solid var(--border-accent);}
 .cta-banner h2{font-family:var(--font-display);font-weight:700;font-size:clamp(24px,3.2vw,40px);line-height:1.15;letter-spacing:0.01em;}
@@ -736,6 +739,7 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
   nav ul{gap:22px;}
   .booking{grid-template-columns:minmax(0,1fr) 300px;}
 }
+@media (max-width:1100px){ nav ul{gap:16px;} }
 @media (max-width:1060px){
   nav{display:none;}
   .hamburger{display:flex;}
@@ -853,10 +857,33 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
   .hamburger{padding:8px 4px;}
 }
 @media (prefers-reduced-motion: reduce){
-  *,*::before,*::after{animation-duration:0.001ms !important;animation-iteration-count:1 !important;transition-duration:0.001ms !important;scroll-behavior:auto !important;}
+  *,*::before,*::after{animation-delay:0s !important;animation-duration:0.001ms !important;animation-iteration-count:1 !important;transition-duration:0.001ms !important;scroll-behavior:auto !important;}
   .hero-frame .slide:nth-child(1){opacity:1;}
   .ticker-track{animation:none;}
 }
+
+/* ============ AJUSTES FINALES (QA) ============ */
+.pkg-photo .pkg-ribbon{top:14px;right:14px;background:rgba(11,11,12,.72);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
+@media (max-width:600px){ .stepper-nav.first{display:none;} }
+@media (max-width:900px){ .cta-actions{justify-content:center;width:100%;} }
+@media (max-width:600px){ .cta-actions .btn{flex:1 1 100%;} }
+@media (min-width:1061px){ .mobile-nav{display:none;} }
+html:not(.js) .hero-frame .slide:not(:first-child){display:none;}
+html:not(.js) .hero-frame .slide:first-child{animation:none;opacity:1;}
+/* datos del hero en una sola fila; la rayita decorativa solo donde entra al lado del estado */
+.trust-row{display:grid;grid-template-columns:auto 1px auto 1px auto;column-gap:clamp(14px,3vw,28px);justify-content:start;align-items:start;}
+.trust-divider{align-self:center;}
+@media (max-width:700px), (min-width:901px) and (max-width:1299px){ .hero .eyebrow .line{display:none;} }
+@media (max-width:600px){
+  .hero .eyebrow{gap:10px;}
+  .hero .status-badge{letter-spacing:.1em;}
+}
+/* contraste: --text-faint solo para estados deshabilitados */
+.step-node .step-label,.day .d-mon,.field label em,.stepper-nav .step-count,
+.sum-row .v.empty,.reviews-disclaimer,.info-row .val small,.footer-bottom p{color:var(--text-mute);}
+.day.selected .d-dow,.day.selected .d-mon{color:var(--text-dim);}
+.hero .eyebrow .label{color:var(--text-dim);text-shadow:0 1px 6px rgba(0,0,0,.95);}
+@media (max-width:900px){ .hero .eyebrow .label{color:var(--text);} }
 </style>
 </head>
 <body class="bg-texture">
@@ -906,7 +933,7 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
 <header id="siteHeader">
   <div class="wrap nav-inner">
     <a href="#inicio" class="brand" aria-label="Silver House Barber — inicio">
-      <img src="silverhouse-logo.png" alt="" width="46" height="46">
+      <img src="silverhouse-logo-192.webp" alt="" width="46" height="46">
       <div class="brand-text">SILVER HOUSE<span>BARBER · ESTUDIO</span></div>
     </a>
     <nav aria-label="Principal">
@@ -982,8 +1009,8 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
     <div class="hero-media" aria-hidden="true">
       <div class="hero-frame" id="heroFrame">
         <div class="slide"><img src="img/estudio/estudio-1.webp" alt="" fetchpriority="high"></div>
-        <div class="slide"><img src="img/estudio/estudio-3.webp" alt="" loading="lazy"></div>
-        <div class="slide"><img src="img/estudio/estudio-2.webp" alt="" loading="lazy"></div>
+        <div class="slide"><img data-src="img/estudio/estudio-3.webp" alt=""></div>
+        <div class="slide"><img data-src="img/estudio/estudio-2.webp" alt=""></div>
         <div class="frame-caption"><span>El Estudio</span><b>Av. La Plata 1185</b></div>
       </div>
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
@@ -1035,16 +1062,15 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
       <!-- PREMIUM -->
       <article class="pkg featured reveal" data-pkg="premium" data-nombre="Paquete Premium" data-precio="35000" data-duracion="75"
         data-incluye="Masaje relajante de 5 min · Lavado de cabello · Corte a tu preferencia · Perfilado y arreglo de barba · Café de cortesía"
-        data-img="img/paquetes/premium.webp">
+        data-img="img/paquetes/premium-thumb.webp">
         <div class="pkg-inner">
-          <span class="pkg-ribbon">La más completa</span>
           <div class="pkg-head">
             <svg class="crown" fill="url(#gGold)" aria-hidden="true"><use href="#i-crown"/></svg>
             <div class="pkg-kicker">PAQUETE</div>
             <h3 class="pkg-name gold-text">PREMIUM</h3>
             <span class="pkg-tag">Una experiencia completa<br>para renovar tu imagen</span>
           </div>
-          <div class="pkg-photo"><img src="img/paquetes/premium.webp" alt="Lavado de cabello con masaje relajante" loading="lazy"></div>
+          <div class="pkg-photo"><img src="img/paquetes/premium-800.webp" srcset="img/paquetes/premium-800.webp 800w, img/paquetes/premium-1200.webp 1200w" sizes="(max-width:1060px) min(560px, calc(100vw - 32px)), 370px" width="800" height="550" alt="Lavado de cabello con masaje relajante" loading="lazy" decoding="async"><span class="pkg-ribbon">La más completa</span></div>
           <div class="pkg-body">
             <ul class="pkg-list">
               <li><span class="ico-ring"><svg><use href="#i-lotus"/></svg></span>Masaje relajante de 5 minutos</li>
@@ -1065,7 +1091,7 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
       <!-- PLATINUM -->
       <article class="pkg silver reveal" data-pkg="platinum" data-nombre="Paquete Platinum" data-precio="30000" data-duracion="60"
         data-incluye="Corte a tu preferencia · Arreglo y perfilado de barba · Café de cortesía"
-        data-img="img/paquetes/platinum.webp">
+        data-img="img/paquetes/platinum-thumb.webp">
         <div class="pkg-inner">
           <div class="pkg-head">
             <svg class="crown" fill="url(#gSilver)" aria-hidden="true"><use href="#i-crown"/></svg>
@@ -1073,7 +1099,7 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
             <h3 class="pkg-name silver-text">PLATINUM</h3>
             <span class="pkg-tag">Estilo, precisión<br>y bienestar</span>
           </div>
-          <div class="pkg-photo"><img src="img/paquetes/platinum.webp" alt="Corte degradado con máquina" loading="lazy"></div>
+          <div class="pkg-photo"><img src="img/paquetes/platinum-800.webp" srcset="img/paquetes/platinum-800.webp 800w, img/paquetes/platinum-1200.webp 1200w" sizes="(max-width:1060px) min(560px, calc(100vw - 32px)), 370px" width="800" height="550" alt="Corte degradado con máquina" loading="lazy" decoding="async"></div>
           <div class="pkg-body">
             <ul class="pkg-list">
               <li><span class="ico-ring"><svg><use href="#i-scissors"/></svg></span>Corte de cabello a tu preferencia</li>
@@ -1092,7 +1118,7 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
       <!-- ORO -->
       <article class="pkg reveal" data-pkg="oro" data-nombre="Paquete Oro" data-precio="20000" data-duracion="45"
         data-incluye="Corte a tu preferencia · Terminación con navaja"
-        data-img="img/paquetes/oro.webp">
+        data-img="img/paquetes/oro-thumb.webp">
         <div class="pkg-inner">
           <div class="pkg-head">
             <svg class="crown" fill="url(#gGold)" aria-hidden="true"><use href="#i-crown"/></svg>
@@ -1100,7 +1126,7 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
             <h3 class="pkg-name gold-text">ORO</h3>
             <span class="pkg-tag">Clásico, limpio<br>y elegante</span>
           </div>
-          <div class="pkg-photo"><img src="img/paquetes/oro.webp" alt="Terminación con navaja en el contorno sobre la oreja" loading="lazy"></div>
+          <div class="pkg-photo"><img src="img/paquetes/oro-800.webp" srcset="img/paquetes/oro-800.webp 800w, img/paquetes/oro-1200.webp 1200w" sizes="(max-width:1060px) min(560px, calc(100vw - 32px)), 370px" width="800" height="550" alt="Terminación con navaja en el contorno sobre la oreja" loading="lazy" decoding="async"></div>
           <div class="pkg-body">
             <ul class="pkg-list">
               <li><span class="ico-ring"><svg><use href="#i-scissors"/></svg></span>Corte de cabello a tu preferencia</li>
@@ -1119,9 +1145,9 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
     <!-- JUBILADOS -->
     <article class="pkg pkg-wide reveal" data-pkg="jubilados" data-nombre="Servicio para Jubilados" data-precio="18000" data-duracion="40"
       data-incluye="Corte de cabello a su preferencia"
-      data-img="img/paquetes/jubilados.webp">
+      data-img="img/paquetes/jubilados-thumb.webp">
       <div class="pkg-inner">
-        <div class="pkg-photo"><img src="img/paquetes/jubilados.webp" alt="Corte de cabello para jubilados" loading="lazy"></div>
+        <div class="pkg-photo"><picture><source media="(max-width:1060px)" srcset="img/paquetes/jubilados-800.webp 800w, img/paquetes/jubilados-1200.webp 1200w" sizes="min(560px, calc(100vw - 32px))"><img src="img/paquetes/jubilados-v640.webp" srcset="img/paquetes/jubilados-v640.webp 640w, img/paquetes/jubilados-v960.webp 960w" sizes="400px" width="640" height="800" alt="Corte de cabello para jubilados" loading="lazy" decoding="async"></picture></div>
         <div class="pkg-wide-body">
           <div>
             <div class="jub-title">
@@ -1433,7 +1459,7 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
 <section class="cta-banner">
   <div class="wrap cta-banner-inner">
     <div class="cta-banner-text">
-      <img src="silverhouse-badge.jpg" alt="Sello Silver House Barber" class="cta-seal" loading="lazy">
+      <img src="silverhouse-badge-276.webp" alt="Sello Silver House Barber" class="cta-seal" width="92" height="92" loading="lazy">
       <div>
         <h2 class="chrome-text">Cuidá tu imagen.<br>Cuidá tu bienestar.</h2>
         <p>Tu estilo, tu momento, tu mejor versión.</p>
@@ -1491,7 +1517,7 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
   <div class="wrap">
     <div class="footer-top">
       <div class="footer-brand">
-        <img src="silverhouse-logo.png" alt="Silver House Barber" loading="lazy">
+        <img src="silverhouse-logo-192.webp" alt="Silver House Barber" width="64" height="64" loading="lazy">
         <div class="fb-name">SILVER HOUSE</div>
         <div class="fb-sub">BARBER · ESTUDIO</div>
         <p>Construimos confianza, imagen y personalidad. Av. La Plata 1185, CABA.</p>
@@ -1663,14 +1689,31 @@ window.addEventListener('scroll', onScroll, { passive:true });
 onScroll();
 
 var hamburgerBtn = $('#hamburgerBtn'), mobileNav = $('#mobileNav');
-function setMenu(open){
+function setMenu(open, keepFocus){
   mobileNav.classList.toggle('open', open);
   hamburgerBtn.classList.toggle('open', open);
   hamburgerBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  hamburgerBtn.setAttribute('aria-label', open ? 'Cerrar menú' : 'Abrir menú');
   document.body.style.overflow = open ? 'hidden' : '';
+  if (!open && !keepFocus && mobileNav.contains(document.activeElement)) hamburgerBtn.focus();
 }
 hamburgerBtn.addEventListener('click', function(){ setMenu(!mobileNav.classList.contains('open')); });
-$all('a', mobileNav).forEach(function(a){ a.addEventListener('click', function(){ setMenu(false); }); });
+// al elegir un link el foco sigue al ancla (no vuelve al botón)
+$all('a', mobileNav).forEach(function(a){ a.addEventListener('click', function(){ setMenu(false, true); }); });
+// Tab no sale del menú abierto: botón <-> links
+document.addEventListener('keydown', function(e){
+  if (e.key !== 'Tab' || !mobileNav.classList.contains('open')) return;
+  var links = $all('a', mobileNav), last = links[links.length-1];
+  if (!e.shiftKey && document.activeElement === last){ e.preventDefault(); hamburgerBtn.focus(); }
+  else if (e.shiftKey && document.activeElement === hamburgerBtn){ e.preventDefault(); last.focus(); }
+});
+// si se agranda la ventana (o se gira la tablet) con el menú abierto, se cierra
+if (window.matchMedia){
+  var mqDesk = window.matchMedia('(min-width:1061px)');
+  var onDesk = function(e){ if (e.matches) setMenu(false, true); };
+  if (mqDesk.addEventListener) mqDesk.addEventListener('change', onDesk);
+  else if (mqDesk.addListener) mqDesk.addListener(onDesk);
+}
 
 // link activo en el menú según la sección visible
 if ('IntersectionObserver' in window){
@@ -1715,10 +1758,13 @@ function goToStep(n, opts){
     node.classList.toggle('active', s === n);
     node.classList.toggle('done', s < n || n === 6);
     if (s === n) node.setAttribute('aria-current', 'step'); else node.removeAttribute('aria-current');
+    node.disabled = s > n || n === 6;
+    node.setAttribute('aria-label', 'Paso ' + s + ' de 5: ' + node.querySelector('.step-label').textContent);
   });
   $('#stepProgress').style.width = (Math.min(n,5) / 5 * 100) + '%';
   $('#stepperNav').style.display = n === 6 ? 'none' : '';
   $('#stepBackBtn').style.visibility = n === 1 ? 'hidden' : 'visible';
+  $('#stepperNav').classList.toggle('first', n === 1);
   $('#stepCount').textContent = 'Paso ' + Math.min(n,5) + ' de 5';
   if (n === 1) renderPkgs();
   if (n === 2) renderPros();
@@ -1905,7 +1951,27 @@ $('#preselClear').addEventListener('click', function(){ state.date = null; state
 
 // lleva a la tarjeta del reservador (no al título de la sección); scroll-padding-top deja libre el header
 function scrollToBooking(smooth){
-  $('#reserva .booking').scrollIntoView({ behavior: (smooth && !reduceMotion) ? 'smooth' : 'auto', block:'start' });
+  var t = $('#reserva .booking');
+  if (smooth && !reduceMotion) t.scrollIntoView({ behavior:'smooth', block:'start' });
+  else jumpTo(t);
+}
+// salto sin animación (aunque el desplazamiento suave ya esté activo)
+function jumpTo(el){
+  // si el bloque todavía espera su animación de entrada, mostrarlo ya para medir su posición real
+  var rv = el.closest('.reveal'); if (rv){ rv.classList.remove('reveal','is-in'); rv.style.removeProperty('--rd'); }
+  var h = document.documentElement, prev = h.style.scrollBehavior;
+  h.style.scrollBehavior = 'auto';
+  el.scrollIntoView({ block:'start' });
+  h.style.scrollBehavior = prev;
+}
+// links compartidos: volver a acomodar cuando terminan de cargar tipografías e imágenes,
+// salvo que la persona ya haya empezado a desplazarse
+function settleOn(getEl){
+  var moved = false;
+  ['wheel','touchstart','keydown','mousedown'].forEach(function(t){ window.addEventListener(t, function(){ moved = true; }, { once:true, passive:true }); });
+  function fix(){ var el = getEl(); if (!moved && el && Math.abs(el.getBoundingClientRect().top - 84) > 6) jumpTo(el); }
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(function(){ requestAnimationFrame(fix); });
+  window.addEventListener('load', function(){ requestAnimationFrame(fix); });
 }
 
 // Botones "Reservar" de las tarjetas de paquetes
@@ -2042,9 +2108,12 @@ $('#doneNew').addEventListener('click', function(){
   if (m && findPkg(m[1].toLowerCase())){
     state.pkg = findPkg(m[1].toLowerCase());
     goToStep(2, { instant:true });
-    // esperar a las tipografías para que el alto de la página ya sea el definitivo
-    (document.fonts ? document.fonts.ready : Promise.resolve()).then(function(){ requestAnimationFrame(function(){ scrollToBooking(false); }); });
-  } else goToStep(1, { instant:true });
+    settleOn(function(){ return $('#reserva .booking'); });
+  } else {
+    goToStep(1, { instant:true });
+    var h = location.hash, sec = h.length > 1 ? document.getElementById(h.slice(1)) : null;
+    if (sec) settleOn(function(){ return sec; });
+  }
 })();
 
 updateOpenStatus();
@@ -2136,6 +2205,23 @@ lb.addEventListener('touchend', function(e){
     });
   }, { threshold:0.08, rootMargin:'0px 0px -6% 0px' });
   items.forEach(function(el){ io.observe(el); });
+})();
+
+/* Hero: las fotos 2 y 3 se piden recién cuando la 1 (la que se ve primero) terminó de cargar, de a una. */
+(function(){
+  var lazy = $all('.hero-frame img[data-src]'), first = $('.hero-frame img');
+  if (!lazy.length || reduceMotion) return;          // con movimiento reducido nunca se muestran
+  var started = false;
+  function next(i){
+    if (i >= lazy.length) return;
+    var im = lazy[i], go = function(){ next(i + 1); };
+    im.addEventListener('load', go, { once:true }); im.addEventListener('error', go, { once:true });
+    im.src = im.getAttribute('data-src'); im.removeAttribute('data-src');
+  }
+  function start(){ if (!started){ started = true; next(0); } }
+  if (first && first.complete) start();
+  else if (first){ first.addEventListener('load', start, { once:true }); first.addEventListener('error', start, { once:true }); }
+  window.addEventListener('load', start);
 })();
 })();
 </script>
