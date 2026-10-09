@@ -7,7 +7,7 @@ Una sola página (`index.html`). Para encontrar cada parte, buscá el comentario
 | # | Sección | `id` | Contenido |
 |---|---|---|---|
 | — | Header fijo | `#siteHeader` | Logo, menú, botón "Reservar Turno", menú móvil. Barra dorada de progreso de scroll arriba. |
-| — | Hero | `#inicio` | "Tu estilo, tu momento, tu mejor versión." + "Construimos confianza, imagen y personalidad". Estado **Abierto/Cerrado** automático (hora de Buenos Aires), botón **Próximo horario para reservar** (calculado en vivo), estadísticas, slideshow lento de las fotos reales del local. |
+| — | Hero | `#inicio` | Foto real del local a pantalla completa (slideshow lento de las 3 fotos) con el **logo grande** y el estado **Abierto/Cerrado** automático (hora de Buenos Aires). "Tu estilo, tu momento, tu mejor versión." + "Construimos confianza, imagen y personalidad", botones de reserva, **Próximo horario para reservar** (calculado en vivo) y estadísticas. En celular la foto ocupa la primera pantalla y el resto queda debajo. |
 | — | Cinta animada | `.ticker` | Servicios y frases del flyer en movimiento continuo. |
 | 01 | **Paquetes** | `#paquetes` | Premium, Platinum, Oro (tarjetas con foto, ícono por servicio y precio) + tarjeta ancha **Servicio para Jubilados**. |
 | 02 | **Reserva online** | `#reserva` | Asistente de 5 pasos: Paquete → Barbero → Día → Horario → Datos y confirmación. Resumen lateral "Tu reserva" (en celular, barra fija abajo). |
@@ -71,7 +71,7 @@ No hay base de datos: la barbería confirma cada turno por WhatsApp (el sitio lo
 
 ## Estilo
 
-- Colores de la marca: negro (`--bg #0B0B0C`) y plateado cromado (`--accent`, `--silver-grad`, `--chrome-grad`, botones `--btn-primary`). El dorado (`--gold`, `--gold-grad`) se usa **solo** como acento de los paquetes Premium y Oro (corona, nombre y precio), como en el flyer. Variables en `:root`.
+- Colores de la marca: negro (`--bg #0B0B0C`) y plateado cromado (`--accent`, `--silver-grad`, `--chrome-grad`, botones `--btn-primary`). El dorado (`--gold`, `--gold-grad`) queda para detalles: corona, nombre y precio de Premium y Oro (como en el flyer), números de sección, líneas finas, estrellas, comillas y la barra de progreso. Variables en `:root`.
 - Tipografías: Cinzel (títulos), Cormorant Garamond itálica (frases), Hanken Grotesk (texto), Space Mono (etiquetas).
 - Animaciones sobrias en CSS: entrada suave del hero, aparición de cada bloque al entrar en pantalla, slideshow lento de fotos del local y la cinta de servicios. Respetan "reducir movimiento" del sistema; sin JavaScript todo el contenido queda visible.
 
