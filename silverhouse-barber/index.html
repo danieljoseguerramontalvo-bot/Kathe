@@ -314,8 +314,8 @@ section{position:relative;}
 .section-alt{background:linear-gradient(180deg,#121214,#0B0B0C);}
 h2.section-title{
   font-family:var(--font-display);font-weight:600;
-  font-size:clamp(32px,4.6vw,58px);line-height:1.1;letter-spacing:0.01em;
-  margin-bottom:24px;max-width:20ch;
+  font-size:clamp(28px,3.4vw,46px);line-height:1.1;letter-spacing:0.01em;
+  margin-bottom:24px;max-width:22ch;text-wrap:balance;
 }
 p.section-lead{font-size:17px;line-height:1.8;color:var(--text-dim);font-weight:300;max-width:640px;margin-bottom:60px;}
 .section-head-center{text-align:center;display:flex;flex-direction:column;align-items:center;}
@@ -342,10 +342,7 @@ p.section-lead{font-size:17px;line-height:1.8;color:var(--text-dim);font-weight:
   transition:transform .45s var(--ease),box-shadow .45s var(--ease),border-color .4s;
   box-shadow:0 24px 60px rgba(0,0,0,0.45);
 }
-.pkg.silver .pkg-inner{border-color:rgba(220,224,230,0.32);}
 .pkg:hover .pkg-inner{transform:translateY(-6px);border-color:rgba(211,214,219,0.45);box-shadow:0 36px 80px rgba(0,0,0,0.55),0 0 40px rgba(211,214,219,0.06);}
-.pkg.silver:hover .pkg-inner{border-color:rgba(220,224,230,0.5);}
-.pkg.featured .pkg-inner{border-color:rgba(201,168,106,0.38);}
 .pkg-ribbon{
   position:absolute;top:16px;right:16px;z-index:6;
   border:1px solid var(--border-accent);background:rgba(211,214,219,0.075);color:var(--accent-bright);
@@ -844,7 +841,7 @@ html:not(.js) .hero-frame .slide:first-child{animation:none;opacity:1;}
   .section-pad{padding:96px 0;}
   .eyebrow{margin-bottom:22px;gap:12px;}
   .eyebrow .num,.eyebrow .label{font-size:11.5px;}
-  h2.section-title{font-size:clamp(30px,8.4vw,40px);line-height:1.15;margin-bottom:20px;}
+  h2.section-title{font-size:clamp(29px,8vw,40px);line-height:1.1;margin-bottom:20px;}
   p.section-lead{font-size:16.5px;line-height:1.8;margin-bottom:48px;}
   .pk-title{margin-bottom:18px;}
   .pk-lead{font-size:21px;margin-bottom:52px;}
@@ -909,6 +906,36 @@ html:not(.js) .hero-frame .slide:first-child{animation:none;opacity:1;}
   .pkg-head{padding:28px 18px 20px;}
   .pkg-body,.pkg-wide-body{padding-left:18px;padding-right:18px;}
 }
+
+/* ============ PULIDO FINAL (revisión de diseño) ============ */
+/* títulos de sección: el mismo cromado vertical del hero y PAQUETES, repetido en cada renglón */
+h2.section-title.gradient-text{background-image:var(--chrome-grad);background-size:100% 1.1em;background-repeat:repeat;}
+.slogan p{text-wrap:balance;}
+/* tablet (601–900px): comodidades 3 + 2 a lo ancho y pie con Navegación y Contacto lado a lado */
+@media (min-width:601px) and (max-width:900px){
+  .amenities{grid-template-columns:repeat(6,1fr);}
+  .amenity{grid-column:span 2;}
+  .amenity:nth-child(n+4){grid-column:span 3;}
+  .footer-top{grid-template-columns:1fr 1fr;}
+  .footer-brand{grid-column:1/-1;}
+}
+/* los "Reservar Turno" llevan directo a la tarjeta del reservador (#reservar) */
+.js .booking.reveal{transform:none;}
+/* el hover de un horario no se confunde con el elegido */
+.time-slot:hover:not(:disabled):not(.selected){background:rgba(211,214,219,0.09);color:var(--accent-bright);border-color:var(--accent);}
+/* galería en celular/tablet: la 1.ª foto a todo el ancho y las otras 4 en dos filas parejas */
+@media (max-width:900px){ .gallery-item:first-child{grid-column:1/-1;aspect-ratio:4/3;} }
+/* fotos de paquetes: se funden con la tarjeta, sin línea de corte */
+.pkg-grid .pkg-photo{-webkit-mask-image:linear-gradient(180deg,#000 60%,transparent);mask-image:linear-gradient(180deg,#000 60%,transparent);}
+@media (max-width:1060px){ .pkg-wide .pkg-photo{-webkit-mask-image:linear-gradient(180deg,#000 60%,transparent);mask-image:linear-gradient(180deg,#000 60%,transparent);} }
+/* áreas táctiles de 44px sin mover nada: menú y datos de contacto */
+.hamburger{position:relative;}
+.hamburger::before{content:'';position:absolute;top:-6px;bottom:-6px;left:-2px;right:-2px;}
+@media (max-width:360px){ .hamburger::before{right:-10px;} }
+.info-row .val a{position:relative;}
+.info-row .val a::before{content:'';position:absolute;left:0;right:0;top:-12px;bottom:-12px;}
+/* ubicación: botones parejos a todo el ancho */
+@media (max-width:900px){ .location-card .btn{flex:1 1 auto;} }
 </style>
 </head>
 <body class="bg-texture">
@@ -973,7 +1000,7 @@ html:not(.js) .hero-frame .slide:first-child{animation:none;opacity:1;}
       </ul>
     </nav>
     <div class="nav-cta">
-      <a href="#reserva" class="btn btn-primary">
+      <a href="#reservar" class="btn btn-primary">
         <span class="full">Reservar Turno</span><span class="short">Reservar</span>
       </a>
       <button class="hamburger" id="hamburgerBtn" type="button" aria-label="Abrir menú" aria-expanded="false" aria-controls="mobileNav">
@@ -1022,7 +1049,7 @@ html:not(.js) .hero-frame .slide:first-child{animation:none;opacity:1;}
           </h1>
           <p class="lead hero-anim"><strong>Construimos confianza, imagen y personalidad.</strong> Elegí tu paquete y reservá tu turno online en menos de un minuto.</p>
           <div class="hero-ctas hero-anim">
-            <a href="#reserva" class="btn btn-primary">Reservar Turno <svg><use href="#i-arrow"/></svg></a>
+            <a href="#reservar" class="btn btn-primary">Reservar Turno <svg><use href="#i-arrow"/></svg></a>
             <a href="#paquetes" class="btn btn-ghost">Ver Paquetes</a>
           </div>
         </div>
@@ -1199,7 +1226,7 @@ html:not(.js) .hero-frame .slide:first-child{animation:none;opacity:1;}
     <h2 class="section-title gradient-text reveal">Tu turno en menos de un minuto.</h2>
     <p class="section-lead reveal">Elegí paquete, barbero, día y horario. Te armamos el mensaje de WhatsApp con todo listo y lo agendás en tu calendario con un toque.</p>
 
-    <div class="booking reveal">
+    <div class="booking reveal" id="reservar">
       <div class="stepper" id="stepper">
         <div class="step-progress"><span id="stepProgress"></span></div>
         <div class="stepper-track" id="stepTrack">
@@ -1274,7 +1301,7 @@ html:not(.js) .hero-frame .slide:first-child{animation:none;opacity:1;}
         <div class="stepper-panel" data-panel="6" hidden>
           <div class="done-wrap">
             <svg class="done-check" viewBox="0 0 90 90"><circle cx="45" cy="45" r="41"/><path d="M28 46l11 11 23-24"/></svg>
-            <h3 id="doneTitle">¡Listo!</h3>
+            <h3 id="doneTitle">¡Casi listo!</h3>
             <p id="doneText">Enviá el mensaje de WhatsApp para confirmar tu turno.</p>
             <div class="done-code" id="doneCode"></div>
             <div class="done-actions">
@@ -1322,7 +1349,7 @@ html:not(.js) .hero-frame .slide:first-child{animation:none;opacity:1;}
 <section class="section-pad section-top-border" id="estudio">
   <div class="wrap">
     <div class="eyebrow"><span class="num">03</span><span class="line"></span><span class="label">El Estudio</span></div>
-    <h2 class="section-title gradient-text reveal">Así se vive Silver House.</h2>
+    <h2 class="section-title gradient-text reveal">Así se vive Silver&nbsp;House.</h2>
     <p class="section-lead reveal">Un espacio pensado para que te relajes: ambiente climatizado, buena música y un café mientras esperás tu turno.</p>
 
     <div class="studio-grid">
@@ -1362,7 +1389,7 @@ html:not(.js) .hero-frame .slide:first-child{animation:none;opacity:1;}
 <section class="section-pad section-top-border section-alt" id="esencia">
   <div class="wrap">
     <div class="eyebrow"><span class="num">04</span><span class="line"></span><span class="label">La Esencia</span></div>
-    <h2 class="section-title gradient-text reveal">No es un corte. Es una declaración.</h2>
+    <h2 class="section-title gradient-text reveal">No es un&nbsp;corte. Es&nbsp;una declaración.</h2>
     <p class="section-lead reveal">Silver House Barber existe para el hombre que entiende su imagen como una inversión. Un estudio de barbería donde la tradición del oficio se encuentra con el lujo contemporáneo — cromo, penumbra y precisión.</p>
     <div class="essence-grid reveal">
       <div class="essence-card">
@@ -1487,7 +1514,7 @@ html:not(.js) .hero-frame .slide:first-child{animation:none;opacity:1;}
       </div>
     </div>
     <div class="cta-actions">
-      <a href="#reserva" class="btn btn-primary">Reservar Turno <svg><use href="#i-arrow"/></svg></a>
+      <a href="#reservar" class="btn btn-primary">Reservar Turno <svg><use href="#i-arrow"/></svg></a>
       <a href="https://wa.me/541136970220?text=Hola%20Silver%20House%20Barber.%20Tengo%20una%20consulta." target="_blank" rel="noopener" class="btn btn-ghost"><svg><use href="#i-wa"/></svg>Escribir por WhatsApp</a>
     </div>
   </div>
@@ -1521,7 +1548,7 @@ html:not(.js) .hero-frame .slide:first-child{animation:none;opacity:1;}
           </div>
         </div>
         <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;">
-          <a href="#reserva" class="btn btn-primary">Reservar Turno</a>
+          <a href="#reservar" class="btn btn-primary">Reservar Turno</a>
           <a href="https://www.google.com/maps/dir/?api=1&destination=Av.+La+Plata+1185,+CABA,+Argentina" target="_blank" rel="noopener" class="btn btn-ghost"><svg><use href="#i-pin"/></svg>Cómo llegar</a>
         </div>
       </div>
@@ -1687,8 +1714,9 @@ function updateOpenStatus(){
 var waFab = $('#waFab'), mobileBar = $('#mobileBar'), stepperVisible = false;
 function updateFab(){
   if (!waFab || !mobileBar) return;
-  // en tablet y celular, mientras se ve el reservador el botón se oculta (la reserva ya termina en WhatsApp)
-  var away = stepperVisible && window.innerWidth <= 1060;
+  // mientras se ve el reservador el botón se oculta en todos los anchos: la reserva ya termina en WhatsApp
+  // y así no compite con "Confirmar por WhatsApp" (que manda el mensaje con todos los datos)
+  var away = stepperVisible;
   waFab.classList.toggle('away', away);
   waFab.classList.toggle('lifted', !away && stepperVisible && getComputedStyle(mobileBar).display !== 'none');
 }
@@ -1794,12 +1822,16 @@ function goToStep(n, opts){
   if (n === 5) fillForm();
   updateSummary();
   var panel = panels.filter(function(p){ return Number(p.dataset.panel) === n; })[0];
-  if (!reduceMotion && panel && !opts.instant){
-    panel.classList.remove('panel-in'); void panel.offsetWidth; panel.classList.add('panel-in');
+  // si el título del paso nuevo quedó fuera de la vista (p. ej. al elegir el último paquete o un horario de la tarde
+  // en el celular), llevarlo justo debajo del header; así en el paso 5 también se ve el botón de confirmar.
+  // Se mide sin la clase panel-in: su translateY(16px) correría el título y el destino del scroll.
+  if (panel) panel.classList.remove('panel-in');
+  if (panel && (opts.scroll || (opts.focus && !opts.instant))){
+    var tt = panel.querySelector('.panel-title, .done-wrap') || panel, tr = tt.getBoundingClientRect();
+    if (tr.top < 76 || tr.top > window.innerHeight * 0.6) tt.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block:'start' });
   }
-  if (opts.scroll){
-    var top = $('#stepper').getBoundingClientRect().top;
-    if (top < 60 || top > window.innerHeight * 0.6) $('#reserva .booking').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block:'start' });
+  if (!reduceMotion && panel && !opts.instant){
+    void panel.offsetWidth; panel.classList.add('panel-in');
   }
   if (opts.focus && panel){ var t = panel.querySelector('.panel-title'); if (t){ t.setAttribute('tabindex','-1'); t.focus({ preventScroll:true }); } }
 }
@@ -1952,10 +1984,11 @@ function updateSummary(){
   var bar = $('#mobileBar');
   if (p && step !== 6){
     bar.hidden = false;
-    var parts = [p.nombre.replace('Paquete ', '')];
+    var parts = [p.nombre.replace(/^(Paquete|Servicio para) /, '')];
     if (state.date) parts.push(relDia(state.date) || fmtFechaCorta(state.date));
     if (state.time) parts.push(state.time + ' hs');
-    $('#mbText').textContent = parts.join(' · ');
+    // cada dato queda entero (no corta "13 / oct" ni "19:30 / hs") y el "·" no arranca renglón
+    $('#mbText').textContent = parts.map(function(s){ return s.replace(/ /g, '\u00a0'); }).join('\u00a0· ');
     $('#mbTotal').textContent = formatPrice(p.precio);
   } else bar.hidden = true;
   updateFab();
@@ -2096,14 +2129,14 @@ $('#clientForm').addEventListener('submit', function(e){
   if (!win){ /* algunos navegadores devuelven null con noopener; igual se abre */ }
   var cal = calLinks(code);
   lastIcs = cal.ics; lastCode = code;
-  $('#doneTitle').textContent = '¡Listo, ' + nombre.split(' ')[0] + '!';
+  $('#doneTitle').textContent = '¡Casi listo, ' + nombre.split(' ')[0] + '!';
   var cuando = fmtFechaRel(state.date); cuando = cuando.charAt(0).toLowerCase() + cuando.slice(1);
-  $('#doneText').textContent = 'Te abrimos WhatsApp con tu reserva escrita: ' + state.pkg.nombre + ', ' + cuando + ' a las ' + state.time + ' hs. Enviá el mensaje y la barbería te confirma el turno.';
+  $('#doneText').textContent = 'Falta un paso: tocá “Enviar” en el WhatsApp que te abrimos (' + state.pkg.nombre + ', ' + cuando + ' a las ' + state.time + ' hs). El turno queda confirmado cuando la barbería te responde.';
   $('#doneCode').textContent = 'CÓDIGO · ' + code;
   $('#doneWa').href = url;
   $('#doneGcal').href = cal.gcal;
-  goToStep(6);
-  // el botón enviado queda oculto: llevar el foco al "¡Listo!" para que se anuncie
+  goToStep(6, { scroll:true });
+  // el botón enviado queda oculto: llevar el foco al "¡Casi listo!" para que se anuncie
   var dt = $('#doneTitle'); dt.setAttribute('tabindex', '-1'); dt.focus({ preventScroll:true });
 });
 $('#fNombre').addEventListener('input', function(){ this.classList.remove('invalid'); this.removeAttribute('aria-invalid'); $('#errNombre').textContent = ''; });
