@@ -7,7 +7,7 @@ Una sola página (`index.html`). Para encontrar cada parte, buscá el comentario
 | # | Sección | `id` | Contenido |
 |---|---|---|---|
 | — | Header fijo | `#siteHeader` | Logo, menú, botón "Reservar Turno", menú móvil. Barra dorada de progreso de scroll arriba. |
-| — | Hero | `#inicio` | Foto real del local a pantalla completa (slideshow lento de las 3 fotos) con el **logo grande** y el estado **Abierto/Cerrado** automático (hora de Buenos Aires). "Tu estilo, tu momento, tu mejor versión." + "Construimos confianza, imagen y personalidad", botones de reserva, **Próximo horario para reservar** (calculado en vivo) y estadísticas. En celular la foto ocupa la primera pantalla y el resto queda debajo. |
+| — | Hero | `#inicio` | Portada limpia: foto real del local a pantalla completa (slideshow lento de las 3 fotos) con el **logo grande centrado** y los botones **Reservar Turno** y **Ver Paquetes**, más el atajo **Próximo horario para reservar** (calculado en vivo). El título del sitio está como texto oculto para Google y lectores de pantalla. |
 | — | Cinta animada | `.ticker` | Servicios y frases del flyer en movimiento continuo. |
 | 01 | **Paquetes** | `#paquetes` | Premium, Platinum, Oro (tarjetas con foto, ícono por servicio y precio) + tarjeta ancha **Servicio para Jubilados**. |
 | 02 | **Reserva online** | `#reserva` | Asistente de 5 pasos: Paquete → Barbero → Día → Horario → Datos y confirmación. Resumen lateral "Tu reserva" (en celular, barra fija abajo). |

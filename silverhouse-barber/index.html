@@ -211,8 +211,8 @@ nav a:hover::after,nav a.active::after{transform:scaleX(1);transform-origin:left
 .mobile-nav .btn{margin-top:10px;font-size:13px;}
 
 /* ============ HERO ============ */
-/* La foto del local ocupa toda la portada; el oscurecido va solo detrás del texto. */
-.hero{position:relative;width:100%;min-height:100vh;min-height:100svh;display:flex;align-items:center;padding:112px 0 72px;overflow:hidden;background:#0B0B0C;}
+/* Portada limpia: la foto del local de fondo, el logo al centro y los botones para reservar. */
+.hero{position:relative;width:100%;min-height:100vh;min-height:100svh;display:flex;align-items:center;justify-content:center;padding:96px 0 56px;overflow:hidden;background:#0B0B0C;}
 .hero-photos{position:absolute;inset:0;z-index:0;}
 .hero-frame{position:absolute;inset:0;overflow:hidden;}
 .hero-frame .slide{position:absolute;inset:0;opacity:0;animation:slideFade 27s infinite;}
@@ -222,77 +222,42 @@ nav a:hover::after,nav a.active::after{transform:scaleX(1);transform-origin:left
 .hero-frame .slide img{width:100%;height:100%;object-fit:cover;object-position:50% 58%;animation:kenburns 27s linear infinite;animation-delay:inherit;filter:contrast(1.04) saturate(1.04);}
 @keyframes slideFade{0%{opacity:0}6%{opacity:1}33%{opacity:1}39%{opacity:0}100%{opacity:0}}
 @keyframes kenburns{0%{transform:scale(1.02)}39%{transform:scale(1.07)}100%{transform:scale(1.07)}}
+/* oscurecido parejo y suave (el local se sigue viendo), un poco más al centro para que resalte el logo */
 .hero-shade{
   position:absolute;inset:0;pointer-events:none;
   background:
-    linear-gradient(90deg,rgba(8,8,9,0.86) 0%,rgba(8,8,9,0.7) 28%,rgba(8,8,9,0.28) 52%,rgba(8,8,9,0) 70%),
-    linear-gradient(180deg,rgba(8,8,9,0.72) 0%,rgba(8,8,9,0.25) 12%,rgba(8,8,9,0) 22%),
-    linear-gradient(0deg,var(--bg) 0%,rgba(11,11,12,0) 18%);
+    radial-gradient(ellipse 58% 52% at 50% 46%,rgba(8,8,9,0.42) 0%,rgba(8,8,9,0.16) 70%,rgba(8,8,9,0) 100%),
+    linear-gradient(180deg,rgba(8,8,9,0.8) 0%,rgba(8,8,9,0.45) 9%,rgba(8,8,9,0.2) 18%,rgba(8,8,9,0.18) 70%,rgba(8,8,9,0.55) 88%,var(--bg) 100%);
 }
-.hero-inner{
-  position:relative;z-index:3;width:100%;max-width:1320px;margin:0 auto;
-  padding-left:clamp(20px,5vw,72px);padding-right:clamp(20px,5vw,72px);
+.hero-center{position:relative;z-index:3;width:100%;max-width:640px;margin:0 auto;padding:0 20px;display:flex;flex-direction:column;align-items:center;text-align:center;}
+.hero-logo{
+  display:block;width:clamp(210px,24vw,320px);height:auto;margin:0 auto clamp(30px,4vh,44px);
+  filter:drop-shadow(0 10px 28px rgba(0,0,0,0.8)) drop-shadow(0 0 2px rgba(0,0,0,0.9));
 }
-.hero-text{min-width:0;max-width:600px;}
-.hero-brand{display:flex;align-items:center;gap:22px;margin-bottom:26px;flex-wrap:wrap;}
-.hero .status-badge{background:rgba(11,11,12,0.66);border-color:rgba(255,255,255,0.24);color:var(--text);}
-.hero-logo{width:clamp(120px,11vw,172px);height:auto;filter:drop-shadow(0 8px 22px rgba(0,0,0,0.75)) drop-shadow(0 0 1px rgba(0,0,0,0.9));}
-.hero-place{display:flex;align-items:center;gap:12px;font-family:var(--font-mono);font-size:12px;letter-spacing:0.22em;text-transform:uppercase;color:var(--text);margin-bottom:18px;text-shadow:0 1px 6px rgba(0,0,0,0.9);}
-.gold-dash{display:inline-block;width:28px;height:1px;background:var(--gold);flex-shrink:0;}
-.hero h1{font-family:var(--font-display);font-weight:700;font-size:clamp(36px,4vw,60px);line-height:1.08;letter-spacing:0.005em;margin-bottom:22px;filter:drop-shadow(0 2px 14px rgba(0,0,0,0.55));}
-.hero h1 .line{display:block;color:var(--white-ish);}
-.hero p.lead{font-size:clamp(16px,1.35vw,18px);line-height:1.75;color:var(--white-ish);font-weight:300;max-width:540px;margin-bottom:30px;text-shadow:0 1px 10px rgba(0,0,0,0.7);}
-.hero p.lead strong{font-weight:600;color:#fff;}
-.hero-ctas{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:28px;}
-.hero .btn-ghost{background:rgba(11,11,12,0.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}
+.hero-ctas{display:flex;justify-content:center;gap:14px;flex-wrap:wrap;width:100%;}
+.hero-ctas .btn{min-width:210px;}
+.hero .btn-ghost{background:rgba(11,11,12,0.62);border-color:rgba(255,255,255,0.34);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);}
 .next-slot{
-  display:inline-flex;align-items:center;gap:12px;flex-wrap:wrap;
-  border:1px solid var(--border-accent);background:rgba(11,11,12,0.5);
-  border-radius:12px;padding:12px 16px;margin-bottom:30px;cursor:pointer;text-align:left;
+  display:inline-flex;align-items:center;gap:12px;margin-top:22px;
+  border:1px solid rgba(255,255,255,0.2);background:rgba(11,11,12,0.55);
+  border-radius:40px;padding:8px 16px 8px 8px;cursor:pointer;text-align:left;
   transition:background .3s var(--ease),border-color .3s var(--ease);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
 }
-.next-slot:hover{background:rgba(20,20,22,0.7);border-color:var(--accent);}
-.next-slot .ns-ico{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(201,168,106,0.14);color:var(--gold-bright);flex-shrink:0;}
-.next-slot .ns-ico svg{width:17px;height:17px;}
-.next-slot .ns-k{display:block;font-family:var(--font-mono);font-size:10px;letter-spacing:0.18em;color:var(--text-dim);text-transform:uppercase;}
-.next-slot .ns-v{display:block;font-size:15px;color:var(--white-ish);font-weight:600;margin-top:3px;}
-.next-slot .ns-go{font-family:var(--font-mono);font-size:11px;letter-spacing:0.12em;color:var(--accent);text-transform:uppercase;}
-.trust-row{display:grid;grid-template-columns:auto 1px auto 1px auto;column-gap:clamp(16px,3vw,28px);justify-content:start;align-items:start;border-top:1px solid rgba(255,255,255,0.16);padding-top:22px;}
-.trust-item{display:flex;flex-direction:column;gap:6px;}
-.trust-item .trust-num{font-family:var(--font-display);font-size:24px;font-weight:600;color:var(--white-ish);text-shadow:0 1px 8px rgba(0,0,0,0.6);}
-.trust-item .lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:0.14em;color:var(--text-dim);text-transform:uppercase;}
-.trust-divider{width:1px;height:34px;background:rgba(255,255,255,0.18);align-self:center;}
-
-/* Tablet y celular: la foto llena la primera pantalla con el logo arriba; el texto va abajo y lo demás debajo de la foto */
-@media (max-width:900px){
-  .hero{display:block;min-height:0;padding:0 0 64px;}
-  .hero-photos{bottom:auto;height:100vh;height:100svh;min-height:600px;}
-  .hero-shade{
-    background:
-      linear-gradient(180deg,rgba(8,8,9,0.62) 0%,rgba(8,8,9,0.12) 18%,rgba(8,8,9,0) 30%,rgba(8,8,9,0.2) 44%,rgba(8,8,9,0.78) 66%,rgba(11,11,12,0.96) 86%,var(--bg) 100%);
-  }
-  .hero-inner{padding-left:20px;padding-right:20px;}
-  .hero-text{max-width:620px;margin:0 auto;}
-  .hero-main{min-height:100vh;min-height:100svh;min-height:max(600px,100svh);display:flex;flex-direction:column;justify-content:space-between;padding:96px 0 34px;}
-  .hero-brand{flex-direction:column;gap:16px;margin-bottom:0;}
-  .hero-logo{width:clamp(118px,34vw,150px);}
-  .hero-place{font-size:11px;letter-spacing:0.18em;}
-  .hp-long{display:none;}
-  .hero h1{font-size:clamp(31px,9vw,52px);}
-  .hero p.lead{font-size:16.5px;line-height:1.7;margin-bottom:26px;}
-  .hero-ctas{margin-bottom:0;}
-  .hero-extra{padding-top:30px;}
-  .next-slot{display:flex;width:100%;margin-bottom:30px;}
-}
+.next-slot:hover{background:rgba(20,20,22,0.75);border-color:var(--accent);}
+.next-slot .ns-ico{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(201,168,106,0.16);color:var(--gold-bright);flex-shrink:0;}
+.next-slot .ns-ico svg{width:15px;height:15px;}
+.next-slot .ns-txt{display:flex;flex-direction:column;line-height:1.3;}
+.next-slot .ns-k{font-family:var(--font-mono);font-size:9.5px;letter-spacing:0.16em;color:var(--text-dim);text-transform:uppercase;}
+.next-slot .ns-v{font-size:14.5px;color:var(--white-ish);font-weight:600;margin-top:2px;}
+.next-slot .ns-go{display:flex;color:var(--accent);}
+.next-slot .ns-go svg{width:15px;height:15px;}
 @media (max-width:600px){
-  .hero-ctas{flex-direction:column;gap:12px;}
-  .hero-ctas .btn{width:100%;padding:17px 22px;}
-  .trust-row{column-gap:16px;}
-  .trust-item .trust-num{font-size:22px;}
-  .trust-item .lbl{line-height:1.5;}
-  .trust-divider{height:30px;}
+  .hero{padding:84px 0 44px;}
+  .hero-logo{width:min(62vw,250px);margin-bottom:34px;}
+  .hero-ctas{flex-direction:column;align-items:center;gap:12px;}
+  .hero-ctas .btn{width:100%;max-width:340px;min-width:0;padding:17px 22px;}
 }
-@media (max-height:640px) and (max-width:900px){ .hero-logo{width:96px;} .hero-main{padding-top:84px;} }
+@media (max-height:640px){ .hero-logo{width:min(46vw,190px);margin-bottom:22px;} }
 
 /* ============ TICKER ============ */
 .ticker{border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:#09090A;overflow:hidden;position:relative;}
@@ -693,16 +658,10 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
 @keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:none;}}
 @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
 /* entrada del hero (solo CSS, no depende del script) */
-.js .hero-brand,.js .hero-place,.js #heroTitle .line,.js .hero p.lead,.js .hero-ctas,.js .next-slot,.js .trust-row{animation:fadeUp .8s var(--ease) both;}
-.js .hero-brand{animation-delay:.05s;}
-.js .hero-place{animation-delay:.1s;}
-.js #heroTitle .line:nth-child(1){animation-delay:.16s;}
-.js #heroTitle .line:nth-child(2){animation-delay:.26s;}
-.js #heroTitle .line:nth-child(3){animation-delay:.36s;}
-.js .hero p.lead{animation-delay:.5s;}
-.js .hero-ctas{animation-delay:.6s;}
-.js .next-slot{animation-delay:.7s;}
-.js .trust-row{animation-delay:.8s;}
+.js .hero-logo,.js .hero-ctas,.js .next-slot{animation:fadeUp .9s var(--ease) both;}
+.js .hero-logo{animation-delay:.05s;}
+.js .hero-ctas{animation-delay:.25s;}
+.js .next-slot{animation-delay:.4s;}
 .js .hero-photos{animation:fadeIn 1s ease-out both;}
 /* aparición suave al entrar en pantalla */
 .js .reveal{opacity:0;transform:translateY(22px);}
@@ -765,7 +724,6 @@ footer{border-top:1px solid var(--border);background:#08080A;padding:80px 0 36px
   .btn{white-space:normal;text-align:center;line-height:1.4;}
   .btn svg{flex-shrink:0;}
   header .wrap{padding-left:16px;padding-right:16px;}
-  .hero-inner{padding-left:16px;padding-right:16px;}
   .brand{gap:9px;}
   .brand-text{font-size:14px;letter-spacing:0.04em;}
   .brand-text span{font-size:8px;letter-spacing:0.22em;}
@@ -837,7 +795,6 @@ html:not(.js) .hero-frame .slide:first-child{animation:none;opacity:1;}
   body{font-size:16px;}
   .wrap{padding-left:20px;padding-right:20px;}
   header .wrap{padding-left:18px;padding-right:18px;}
-  .hero-inner{padding-left:20px;padding-right:20px;}
   .section-pad{padding:96px 0;}
   .eyebrow{margin-bottom:22px;gap:12px;}
   .eyebrow .num,.eyebrow .label{font-size:11.5px;}
@@ -900,7 +857,7 @@ html:not(.js) .hero-frame .slide:first-child{animation:none;opacity:1;}
   .ticker-item{padding:22px 20px;}
 }
 @media (max-width:359px){
-  .wrap,.hero-inner{padding-left:16px;padding-right:16px;}
+  .wrap{padding-left:16px;padding-right:16px;}
   header .wrap{padding-left:14px;padding-right:14px;}
   .stepper{padding:24px 16px;}
   .pkg-head{padding:28px 18px 20px;}
@@ -1033,42 +990,18 @@ h2.section-title.gradient-text{background-image:var(--chrome-grad);background-si
     </div>
     <div class="hero-shade"></div>
   </div>
-  <div class="hero-inner">
-    <div class="hero-text">
-      <div class="hero-main">
-        <div class="hero-brand hero-anim">
-          <img class="hero-logo" src="silverhouse-logo-400.webp" alt="Silver House Barber" width="168" height="168" fetchpriority="high">
-          <span class="status-badge" id="statusBadge"><span class="dot"></span><span class="status-text">Verificando…</span></span>
-        </div>
-        <div class="hero-copy">
-          <p class="hero-place hero-anim"><span class="gold-dash"></span><span class="hp-long">Barber · Estudio — </span>Av. La Plata 1185, CABA</p>
-          <h1 id="heroTitle">
-            <span class="line">Tu estilo,</span>
-            <span class="line">tu momento,</span>
-            <span class="line chrome-text">tu mejor versión.</span>
-          </h1>
-          <p class="lead hero-anim"><strong>Construimos confianza, imagen y personalidad.</strong> Elegí tu paquete y reservá tu turno online en menos de un minuto.</p>
-          <div class="hero-ctas hero-anim">
-            <a href="#reservar" class="btn btn-primary">Reservar Turno <svg><use href="#i-arrow"/></svg></a>
-            <a href="#paquetes" class="btn btn-ghost">Ver Paquetes</a>
-          </div>
-        </div>
-      </div>
-      <div class="hero-extra">
-        <button class="next-slot hero-anim" id="nextSlotBtn" type="button" hidden>
-          <span class="ns-ico"><svg><use href="#i-bolt"/></svg></span>
-          <span><span class="ns-k">Próximo horario para reservar</span><span class="ns-v" id="nextSlotText">—</span></span>
-          <span class="ns-go">Reservarlo →</span>
-        </button>
-        <div class="trust-row hero-anim">
-          <div class="trust-item"><span class="trust-num">4.9/5</span><span class="lbl">Valoración Promedio</span></div>
-          <div class="trust-divider"></div>
-          <div class="trust-item"><span class="trust-num">+2.000</span><span class="lbl">Clientes Atendidos</span></div>
-          <div class="trust-divider"></div>
-          <div class="trust-item"><span class="trust-num">2019</span><span class="lbl">Desde</span></div>
-        </div>
-      </div>
+  <div class="hero-center">
+    <h1 class="sr-only">Silver House Barber · Estudio — Barbería en Av. La Plata 1185, CABA</h1>
+    <img class="hero-logo" src="silverhouse-logo-480.webp" alt="Silver House Barber" width="480" height="480" fetchpriority="high">
+    <div class="hero-ctas">
+      <a href="#reservar" class="btn btn-primary">Reservar Turno <svg><use href="#i-arrow"/></svg></a>
+      <a href="#paquetes" class="btn btn-ghost">Ver Paquetes</a>
     </div>
+    <button class="next-slot" id="nextSlotBtn" type="button" hidden>
+      <span class="ns-ico"><svg><use href="#i-bolt"/></svg></span>
+      <span class="ns-txt"><span class="ns-k">Próximo horario para reservar</span><span class="ns-v" id="nextSlotText">—</span></span>
+      <span class="ns-go" aria-hidden="true"><svg><use href="#i-arrow"/></svg></span>
+    </button>
   </div>
 </section>
 
